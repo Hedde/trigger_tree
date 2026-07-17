@@ -1,0 +1,13 @@
+{
+  "name": "tt",
+  "displayName": "Trigger Tree",
+  "version": "0.1.0",
+  "description": "Documentation-discovery telemetry: hooks log every doc read, live pulse dashboard (/tt watch), untouched/dead-path insights (/tt insights).",
+  "author": {
+    "name": "Hedde van der Heide"
+  },
+  "homepage": "https://github.com/Hedde/trigger_tree",
+  "repository": "https://github.com/Hedde/trigger_tree",
+  "license": "MIT",
+  "keywords": ["documentation", "telemetry", "observability", "docs-as-code"]
+}

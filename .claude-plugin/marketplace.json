@@ -1,0 +1,18 @@
+{
+  "name": "trigger-tree",
+  "owner": {
+    "name": "Hedde van der Heide",
+    "url": "https://github.com/Hedde"
+  },
+  "description": "Trigger Tree — documentation-discovery telemetry for Claude Code",
+  "plugins": [
+    {
+      "name": "tt",
+      "displayName": "Trigger Tree",
+      "source": "./",
+      "description": "Documentation-discovery telemetry: /tt status, /tt watch, /tt insights",
+      "category": "documentation",
+      "tags": ["docs", "telemetry", "observability"]
+    }
+  ]
+}

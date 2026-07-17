@@ -1,0 +1,96 @@
+---
+name: tt
+description: Trigger Tree — documentation-discovery telemetry. Subcommands; /tt status (snapshot), /tt watch [demo|replay] (live dashboard in a new terminal window), /tt insights (report + HTML), /tt help.
+disable-model-invocation: true
+allowed-tools: Bash, Read, Write, Artifact
+arguments:
+  - subcommand
+  - option
+---
+
+# /tt — Trigger Tree
+
+Execute the subcommand in `$1` (option in `$2`).
+
+**Output discipline — the most important rule:** work silently. No plan up front, no
+intermediate status lines, no explanation of what you are about to do or just did.
+Execute the steps and show only the end result in the format specified per subcommand
+below. Report an error in exactly one line.
+
+**Terminology — maturity model:** a file with zero reads is **untouched**, never "dead".
+Only when the stats JSON reports `maturity: "mature"` may untouched files be presented
+as **dead-path candidates**. During `cold-start` and `warming` the measurement is simply
+too young to judge.
+
+Scripts live in `${CLAUDE_SKILL_DIR}/scripts/`. Project data lives in
+`${CLAUDE_PROJECT_DIR}/.trigger-tree/`.
+
+## `$1` = "help" or empty
+
+Show exactly this, nothing above or below it:
+
+> **🌳 Trigger Tree** — measures which documentation your agents actually use
+>
+> | Command | Does |
+> |---------|------|
+> | `/tt status` | Snapshot of this measurement period: reads, hot files, untouched paths |
+> | `/tt watch` | Live pulse dashboard in a new terminal window |
+> | `/tt watch demo` | Dashboard with synthetic events (writes nothing) |
+> | `/tt watch replay` | Dashboard replaying the real history, accelerated |
+> | `/tt insights` | Analysis report: untouched/dead paths, hunting, router proposals + HTML |
+> | `/tt help` | This overview |
+>
+> Telemetry runs automatically via hooks; the statusline shows the live session counter.
+
+## `$1` = "status"
+
+1. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-stats.py"` and read the JSON.
+2. Show only this block:
+
+> **🌳 Trigger Tree status** _(period: <observed_from> → <observed_to>, <sessions> sessions)_
+> <reads> reads · <scans> scans · <files touched>/<inventory_files> files touched
+>
+> **Most consulted:** top 5 from `files` as `path (n×)`, comma-separated.
+> **Untouched:** <count of untouched> — followed by the maturity suffix:
+> - `cold-start`: "(measurement just started — nothing can be called dead yet)"
+> - `warming`: "(early signal — more sessions needed before judging)"
+> - `mature`: "(dead-path candidates — see /tt insights)"
+
+## `$1` = "watch"
+
+1. Silently run `"${CLAUDE_SKILL_DIR}/scripts/tt-open.sh" $2` (`$2` empty, `demo` or `replay`).
+2. Answer with exactly one line: `🌳 Watcher opened in a new Terminal window — press q or Ctrl+C to stop.`
+   If the script fails, report the cause in one line (on first use macOS may ask for
+   Automation permission; mention that if the error points to it).
+
+## `$1` = "insights"
+
+1. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-stats.py"` and read the JSON.
+2. If `maturity` is `cold-start`: answer in one line —
+   `🌳 Not enough data yet (<reads> reads, <sessions> sessions) — check back after a few working sessions.` Stop.
+3. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-report.py"` — it writes
+   `.trigger-tree/report.html` and prints the path.
+4. Publish that file with the Artifact tool (favicon `🌳`, description "Trigger Tree
+   documentation telemetry report"). No Artifact tool available → use the local path
+   as the link.
+5. Show only the final report, compact (guideline ≤ 15 lines):
+
+> **🌳 Trigger Tree insights** _(period, #sessions, maturity)_
+>
+> **Key figures** — reads, scans (hunting ratio), files touched / inventory.
+> **Untouched paths** — when `mature`: one line per path with a category — 🗑 remove/merge,
+> 🧭 sharpen router (with a concrete proposal), 📦 intentional archive. When `warming`:
+> present as untouched with the note that judgment needs more data; no categories.
+> **Hunting** — only if scans > 20% of reads: which folder, what that suggests.
+> **Router proposals** — max 3, concrete ("add X to docs/README.md under Y").
+>
+> 📊 Full report: <artifact link or file path>
+
+Analysis rules (do not repeat them in the output): read counts are signals, not verdicts;
+files in `always_loaded` are never dead by definition (system-prompt injection); a file
+younger than the measurement period is new, not untouched; subagent reads (the `agents`
+field) count fully.
+
+## Any other `$1`
+
+Answer with exactly one line: `Unknown subcommand '$1' — try /tt help.`
