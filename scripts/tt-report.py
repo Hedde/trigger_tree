@@ -51,7 +51,7 @@ code { background:var(--card); padding:.1em .35em; border-radius:4px; font-size:
 def heat_color(count, max_count):
     if count <= 0:
         return HEAT[0]
-    idx = 1 + int((len(HEAT) - 2) * math.log1p(count) / math.log1p(max(max_count, 2)))
+    idx = 1 + int((len(HEAT) - 2) * (math.log1p(count) / math.log1p(max(max_count, 2))) + 1e-9)
     return HEAT[min(idx, len(HEAT) - 1)]
 
 

@@ -17,7 +17,10 @@
   exact-set matching.
 - **`/tt setup`**: idempotent project wiring (gitignore, statusline copy +
   registration, optional config override).
-- **CI**: smoke test over a fixture project, shellcheck, `claude plugin validate`.
+- **CI**: unit + smoke tests with an 80% coverage gate (currently ~93%), shellcheck,
+  `claude plugin validate`.
+- **Community files**: CONTRIBUTING, code of conduct, security policy, issue/PR
+  templates, README badges.
 
 ## 0.1.0 — 2026-07-17
 

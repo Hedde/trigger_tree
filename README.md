@@ -1,5 +1,12 @@
 # 🌳 Trigger Tree
 
+[![CI](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
+[![coverage gate](https://img.shields.io/badge/coverage-%E2%89%A580%25-brightgreen.svg)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
+[![python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://code.claude.com/docs)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 Claude Code plugin: documentation-discovery telemetry for docs-as-code projects.
 
 Your CLAUDE.md routes tasks through a docs tree — but which paths does the model
@@ -83,11 +90,15 @@ SKILL.md counts as touched.
 
 ## Development
 
+Use a virtual environment (never your system python):
+
 ```bash
-python3 tests/smoke.py                      # full smoke test (stats, report, logger, setup)
+python3 -m venv .venv && .venv/bin/pip install pytest coverage
+.venv/bin/python -m coverage run -m pytest tests -q
+.venv/bin/python -m coverage report         # CI gates at 80% minimum
 claude plugin validate .
 python3 scripts/tt-watch.py --demo          # dashboard with synthetic events
-python3 scripts/tt-stats.py | python3 -m json.tool
 ```
 
-CI runs the smoke test, shellcheck, and plugin validation on every push.
+CI runs unit + smoke tests with the coverage gate, shellcheck, and plugin validation
+on every push. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.

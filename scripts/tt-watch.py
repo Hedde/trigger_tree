@@ -160,7 +160,7 @@ class App:
     def _heat(self, count, max_count):
         if count <= 0:
             return DEAD
-        idx = int((len(HEAT) - 1) * math.log1p(count) / math.log1p(max(max_count, 2)))
+        idx = int((len(HEAT) - 1) * (math.log1p(count) / math.log1p(max(max_count, 2))) + 1e-9)
         return HEAT[min(idx, len(HEAT) - 1)]
 
     def _node_color(self, base, glow):

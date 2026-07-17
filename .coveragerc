@@ -1,0 +1,6 @@
+[run]
+source = scripts
+
+[report]
+show_missing = True
+precision = 1
