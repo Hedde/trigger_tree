@@ -7,7 +7,7 @@
   "description": "Trigger Tree — documentation-discovery telemetry for Claude Code",
   "plugins": [
     {
-      "name": "tt",
+      "name": "trigger-tree",
       "displayName": "Trigger Tree",
       "source": "./",
       "description": "Documentation-discovery telemetry: /tt status, /tt watch, /tt insights",

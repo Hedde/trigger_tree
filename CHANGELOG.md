@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-07-17
+
+- Rename plugin id `tt` → `trigger-tree` for the plugin directory (unique, descriptive
+  name). The `/tt` command is unchanged — it comes from the root skill's `name` field.
+- GitHub Pages docs site: https://hedde.github.io/trigger_tree/
+
 ## 0.2.0 — 2026-07-17
 
 - **Skill-tool telemetry**: PostToolUse hook on `Skill` logs skill invocations; an

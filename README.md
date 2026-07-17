@@ -39,8 +39,10 @@ split, macOS Terminal, or gnome-terminal/konsole/xterm — whichever is availabl
 
 ```
 /plugin marketplace add Hedde/trigger_tree
-/plugin install tt@trigger-tree
+/plugin install trigger-tree@trigger-tree
 ```
+
+(The plugin id is `trigger-tree`; the command it provides stays the short `/tt`.)
 
 Then wire it into your project with `/tt setup` (idempotent: gitignore entries,
 statusline registration, and with `/tt setup config` a project-specific
@@ -76,7 +78,7 @@ In your project's `.claude/settings.json`:
   "extraKnownMarketplaces": {
     "trigger-tree": { "source": { "source": "github", "repo": "Hedde/trigger_tree" } }
   },
-  "enabledPlugins": { "tt@trigger-tree": true }
+  "enabledPlugins": { "trigger-tree@trigger-tree": true }
 }
 ```
 
