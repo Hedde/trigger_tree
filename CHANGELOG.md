@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0 — 2026-07-17
+
+- **Windows support**: posix path normalization, utf-8 everywhere, ANSI console
+  enable + msvcrt keys in the dashboard, `wt.exe`/`start` launcher branch,
+  `python3||python` fallbacks. CI test matrix now runs ubuntu + macos + windows.
+- **Folder heat & cold map**: per-folder coverage and read volume in stats and the
+  HTML report.
+- **Router-gap detection**: untouched files are cross-referenced against all docs —
+  "untouched and unreferenced" pinpoints where the router is blind.
+- **`/tt suggestions`**: max 5 prioritized, evidence-backed router fixes, applied
+  only after confirmation.
+- **README overhaul** (hero, how-it-works with hook transparency, FAQ, platform
+  matrix) and a **website** at hedde.github.io/trigger_tree — an interactive
+  recreation of the live dashboard, with a few easter eggs for the curious.
+
 ## 0.2.1 — 2026-07-17
 
 - Rename plugin id `tt` → `trigger-tree` for the plugin directory (unique, descriptive

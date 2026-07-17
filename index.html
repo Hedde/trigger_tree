@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trigger Tree — see where your docs actually get read</title>
+<meta name="description" content="Claude Code plugin: documentation-discovery telemetry. 100% local, zero tokens. Heat & cold maps, live pulse dashboard, evidence-backed router fixes.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
+<style>
+  :root {
+    --bg:#0c1014; --panel:#101418; --line:#1f262e; --fg:#e6edf3; --muted:#8b949e;
+    --green:#7cb342; --bright:#b9f6a0; --amber:#ffb300; --hot:#e53935; --dim:#4a5361;
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--fg); font:16px/1.6 -apple-system,'Segoe UI',sans-serif; }
+  a { color:var(--green); }
+  .wrap { max-width:960px; margin:0 auto; padding:3rem 1.25rem; }
+  .hero { text-align:center; margin-bottom:2.5rem; }
+  .hero h1 { font-size:2.4rem; letter-spacing:-.02em; }
+  .hero p.tag { color:var(--muted); font-size:1.15rem; max-width:640px; margin:.75rem auto 0; }
+  .hero .creds { margin-top:1rem; color:var(--green); font-size:.95rem; }
+  .term { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+          box-shadow:0 20px 60px rgba(0,0,0,.5); overflow:hidden; margin:2rem auto; max-width:720px; }
+  .term-bar { display:flex; gap:.45rem; padding:.6rem .9rem; border-bottom:1px solid var(--line); align-items:center; }
+  .dot { width:.75rem; height:.75rem; border-radius:50%; }
+  .term-bar span.title { color:var(--muted); font-size:.8rem; margin-left:.6rem; font-family:ui-monospace,Menlo,monospace; }
+  pre#screen { font:13px/1.5 ui-monospace,Menlo,Consolas,monospace; padding:1rem 1.2rem; min-height:340px;
+               white-space:pre; overflow-x:auto; }
+  .f { color:var(--muted); } .dead { color:var(--dim); } .folder { color:#c8d1da; }
+  .hotter { color:var(--amber); } .hottest { color:var(--hot); } .warm { color:var(--green); }
+  .pulse { color:#fff !important; text-shadow:0 0 12px var(--bright); transition:none; }
+  .fade { transition:color 1.2s ease, text-shadow 1.2s ease; }
+  .spin { color:var(--green); } .tick { color:var(--muted); }
+  .hint { color:var(--dim); font-size:.75rem; padding:0 1.2rem 1rem; font-family:ui-monospace,monospace; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1rem; margin:3rem 0; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1.25rem; }
+  .card h3 { margin-bottom:.4rem; font-size:1.05rem; }
+  .card p { color:var(--muted); font-size:.95rem; }
+  h2 { margin:3rem 0 1rem; font-size:1.4rem; }
+  code, pre.block { font-family:ui-monospace,Menlo,Consolas,monospace; }
+  pre.block { background:var(--panel); border:1px solid var(--line); border-radius:8px;
+              padding:1rem 1.2rem; overflow-x:auto; font-size:.9rem; line-height:1.7; }
+  table { border-collapse:collapse; width:100%; }
+  th,td { text-align:left; padding:.5rem .7rem; border-bottom:1px solid var(--line); font-size:.95rem; }
+  th { color:var(--muted); } td code { color:var(--bright); }
+  .bubble { position:fixed; background:var(--panel); border:1px solid var(--green); color:var(--fg);
+            border-radius:10px; padding:.6rem .9rem; font-size:.85rem; max-width:260px; z-index:9;
+            box-shadow:0 8px 30px rgba(0,0,0,.6); pointer-events:none; opacity:0; transition:opacity .3s; }
+  footer { text-align:center; color:var(--muted); margin-top:4rem; font-size:.9rem; }
+  @media (prefers-reduced-motion: reduce) { .pulse { text-shadow:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>🌳 Trigger Tree</h1>
+    <p class="tag">Your CLAUDE.md routes every task through a docs tree.<br>
+       Trigger Tree shows where it <b>actually</b> goes — and where it never does.</p>
+    <p class="creds">100% local · zero model tokens · no cloud, no analytics vendors</p>
+  </div>
+
+  <div class="term" id="term">
+    <div class="term-bar">
+      <span class="dot" style="background:#ff5f56"></span>
+      <span class="dot" style="background:#ffbd2e"></span>
+      <span class="dot" style="background:#27c93f"></span>
+      <span class="title">tt watch — live doc-discovery</span>
+    </div>
+    <pre id="screen"></pre>
+    <div class="hint">every flash is a real doc read rippling up the tree · <span id="hintx">this demo is the plugin</span></div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><h3>🔥 Heat &amp; cold maps</h3>
+      <p>Folder coverage, hot files, untouched paths — and <i>router gaps</i>: docs no index even links to.</p></div>
+    <div class="card"><h3>📈 Proof, not vibes</h3>
+      <p><code>/tt suggestions</code> proposes fixes with evidence. <code>/tt note</code> marks the change; the trend shows whether it worked.</p></div>
+    <div class="card"><h3>🔒 Local by design</h3>
+      <p>Hooks log paths, never contents. Stdlib only, zero network calls. Delete <code>.trigger-tree/</code> and it's gone.</p></div>
+  </div>
+
+  <h2>Install</h2>
+  <pre class="block">/plugin marketplace add Hedde/trigger_tree
+/plugin install trigger-tree@trigger-tree
+/tt setup</pre>
+
+  <h2>Commands</h2>
+  <table>
+    <tr><th>Command</th><th>Does</th></tr>
+    <tr><td><code>/tt status</code></td><td>Snapshot: reads, hot files, untouched paths</td></tr>
+    <tr><td><code>/tt watch</code></td><td>This dashboard, live, in your terminal</td></tr>
+    <tr><td><code>/tt insights</code></td><td>Heat/cold map analysis + HTML report</td></tr>
+    <tr><td><code>/tt suggestions</code></td><td>Max 5 evidence-backed router fixes</td></tr>
+    <tr><td><code>/tt note</code></td><td>Annotate router changes on the timeline</td></tr>
+    <tr><td><code>/tt setup</code></td><td>Wire it into any project in one command</td></tr>
+  </table>
+
+  <footer>
+    <p><a href="https://github.com/Hedde/trigger_tree">GitHub</a> ·
+       <a href="https://github.com/Hedde/trigger_tree#readme">Docs</a> ·
+       <a href="PRIVACY.html">Privacy</a> ·
+       <a href="https://github.com/Hedde/trigger_tree/blob/main/CHANGELOG.md">Changelog</a></p>
+    <p>Measured, not guessed. · MIT · Hedde van der Heide</p>
+  </footer>
+</div>
+<div class="bubble" id="bubble"></div>
+
+<script>
+(function () {
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏", SPARK = "▁▂▃▄▅▆▇█";
+  const tree = [
+    { folder: "docs/design/", files: [
+      { name: "principles.md", n: 12 }, { name: "ui-patterns.md", n: 17 }, { name: "accessibility.md", n: 3 }]},
+    { folder: "docs/database/", files: [
+      { name: "migrations.md", n: 4 }, { name: "principles.md", n: 6 }]},
+    { folder: "docs/operations/runbooks/", files: [
+      { name: "rollback.md", n: 2 }]},
+    { folder: "docs/legacy/", files: [
+      { name: "old-api.md", n: 0, dead: true }]},
+  ];
+  let reads = 44, scans = 3, ticker = [], spin = 0, mode = "live", hunted = false, revived = false, currentPulse = null;
+  const screen = document.getElementById("screen"), bubble = document.getElementById("bubble");
+
+  function heat(n) { return n === 0 ? "dead" : n < 5 ? "warm" : n < 14 ? "hotter" : "hottest"; }
+  function bar(n) { return n === 0 ? "·" : SPARK[Math.min(7, Math.floor(Math.log1p(n) / Math.log1p(20) * 7))]; }
+  function render() {
+    const pulsePath = currentPulse;
+    let out = `<span class="spin"> ${SPIN[spin % SPIN.length]} </span><b>TRIGGER TREE</b><span class="f">  your-project · live doc-discovery</span>\n\n`;
+    for (const g of tree) {
+      const folderPulse = pulsePath && pulsePath.startsWith(g.folder) ? "pulse" : "fade";
+      out += ` <span class="folder ${folderPulse}">${g.folder}</span>\n`;
+      g.files.forEach((f, i) => {
+        const branch = i === g.files.length - 1 ? "└─" : "├─";
+        const cls = pulsePath === g.folder + f.name ? "pulse" : `${heat(f.n)} fade`;
+        const id = f.dead ? ' id="deadnode" style="cursor:pointer;pointer-events:auto"' : "";
+        out += `   <span class="f">${branch}</span> <span class="${cls}"${id}>${f.name.padEnd(22)}${bar(f.n)} ${String(f.n).padStart(3)}</span>\n`;
+      });
+    }
+    out += `\n <b>${reads}</b><span class="f"> reads · </span><b>${scans}</b><span class="f"> scans (hunting) · 3 sessions</span>\n`;
+    out += ticker.slice(0, 3).map(t => `   <span class="tick">${t}</span>`).join("\n");
+    screen.innerHTML = out;
+    const dead = document.getElementById("deadnode");
+    if (dead) dead.onclick = revive;
+  }
+
+  function pulseRandom() {
+    if (mode !== "live") return;
+    const alive = tree.flatMap(g => g.files.filter(f => !f.dead).map(f => ({ g, f })));
+    const pick = alive[Math.floor(Math.random() * alive.length)];
+    pick.f.n++; reads++;
+    const agents = ["", "", "", " [Explore]", " [Plan]"];
+    ticker.unshift(`● ${pick.g.folder}${pick.f.name}${agents[Math.floor(Math.random() * agents.length)]} · just now`);
+    currentPulse = reduced ? null : pick.g.folder + pick.f.name;
+    render();
+    setTimeout(() => { currentPulse = null; render(); }, 900);
+  }
+
+  function revive(e) {
+    const dead = tree[3].files[0];
+    bubble.style.left = Math.min(e.clientX + 12, innerWidth - 280) + "px";
+    bubble.style.top = (e.clientY - 60) + "px";
+    bubble.innerHTML = revived
+      ? "thank you for reading me 🌱"
+      : "…nobody has read me in 247 days.<br>Am I… dead? <b>Link me from an index?</b> 🥺";
+    bubble.style.opacity = 1;
+    setTimeout(() => (bubble.style.opacity = 0), 2600);
+    if (!revived) { revived = true; dead.dead = false; dead.n = 1; reads++;
+      ticker.unshift("● docs/legacy/old-api.md · revived by a human · just now"); }
+    currentPulse = "docs/legacy/old-api.md";
+    render();
+    setTimeout(() => { currentPulse = null; render(); }, 900);
+  }
+
+  function hunt() {
+    if (hunted) return; hunted = true; mode = "hunt";
+    document.getElementById("hintx").textContent = "hunting mode: the model is searching instead of being routed — sharpen your index!";
+    let i = 0;
+    const iv = setInterval(() => {
+      const g = tree[Math.floor(Math.random() * tree.length)];
+      scans++; ticker.unshift(`🔍 ${g.folder.replace(/\/$/, "")} · grep "where is it??" · just now`);
+      currentPulse = reduced ? null : g.folder;
+      render();
+      setTimeout(() => { currentPulse = null; render(); }, 300);
+      if (++i > 7) { clearInterval(iv); mode = "live"; hunted = false;
+        setTimeout(() => (document.getElementById("hintx").textContent = "this demo is the plugin"), 4000); }
+    }, 350);
+  }
+
+  let buf = "";
+  addEventListener("keydown", (e) => {
+    if (e.key === "q" && mode === "live") {
+      mode = "quit";
+      screen.innerHTML = `<span class="f">watcher stopped — session ended.\n\n</span><span class="warm">press r to resume</span><span class="f"> (yes, exactly like the real TUI)</span>`;
+      return;
+    }
+    if (e.key === "r" && mode === "quit") { mode = "live"; render(); return; }
+    buf = (buf + e.key).slice(-4);
+    if (buf === "hunt") hunt();
+  });
+
+  console.log("🌳 curious one. try typing `hunt`, press `q`, and the gray file in docs/legacy/ is lonely.");
+  render();
+  setInterval(() => { spin++; if (mode === "live") render(); }, 220);
+  setInterval(pulseRandom, 1700);
+})();
+</script>
+</body>
+</html>
