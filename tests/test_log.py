@@ -16,7 +16,7 @@ def run_main(mod, monkeypatch, argv, stdin_text="{}"):
 
 def read_history(project):
     path = os.path.join(project, ".trigger-tree", "history.jsonl")
-    return [json.loads(l) for l in open(path)] if os.path.isfile(path) else []
+    return [json.loads(l) for l in open(path, encoding="utf-8")] if os.path.isfile(path) else []
 
 
 def test_rel_path(tmp_path):

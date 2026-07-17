@@ -24,7 +24,7 @@ def test_heat_color_and_escape():
 def test_full_report_on_fixture(monkeypatch, capsys):
     mod = load_script("tt-report.py", FIXTURE)
     out_path = run_report(mod, monkeypatch, capsys, FIXTURE)
-    html = open(out_path).read()
+    html = open(out_path, encoding="utf-8").read()
     for expected in ("<title>Trigger Tree Report</title>", "Most consulted", "Skill usage",
                      "Untouched paths (cold map)", "Folder heat", "router gap",
                      "referenced from", "Trend", "sharpened UX router", "Task clusters",
@@ -38,7 +38,7 @@ def test_report_on_empty_project(tmp_path, monkeypatch, capsys):
     (tmp_path / "docs" / "a.md").write_text("x")
     mod = load_script("tt-report.py", tmp_path)
     out_path = run_report(mod, monkeypatch, capsys, tmp_path)
-    html = open(out_path).read()
+    html = open(out_path, encoding="utf-8").read()
     assert "Measurement just started" in html
     assert "docs/a.md" in html  # untouched listing
 
@@ -51,5 +51,5 @@ def test_report_when_nothing_untouched(tmp_path, monkeypatch, capsys):
         '{"t":"read","ts":"2026-07-01T09:00:00Z","session":"A","tool":"Read",'
         '"path":"docs/a.md","agent":"main"}\n')
     mod = load_script("tt-report.py", tmp_path)
-    html = open(run_report(mod, monkeypatch, capsys, tmp_path)).read()
+    html = open(run_report(mod, monkeypatch, capsys, tmp_path), encoding="utf-8").read()
     assert "None — every inventoried file has been read" in html
