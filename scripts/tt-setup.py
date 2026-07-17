@@ -20,7 +20,9 @@ ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 GITIGNORE_LINES = [".trigger-tree/*", "!.trigger-tree/config.sh"]
-STATUSLINE_CMD = 'python3 "$CLAUDE_PROJECT_DIR"/.claude/tt-statusline.py'
+# python3-with-fallback so the same registration works on macOS/Linux/Windows(Git Bash)
+STATUSLINE_CMD = ('python3 "$CLAUDE_PROJECT_DIR"/.claude/tt-statusline.py 2>/dev/null'
+                  ' || python "$CLAUDE_PROJECT_DIR"/.claude/tt-statusline.py')
 
 
 def report(action, target):
@@ -31,12 +33,12 @@ def ensure_gitignore():
     path = os.path.join(ROOT, ".gitignore")
     existing = ""
     if os.path.isfile(path):
-        existing = open(path).read()
+        existing = open(path, encoding="utf-8").read()
     missing = [ln for ln in GITIGNORE_LINES if ln not in existing.splitlines()]
     if not missing:
         report("skipped", ".gitignore (entries present)")
         return
-    with open(path, "a") as fh:
+    with open(path, "a", encoding="utf-8") as fh:
         if existing and not existing.endswith("\n"):
             fh.write("\n")
         fh.write("\n".join(missing) + "\n")
@@ -57,7 +59,7 @@ def register_statusline():
     settings = {}
     if os.path.isfile(path):
         try:
-            settings = json.load(open(path))
+            settings = json.load(open(path, encoding="utf-8"))
         except json.JSONDecodeError:
             report("skipped", ".claude/settings.json (unparseable — register statusLine manually)")
             return
@@ -72,7 +74,7 @@ def register_statusline():
         "command": STATUSLINE_CMD,
         "refreshInterval": 5,
     }
-    with open(path, "w") as fh:
+    with open(path, "w", encoding="utf-8") as fh:
         json.dump(settings, fh, indent=2)
         fh.write("\n")
     report("updated", ".claude/settings.json (statusLine registered)")

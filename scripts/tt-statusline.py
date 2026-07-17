@@ -19,6 +19,11 @@ FRESH = "\033[1;38;5;114m"   # bright green
 WARM = "\033[38;5;178m"      # amber
 COLD = "\033[38;5;245m"      # dim
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8")  # emoji-safe on Windows consoles
+except AttributeError:  # pragma: no cover — exotic stdout replacement
+    pass
+
 
 def main():
     try:
@@ -31,7 +36,7 @@ def main():
         return
 
     files, last = {}, None
-    with open(HIST) as fh:
+    with open(HIST, encoding="utf-8") as fh:
         for line in fh:
             if f'"session":"{session}"' not in line and f'"session": "{session}"' not in line:
                 continue

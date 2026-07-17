@@ -3,6 +3,8 @@ import json
 import os
 import sys
 
+import pytest
+
 from conftest import load_script
 
 
@@ -23,6 +25,7 @@ def test_rel_path(tmp_path):
     assert mod.rel_path("/elsewhere/x.md") == "/elsewhere/x.md"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="chmod 0 does not block reads on Windows")
 def test_conf_unreadable_falls_back_to_defaults(tmp_path):
     cfg = tmp_path / ".trigger-tree" / "config.sh"
     cfg.parent.mkdir()

@@ -36,7 +36,7 @@ CLUSTER_JACCARD = 0.6        # min similarity to join an existing task cluster
 def _conf_text():
     proj = os.path.join(ROOT, ".trigger-tree", "config.sh")
     path = proj if os.path.isfile(proj) else os.path.join(SCRIPT_DIR, "tt-config.sh")
-    return open(path).read()
+    return open(path, encoding="utf-8").read()
 
 
 def _conf_regex(text, name, fallback):
@@ -60,7 +60,7 @@ def inventory():
         walker = os.walk(top) if base != "." else [(top, [], os.listdir(top))]
         for dirpath, _, files in walker:
             for f in files:
-                rel = os.path.relpath(os.path.join(dirpath, f), ROOT)
+                rel = os.path.relpath(os.path.join(dirpath, f), ROOT).replace(os.sep, "/")
                 if WATCH.search(rel):
                     seen.add(rel)
     return sorted(seen)
@@ -78,7 +78,7 @@ def load_events(paths):
     for path in paths:
         if not os.path.isfile(path):
             continue
-        with open(path) as fh:
+        with open(path, encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if not line:
@@ -230,6 +230,35 @@ def main():
     untouched = [p for p in unread if not ALWAYS.search(p)]
     always_loaded = [p for p in unread if ALWAYS.search(p)]
 
+    # Router-gap detection: an untouched file that no other doc links to is invisible
+    # to the router; an untouched file that IS referenced points at content/naming.
+    texts = {}
+    for p in docs:
+        try:
+            texts[p] = open(os.path.join(ROOT, p), encoding="utf-8", errors="ignore").read()
+        except OSError:
+            texts[p] = ""
+    untouched_detail = []
+    for p in untouched:
+        base = p.rsplit("/", 1)[-1]
+        refs = [q for q, t in texts.items() if q != p and (p in t or base in t)]
+        untouched_detail.append({"path": p, "referenced_from": sorted(refs)[:5]})
+
+    # Folder heat/cold map: coverage (files touched) and read volume per folder.
+    folder_map = defaultdict(lambda: {"files": 0, "touched": 0, "reads": 0})
+    touched_paths = read_paths | used_skill_files
+    for p in docs:
+        folder = p.rsplit("/", 1)[0] if "/" in p else "(root)"
+        fm = folder_map[folder]
+        fm["files"] += 1
+        if p in touched_paths:
+            fm["touched"] += 1
+        fm["reads"] += per_file[p]["reads"] if p in per_file else 0
+    folders = [
+        {"folder": k, **v, "coverage": round(v["touched"] / v["files"], 2)}
+        for k, v in sorted(folder_map.items())
+    ]
+
     out = {
         "observed_from": timestamps[0] if timestamps else None,
         "observed_to": timestamps[-1] if timestamps else None,
@@ -259,6 +288,8 @@ def main():
             for n, d in sorted(per_skill.items(), key=lambda kv: -kv[1]["uses"])
         ],
         "untouched": untouched,
+        "untouched_detail": untouched_detail,
+        "folders": folders,
         "always_loaded": always_loaded,
         "unknown_reads": sorted(p for p in read_paths if p not in docs),
         "hunting": [{"path": p, "scans": n} for p, n in scan_targets.most_common(10)],

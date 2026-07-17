@@ -1,6 +1,6 @@
 ---
 name: tt
-description: Trigger Tree — documentation-discovery telemetry. Subcommands; /tt status (snapshot), /tt watch [demo|replay] (live dashboard), /tt insights (report + HTML), /tt note <text> (annotate router changes), /tt setup (wire into project), /tt help.
+description: Trigger Tree — documentation-discovery telemetry. Subcommands; /tt status (snapshot), /tt watch [demo|replay] (live dashboard), /tt insights (heat/cold map report + HTML), /tt suggestions (prioritized router fixes), /tt note <text> (annotate router changes), /tt setup (wire into project), /tt help.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Artifact
 arguments:
@@ -37,7 +37,8 @@ Show exactly this, nothing above or below it:
 > | `/tt watch` | Live pulse dashboard in a new terminal window |
 > | `/tt watch demo` | Dashboard with synthetic events (writes nothing) |
 > | `/tt watch replay` | Dashboard replaying the real history, accelerated |
-> | `/tt insights` | Analysis report: untouched/dead paths, hunting, trend, router proposals + HTML |
+> | `/tt insights` | Analysis report: heat/cold map, untouched paths, hunting, trend + HTML |
+> | `/tt suggestions` | Max 5 prioritized, concrete router fixes — apply after confirmation |
 > | `/tt note <text>` | Annotate the timeline (e.g. "sharpened UX router") — shows up in the trend |
 > | `/tt setup` | Wire Trigger Tree into this project: gitignore, statusline, optional config |
 > | `/tt help` | This overview |
@@ -80,9 +81,13 @@ Show exactly this, nothing above or below it:
 > **🌳 Trigger Tree insights** _(period, #sessions, maturity)_
 >
 > **Key figures** — reads, scans (hunting ratio), skill uses, files touched / inventory.
+> **Folder heat/cold map** — from `folders`: name the hottest folder (reads) and the
+> coldest (lowest coverage), one line each.
 > **Untouched paths** — when `mature`: one line per path with a category — 🗑 remove/merge,
-> 🧭 sharpen router (with a concrete proposal), 📦 intentional archive. When `warming`:
-> present as untouched with the note that judgment needs more data; no categories.
+> 🧭 sharpen router (with a concrete proposal), 📦 intentional archive. Use
+> `untouched_detail`: a path with empty `referenced_from` is a **router gap** (no doc
+> links to it) — that's nearly always 🧭. When `warming`: present as untouched with the
+> note that judgment needs more data; no categories.
 > **Trend** — only when `trend` has 2+ periods: is the hunting ratio falling or rising,
 > and does that correlate with any `notes` (router changes)?
 > **Hunting** — only if scans > 20% of reads: which folder, what that suggests.
@@ -97,6 +102,25 @@ files in `always_loaded` are never dead by definition (system-prompt injection);
 younger than the measurement period is new, not untouched; subagent reads (the `agents`
 field) count fully; skill uses make `.claude/skills/**` measurable — an invoked skill's
 SKILL.md counts as touched.
+
+## `$1` = "suggestions"
+
+1. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-stats.py"` and read the JSON.
+2. If `maturity` is `cold-start`: answer in one line —
+   `🌳 Not enough data yet (<reads> reads, <sessions> sessions) — suggestions need a few working sessions first.` Stop.
+3. Produce **at most 5** prioritized suggestions, each exactly one numbered line:
+   *what to change, in which file, and the evidence* (counts from the stats). Draw them
+   from, in priority order:
+   - `untouched_detail` entries with empty `referenced_from` → "Add a link to <path>
+     in <its folder's index or docs/README.md> — untouched and no doc references it (router gap)."
+   - `folders` with coverage 0 → "Folder <x>/ was never entered (<n> files) — route to it or archive it."
+   - `hunting` folders with high scan counts → "Sharpen the index instructions of <folder> —
+     <n> searches instead of routed reads."
+   - `clusters` missing an obvious sibling doc → "Tasks like '<example prompt>' never read
+     <sibling file> — link it from <index>."
+   - `unknown_reads` → "Router references a deleted/renamed file: <path>."
+4. End with exactly: `Apply any of these? Reply with the numbers.` Apply only what the
+   user confirms, then suggest recording it with `/tt note`.
 
 ## `$1` = "note"
 

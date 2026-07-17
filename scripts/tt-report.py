@@ -110,12 +110,39 @@ def main():
             )
         parts.append("</table></div>")
 
-    parts.append("<h2>Untouched paths</h2>")
+    if s.get("folders"):
+        parts.append("<h2>Folder heat &amp; cold map</h2>")
+        parts.append("<p class=muted>Coverage = share of files touched. Green is hot, gray is cold "
+                     "— a cold folder either deserves pruning or a router that points there.</p>")
+        parts.append("<div class=scroll><table>")
+        parts.append("<tr><th>Folder</th><th>Touched</th><th></th><th>Coverage</th><th>Reads</th></tr>")
+        for fo in sorted(s["folders"], key=lambda f: (-f["coverage"], f["folder"])):
+            w = max(4, int(120 * fo["coverage"]))
+            col = heat_color(fo["touched"], max(f["files"] for f in s["folders"]))
+            if fo["coverage"] == 0:
+                col = HEAT[0]
+            parts.append(
+                f"<tr><td><code>{esc(fo['folder'])}/</code></td>"
+                f"<td>{fo['touched']}/{fo['files']}</td>"
+                f"<td><span class=bar style='width:{w}px;background:{col}'></span></td>"
+                f"<td>{int(fo['coverage'] * 100)}%</td><td>{fo['reads']}</td></tr>"
+            )
+        parts.append("</table></div>")
+
+    parts.append("<h2>Untouched paths (cold map)</h2>")
     parts.append(f"<div class=note>{esc(MATURITY_NOTE[maturity])}</div>")
     if s["untouched"]:
         parts.append("<p class=muted>Never read during the measurement period. A signal, not a "
                      "verdict: could be removable, could be a router that never points there.</p><ul>")
-        parts.extend(f"<li class=untouched><code>{esc(p)}</code></li>" for p in s["untouched"])
+        detail = {d["path"]: d["referenced_from"] for d in s.get("untouched_detail", [])}
+        for p in s["untouched"]:
+            refs = detail.get(p, [])
+            if refs:
+                info = "referenced from " + ", ".join(f"<code>{esc(r)}</code>" for r in refs)
+            else:
+                info = "<b>not referenced by any doc — router gap</b>"
+            parts.append(f"<li class=untouched><code>{esc(p)}</code>"
+                         f" <small class=muted>· {info}</small></li>")
         parts.append("</ul>")
     else:
         parts.append("<p>None — every inventoried file has been read at least once.</p>")
@@ -178,7 +205,7 @@ def main():
     out_dir = os.path.join(ROOT, ".trigger-tree")
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, "report.html")
-    with open(out_path, "w") as fh:
+    with open(out_path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(parts))
     print(out_path)
 

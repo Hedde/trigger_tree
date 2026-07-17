@@ -64,6 +64,19 @@ def test_fixture_full_run(monkeypatch):
     assert "docs/design/ui-patterns.md" in s["clusters"][0]["paths"]
     assert {"pair": ["docs/README.md", "docs/design/ui-patterns.md"], "count": 2} in s["co_read_top"]
 
+    # router-gap detection: accessibility.md is untouched AND unreferenced;
+    # workflow.md is untouched but development/index.md mentions it
+    detail = {d["path"]: d["referenced_from"] for d in s["untouched_detail"]}
+    assert detail["docs/design/accessibility.md"] == []
+    assert "docs/development/index.md" in detail["docs/development/workflow.md"]
+
+    # folder heat/cold map: design 3/4 touched, security fully cold, runbooks 1/2
+    folders = {f["folder"]: f for f in s["folders"]}
+    assert folders["docs/design"]["touched"] == 3 and folders["docs/design"]["coverage"] == 0.75
+    assert folders["docs/security"]["coverage"] == 0.0
+    assert folders["docs/operations/runbooks"]["touched"] == 1
+    assert folders["docs/README.md".rsplit("/", 1)[0]]["reads"] == 3  # docs/ root folder
+
 
 def _bulk_events(reads, sessions, days):
     events = []
@@ -121,6 +134,27 @@ def test_two_prompts_in_one_session_make_two_buckets(tmp_path, monkeypatch):
     s = run_stats(mod, monkeypatch)
     assert s["totals"]["prompts_with_doc_reads"] == 2
     assert len(s["clusters"]) == 2  # disjoint sets don't cluster together
+
+
+import os as _os
+import pytest
+
+
+@pytest.mark.skipif(_os.name == "nt", reason="chmod 0 does not block reads on Windows")
+def test_unreadable_doc_does_not_break_crossref(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x")
+    locked = tmp_path / "docs" / "locked.md"
+    locked.write_text("secret")
+    locked.chmod(0)
+    try:
+        write_history(tmp_path, [{"t": "read", "ts": "2026-07-01T09:00:00Z", "session": "A",
+                                  "tool": "Read", "path": "docs/a.md", "agent": "main"}])
+        mod = load_script("tt-stats.py", tmp_path)
+        s = run_stats(mod, monkeypatch)
+        assert "docs/locked.md" in s["untouched"]  # unreadable file still analyzed
+    finally:
+        locked.chmod(0o644)
 
 
 def test_trend_skips_unparseable_timestamps(tmp_path, monkeypatch):

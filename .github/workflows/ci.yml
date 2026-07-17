@@ -7,7 +7,10 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write  # push the coverage badge JSON to the badges branch
     steps:
@@ -19,7 +22,7 @@ jobs:
       - run: coverage run -m pytest tests -q
       - run: coverage report --fail-under=80
       - name: Publish measured coverage badge
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: matrix.os == 'ubuntu-latest' && github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           PCT=$(coverage report --format=total)
           COLOR=$(python3 -c "p=float('$PCT'); print('brightgreen' if p>=90 else 'green' if p>=80 else 'yellow' if p>=70 else 'orange' if p>=60 else 'red')")

@@ -27,10 +27,18 @@ from collections import Counter, deque
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 HIST = os.path.join(ROOT, ".trigger-tree", "history.jsonl")
 
+if os.name == "nt":  # pragma: no cover — Windows console setup
+    os.system("")  # enables ANSI escape processing in the Windows terminal
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except AttributeError:  # pragma: no cover — exotic stdout replacement
+    pass
+
 # Project override wins over the plugin default (same rule as tt-log.py/tt-stats.py).
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _proj_conf = os.path.join(ROOT, ".trigger-tree", "config.sh")
-_conf = open(_proj_conf if os.path.isfile(_proj_conf) else os.path.join(SCRIPT_DIR, "tt-config.sh")).read()
+_conf = open(_proj_conf if os.path.isfile(_proj_conf) else os.path.join(SCRIPT_DIR, "tt-config.sh"),
+             encoding="utf-8").read()
 WATCH = re.compile(re.search(r"TT_WATCH_REGEX='([^']+)'", _conf).group(1))
 BASES = ["docs", "agents", "skills", "agent-briefs", ".claude/rules", ".claude/skills", "."]
 
@@ -55,7 +63,7 @@ def inventory():
         walker = os.walk(top) if base != "." else [(top, [], os.listdir(top))]
         for dirpath, _, files in walker:
             for f in files:
-                rel = os.path.relpath(os.path.join(dirpath, f), ROOT)
+                rel = os.path.relpath(os.path.join(dirpath, f), ROOT).replace(os.sep, "/")
                 if WATCH.search(rel):
                     seen.add(rel)
     return sorted(seen)
@@ -293,10 +301,11 @@ def main():
 
     is_tty = sys.stdout.isatty()
     stdin_tty = sys.stdin.isatty()
+    use_termios = stdin_tty and os.name != "nt"
     old_term = None
     if is_tty:
         sys.stdout.write("\x1b[?1049h\x1b[?25l")
-    if stdin_tty:  # pragma: no cover — needs a real tty
+    if use_termios:  # pragma: no cover — needs a real tty
         import termios, tty
         old_term = termios.tcgetattr(sys.stdin)
         tty.setcbreak(sys.stdin.fileno())
@@ -307,7 +316,11 @@ def main():
             now = time.time()
             if args.seconds and now - start >= args.seconds:
                 break
-            if stdin_tty and select.select([sys.stdin], [], [], 0)[0]:  # pragma: no cover
+            if os.name == "nt" and stdin_tty:  # pragma: no cover — Windows console keys
+                import msvcrt
+                if msvcrt.kbhit() and msvcrt.getwch() in ("q", "Q"):
+                    break
+            elif use_termios and select.select([sys.stdin], [], [], 0)[0]:  # pragma: no cover
                 if sys.stdin.read(1) in ("q", "Q"):
                     break
             if args.demo and now >= next_evt:
@@ -331,7 +344,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        if stdin_tty and old_term is not None:  # pragma: no cover — needs a real tty
+        if use_termios and old_term is not None:  # pragma: no cover — needs a real tty
             import termios
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_term)
         if is_tty:

@@ -34,7 +34,7 @@ def conf():
     proj = os.path.join(ROOT, ".trigger-tree", "config.sh")
     path = proj if os.path.isfile(proj) else os.path.join(SCRIPT_DIR, "tt-config.sh")
     try:
-        text = open(path).read()
+        text = open(path, encoding="utf-8").read()
     except OSError:
         text = ""
     out = dict(DEFAULTS)
@@ -59,13 +59,15 @@ def append(obj, rotate_bytes):
             os.rename(hist, os.path.join(hist_dir, f"history-{stamp}.jsonl"))
     except OSError:
         pass
-    with open(hist, "a") as fh:
+    with open(hist, "a", encoding="utf-8") as fh:
         fh.write(json.dumps(obj, ensure_ascii=False) + "\n")
 
 
 def rel_path(target):
-    prefix = ROOT.rstrip(os.sep) + os.sep
-    return target[len(prefix):] if target.startswith(prefix) else target
+    # Normalize to forward slashes so logged paths are identical on all platforms.
+    t = target.replace("\\", "/")
+    root = ROOT.replace("\\", "/").rstrip("/") + "/"
+    return t[len(root):] if t.startswith(root) else t
 
 
 def main():
