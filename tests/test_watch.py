@@ -348,9 +348,10 @@ def test_main_tty_mode_writes_alt_screen(monkeypatch, capsys):
 
 
 def test_main_demo_and_replay(monkeypatch, capsys):
-    # first event fires at t+0.5s, so run just past it to exercise the feed branches
+    # Leave ample scheduler margin beyond the first event at t+0.5s; coverage on
+    # shared macOS runners can suspend the process around the old 0.7s boundary.
     mod = load_script("tt-watch.py", FIXTURE)
-    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--demo", "--seconds", "0.7"])
+    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--demo", "--seconds", "1.5"])
     mod.main()
     assert "--frame--" in capsys.readouterr().out
 

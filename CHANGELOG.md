@@ -11,6 +11,8 @@
 - Arrow escape decoding now tolerates briefly delayed bytes on loaded terminals;
   the previous 30 ms window proved flaky on a macOS CI runner and could recreate
   the same ignored/right-arrow symptom under local system load.
+- Cross-platform CI now runs every matrix leg even if another platform fails, so
+  release evidence is complete rather than hidden by fail-fast cancellation.
 
 ## 0.6.1 — 2026-07-18
 
