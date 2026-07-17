@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1 — 2026-07-17
+
+- **Typed prompts are now instantly visible in the live view**: every prompt
+  appears in the ticker (`▸ "…"`) the moment you hit enter, and the footer counts
+  prompts alongside reads — so "5 prompts · 0 reads" self-explains an
+  injected-context session instead of looking stale.
+
 ## 0.5.0 — 2026-07-17
 
 - **Per-prompt browsing in the dashboard**: `[` and `]` step through every typed

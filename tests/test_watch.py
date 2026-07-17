@@ -105,6 +105,19 @@ def _browse_app(mod):
     return app
 
 
+def test_prompt_events_are_visible_live():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md"])
+    app.feed({"t": "prompt", "prompt": "why is the build red and what do our docs say about it", "session": "S"})
+    assert app.total_prompts == 1
+    assert app.ticker[0][1] == "▸"  # typed prompt lands in the ticker immediately
+    import re
+    frame = re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(app.render(time.time(), width=110, height=30)))
+    assert "1 prompts" in frame
+    assert '"why is the build red and what do our docs say about' in frame
+    assert "[prompt]" not in frame  # the pseudo-agent tag is not rendered
+
+
 def test_prompt_buckets_and_browsing():
     mod = load_script("tt-watch.py", FIXTURE)
     app = _browse_app(mod)

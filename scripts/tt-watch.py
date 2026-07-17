@@ -142,6 +142,7 @@ class App:
         self.total_reads = 0
         self.total_scans = 0
         self.total_skills = 0
+        self.total_prompts = 0
         self.sessions = set()
         self.last_event = None  # wall-clock of the last live-fed event
         self.buckets = []         # one bucket per typed prompt: its aggregated events
@@ -159,6 +160,10 @@ class App:
                       "prompt": (ev.get("prompt") or "").strip() or "(prompt)", "events": []}
             self.buckets.append(bucket)
             self._current[s_id] = bucket
+            self.total_prompts += 1
+            if live:  # a typed prompt is instantly visible: the pipeline is alive
+                txt = bucket["prompt"][:44] + ("…" if len(bucket["prompt"]) > 44 else "")
+                self.ticker.appendleft((time.time(), "▸", f'"{txt}"', "prompt"))
         elif t in ("read", "scan", "skill"):
             bucket = self._current.get(s_id)
             if bucket is None:
@@ -315,6 +320,7 @@ class App:
         lines.append("")
         lines.append(
             c256(DIM, " ")
+            + c256(WHITE, f"{self.total_prompts}", bold=True) + c256(DIM, " prompts · ")
             + c256(WHITE, f"{self.total_reads}", bold=True) + c256(DIM, " reads · ")
             + c256(WHITE, f"{self.total_scans}", bold=True) + c256(DIM, " scans (hunting) · ")
             + c256(WHITE, f"{self.total_skills}", bold=True) + c256(DIM, " skill uses · ")
@@ -330,7 +336,7 @@ class App:
             for ts, icon, path, agent in list(self.ticker)[:3]:
                 age = now - ts
                 agestr = "just now" if age < 3 else (f"{age:.0f}s ago" if age < 60 else f"{age/60:.0f}m ago")
-                who = "" if agent == "main" else f" [{agent}]"
+                who = "" if agent in ("main", "prompt") else f" [{agent}]"
                 fade = DIM if age < 8 else DEAD
                 lines.append(c256(fade, f"   {icon} {path}{who} · {agestr}"))
         if browsing:
