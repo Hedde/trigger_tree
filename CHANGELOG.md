@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.0 — 2026-07-17
+
+- **Skill-tool telemetry**: PostToolUse hook on `Skill` logs skill invocations; an
+  invoked skill's SKILL.md counts as touched, shrinking the `always_loaded` blind spot.
+- **Portability**: logger and statusline rewritten in pure python3 (jq and BSD `date`
+  dependencies dropped); `/tt watch` opens a tmux split, macOS Terminal, or
+  gnome-terminal/konsole/xterm.
+- **Prompt privacy**: `TT_LOG_PROMPTS=truncate|hash|off` — fingerprints keep working
+  in all modes.
+- **Log rotation**: history.jsonl rotates to timestamped archives beyond
+  `TT_ROTATE_BYTES` (default 5 MB); aggregator and watcher read all archives.
+- **Trend + annotations**: daily/weekly reads-scans buckets with hunting ratio;
+  `/tt note <text>` marks router changes on the timeline so their effect is visible.
+- **Task clusters**: fingerprints grouped by Jaccard similarity (≥ 0.6) instead of
+  exact-set matching.
+- **`/tt setup`**: idempotent project wiring (gitignore, statusline copy +
+  registration, optional config override).
+- **CI**: smoke test over a fixture project, shellcheck, `claude plugin validate`.
+
 ## 0.1.0 — 2026-07-17
 
 Initial release.

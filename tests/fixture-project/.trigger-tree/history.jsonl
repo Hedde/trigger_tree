@@ -1,0 +1,11 @@
+{"t":"session","ts":"2026-07-01T09:00:00Z","session":"A"}
+{"t":"prompt","ts":"2026-07-01T09:00:05Z","session":"A","prompt":"improve the button styling"}
+{"t":"read","ts":"2026-07-01T09:00:10Z","session":"A","tool":"Read","path":"docs/a.md","agent":"main"}
+{"t":"read","ts":"2026-07-01T09:00:12Z","session":"A","tool":"Read","path":"docs/sub/b.md","agent":"Explore"}
+{"t":"scan","ts":"2026-07-01T09:00:14Z","session":"A","tool":"Grep","path":"docs","agent":"main"}
+{"t":"skill","ts":"2026-07-01T09:00:20Z","session":"A","skill":"deploy","agent":"main"}
+{"t":"note","ts":"2026-07-01T10:00:00Z","session":"A","text":"sharpened UX router"}
+{"t":"session","ts":"2026-07-02T09:00:00Z","session":"B"}
+{"t":"prompt","ts":"2026-07-02T09:00:05Z","session":"B","prompt":"more button styling work"}
+{"t":"read","ts":"2026-07-02T09:00:10Z","session":"B","tool":"Read","path":"docs/a.md","agent":"main"}
+{"t":"read","ts":"2026-07-02T09:00:12Z","session":"B","tool":"Read","path":"docs/sub/b.md","agent":"main"}

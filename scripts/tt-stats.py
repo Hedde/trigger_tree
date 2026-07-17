@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Trigger Tree aggregator.
 
-Combines $PROJECT/.trigger-tree/history.jsonl with an inventory of the documentation
-tree and prints a stats JSON to stdout. Deterministic: all counting happens here so
-/tt only interprets, never computes.
+Combines $PROJECT/.trigger-tree/history*.jsonl (current file + rotated archives) with
+an inventory of the documentation tree and prints a stats JSON to stdout.
+Deterministic: all counting happens here so /tt only interprets, never computes.
 
 Maturity model: files with zero reads are "untouched". Whether untouched may be
 interpreted as "dead" depends on the `maturity` field: cold-start → too early to
@@ -12,6 +12,7 @@ judge; warming → early signal; mature → untouched files are dead-path candid
 Config: $PROJECT/.trigger-tree/config.sh overrides the plugin default tt-config.sh.
 Usage: python3 tt-stats.py [path/to/history.jsonl]
 """
+import glob
 import hashlib
 import json
 import os
@@ -28,6 +29,8 @@ MATURITY_MIN_READS = 30      # below this (or MIN_SESSIONS): cold-start
 MATURITY_MIN_SESSIONS = 3
 MATURE_MIN_READS = 100       # below this (or MATURE_MIN_DAYS): warming
 MATURE_MIN_DAYS = 7
+TREND_DAILY_MAX_DAYS = 14    # daily buckets up to here, weekly beyond
+CLUSTER_JACCARD = 0.6        # min similarity to join an existing task cluster
 
 
 def _conf_text():
@@ -63,19 +66,27 @@ def inventory():
     return sorted(seen)
 
 
-def load_events(hist_path):
+def history_files(explicit=None):
+    if explicit:
+        return [explicit]
+    # Archives sort before history.jsonl ("-" < "."), oldest first: chronological order.
+    return sorted(glob.glob(os.path.join(ROOT, ".trigger-tree", "history*.jsonl")))
+
+
+def load_events(paths):
     events = []
-    if not os.path.isfile(hist_path):
-        return events
-    with open(hist_path) as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                events.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue  # a torn write should not kill the whole report
+    for path in paths:
+        if not os.path.isfile(path):
+            continue
+        with open(path) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    events.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue  # a torn write should not kill the whole report
     return events
 
 
@@ -83,24 +94,35 @@ def fingerprint(paths):
     return hashlib.sha1("\n".join(sorted(paths)).encode()).hexdigest()[:10]
 
 
-def observed_days(timestamps):
-    if len(timestamps) < 2:
-        return 0.0
-    fmt = "%Y-%m-%dT%H:%M:%SZ"
+def parse_ts(ts):
     try:
-        span = datetime.strptime(timestamps[-1], fmt) - datetime.strptime(timestamps[0], fmt)
-        return round(span.total_seconds() / 86400, 2)
-    except ValueError:
+        return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
+    except (TypeError, ValueError):
+        return None
+
+
+def observed_days(timestamps):
+    first, last = parse_ts(timestamps[0]), parse_ts(timestamps[-1])
+    if not first or not last:
         return 0.0
+    return round((last - first).total_seconds() / 86400, 2)
+
+
+def jaccard(a, b):
+    a, b = set(a), set(b)
+    return len(a & b) / len(a | b) if a | b else 0.0
 
 
 def main():
-    hist_path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, ".trigger-tree", "history.jsonl")
-    events = load_events(hist_path)
+    explicit = sys.argv[1] if len(sys.argv) > 1 else None
+    events = load_events(history_files(explicit))
     docs = inventory()
 
     reads = [e for e in events if e.get("t") == "read"]
     scans = [e for e in events if e.get("t") == "scan"]
+    skill_events = [e for e in events if e.get("t") == "skill"]
+    notes = [{"ts": e.get("ts"), "text": e.get("text", "")}
+             for e in events if e.get("t") == "note"]
     sessions = sorted({e.get("session", "?") for e in events})
 
     per_file = defaultdict(lambda: {"reads": 0, "last_read": None, "sessions": set(), "agents": Counter()})
@@ -113,7 +135,14 @@ def main():
 
     scan_targets = Counter(e["path"] for e in scans)
 
-    # Fingerprints: the set of doc paths read between two prompt markers (per session).
+    per_skill = defaultdict(lambda: {"uses": 0, "sessions": set(), "last_used": None})
+    for e in skill_events:
+        s = per_skill[e["skill"]]
+        s["uses"] += 1
+        s["sessions"].add(e.get("session", "?"))
+        s["last_used"] = max(filter(None, [s["last_used"], e.get("ts")]), default=None)
+
+    # Fingerprints: the set of doc paths (and skills used) between two prompt markers.
     buckets = []
     current = {}  # session -> {"prompt": str, "paths": set}
     for e in events:
@@ -125,6 +154,9 @@ def main():
         elif e.get("t") == "read":
             current.setdefault(s, {"prompt": "(session start)", "paths": set()})
             current[s]["paths"].add(e["path"])
+        elif e.get("t") == "skill":
+            current.setdefault(s, {"prompt": "(session start)", "paths": set()})
+            current[s]["paths"].add(f"skill:{e['skill']}")
     buckets.extend(b for b in current.values() if b["paths"])
 
     fp_groups = defaultdict(lambda: {"count": 0, "prompts": [], "paths": []})
@@ -136,6 +168,21 @@ def main():
         if b["prompt"] and len(g["prompts"]) < 3:
             g["prompts"].append(b["prompt"][:120])
 
+    # Task clusters: greedy Jaccard grouping of fingerprints — near-identical doc sets
+    # (e.g. UX-ish tasks with one file of variance) land in the same cluster.
+    clusters = []
+    for g in sorted(fp_groups.values(), key=lambda g: -g["count"]):
+        for c in clusters:
+            if jaccard(g["paths"], c["paths"]) >= CLUSTER_JACCARD:
+                c["count"] += g["count"]
+                c["variants"] += 1
+                c["prompts"] = (c["prompts"] + g["prompts"])[:3]
+                break
+        else:
+            clusters.append({"paths": g["paths"], "count": g["count"],
+                             "variants": 1, "prompts": list(g["prompts"])})
+    clusters.sort(key=lambda c: -c["count"])
+
     co_read = Counter()
     for b in buckets:
         for a, c in combinations(sorted(b["paths"]), 2):
@@ -143,7 +190,7 @@ def main():
 
     read_paths = set(per_file)
     timestamps = sorted(filter(None, (e.get("ts") for e in events)))
-    days = observed_days(timestamps)
+    days = observed_days(timestamps) if len(timestamps) >= 2 else 0.0
 
     if len(reads) < MATURITY_MIN_READS or len(sessions) < MATURITY_MIN_SESSIONS:
         maturity = "cold-start"
@@ -152,9 +199,34 @@ def main():
     else:
         maturity = "mature"
 
+    # Trend: daily buckets for short periods, ISO-week buckets beyond. The hunting
+    # ratio per bucket shows whether router changes (see `notes`) actually help.
+    daily = days <= TREND_DAILY_MAX_DAYS
+    trend_buckets = defaultdict(lambda: {"reads": 0, "scans": 0})
+    for e in reads + scans:
+        dt = parse_ts(e.get("ts"))
+        if not dt:
+            continue
+        if daily:
+            key = dt.strftime("%Y-%m-%d")
+        else:
+            iso = dt.isocalendar()
+            key = f"{iso[0]}-W{iso[1]:02d}"
+        trend_buckets[key][e["t"] + "s"] += 1
+    trend = [
+        {"period": k, **v,
+         "hunting_ratio": round(v["scans"] / v["reads"], 2) if v["reads"] else None}
+        for k, v in sorted(trend_buckets.items())
+    ]
+
     # Always-loaded files (system-prompt injection / Skill tool) can never be "dead":
-    # their usage is invisible to Read-tool telemetry by design.
-    unread = [p for p in docs if p not in read_paths]
+    # their usage is invisible to Read-tool telemetry by design. A SKILL.md whose skill
+    # was actually invoked counts as touched via the Skill-tool events.
+    used_skill_files = {
+        f".claude/skills/{name}/SKILL.md" for name in per_skill
+        if f".claude/skills/{name}/SKILL.md" in set(docs)
+    }
+    unread = [p for p in docs if p not in read_paths and p not in used_skill_files]
     untouched = [p for p in unread if not ALWAYS.search(p)]
     always_loaded = [p for p in unread if ALWAYS.search(p)]
 
@@ -168,6 +240,7 @@ def main():
             "events": len(events),
             "reads": len(reads),
             "scans": len(scans),
+            "skill_uses": len(skill_events),
             "prompts_with_doc_reads": len(buckets),
             "inventory_files": len(docs),
         },
@@ -181,14 +254,17 @@ def main():
             }
             for p, d in sorted(per_file.items(), key=lambda kv: -kv[1]["reads"])
         ],
+        "skills": [
+            {"name": n, "uses": d["uses"], "sessions": len(d["sessions"]), "last_used": d["last_used"]}
+            for n, d in sorted(per_skill.items(), key=lambda kv: -kv[1]["uses"])
+        ],
         "untouched": untouched,
         "always_loaded": always_loaded,
         "unknown_reads": sorted(p for p in read_paths if p not in docs),
         "hunting": [{"path": p, "scans": n} for p, n in scan_targets.most_common(10)],
-        "fingerprints": sorted(
-            ({"fp": fp, **g} for fp, g in fp_groups.items()),
-            key=lambda g: -g["count"],
-        ),
+        "trend": trend,
+        "notes": notes,
+        "clusters": clusters[:12],
         "co_read_top": [
             {"pair": list(pair), "count": n} for pair, n in co_read.most_common(15)
         ],

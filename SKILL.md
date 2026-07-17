@@ -1,6 +1,6 @@
 ---
 name: tt
-description: Trigger Tree — documentation-discovery telemetry. Subcommands; /tt status (snapshot), /tt watch [demo|replay] (live dashboard in a new terminal window), /tt insights (report + HTML), /tt help.
+description: Trigger Tree — documentation-discovery telemetry. Subcommands; /tt status (snapshot), /tt watch [demo|replay] (live dashboard), /tt insights (report + HTML), /tt note <text> (annotate router changes), /tt setup (wire into project), /tt help.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Artifact
 arguments:
@@ -10,7 +10,7 @@ arguments:
 
 # /tt — Trigger Tree
 
-Execute the subcommand in `$1` (option in `$2`).
+Execute the subcommand in `$1` (option/text in `$2` and beyond; `$ARGUMENTS` holds everything).
 
 **Output discipline — the most important rule:** work silently. No plan up front, no
 intermediate status lines, no explanation of what you are about to do or just did.
@@ -37,7 +37,9 @@ Show exactly this, nothing above or below it:
 > | `/tt watch` | Live pulse dashboard in a new terminal window |
 > | `/tt watch demo` | Dashboard with synthetic events (writes nothing) |
 > | `/tt watch replay` | Dashboard replaying the real history, accelerated |
-> | `/tt insights` | Analysis report: untouched/dead paths, hunting, router proposals + HTML |
+> | `/tt insights` | Analysis report: untouched/dead paths, hunting, trend, router proposals + HTML |
+> | `/tt note <text>` | Annotate the timeline (e.g. "sharpened UX router") — shows up in the trend |
+> | `/tt setup` | Wire Trigger Tree into this project: gitignore, statusline, optional config |
 > | `/tt help` | This overview |
 >
 > Telemetry runs automatically via hooks; the statusline shows the live session counter.
@@ -48,7 +50,7 @@ Show exactly this, nothing above or below it:
 2. Show only this block:
 
 > **🌳 Trigger Tree status** _(period: <observed_from> → <observed_to>, <sessions> sessions)_
-> <reads> reads · <scans> scans · <files touched>/<inventory_files> files touched
+> <reads> reads · <scans> scans · <skill_uses> skill uses · <files touched>/<inventory_files> files touched
 >
 > **Most consulted:** top 5 from `files` as `path (n×)`, comma-separated.
 > **Untouched:** <count of untouched> — followed by the maturity suffix:
@@ -59,9 +61,9 @@ Show exactly this, nothing above or below it:
 ## `$1` = "watch"
 
 1. Silently run `"${CLAUDE_SKILL_DIR}/scripts/tt-open.sh" $2` (`$2` empty, `demo` or `replay`).
-2. Answer with exactly one line: `🌳 Watcher opened in a new Terminal window — press q or Ctrl+C to stop.`
-   If the script fails, report the cause in one line (on first use macOS may ask for
-   Automation permission; mention that if the error points to it).
+2. Answer with exactly the confirmation line the script prints (it reports tmux split /
+   new window / used terminal). If the script fails, report the cause in one line (on
+   first use macOS may ask for Automation permission; mention that if the error points to it).
 
 ## `$1` = "insights"
 
@@ -77,11 +79,15 @@ Show exactly this, nothing above or below it:
 
 > **🌳 Trigger Tree insights** _(period, #sessions, maturity)_
 >
-> **Key figures** — reads, scans (hunting ratio), files touched / inventory.
+> **Key figures** — reads, scans (hunting ratio), skill uses, files touched / inventory.
 > **Untouched paths** — when `mature`: one line per path with a category — 🗑 remove/merge,
 > 🧭 sharpen router (with a concrete proposal), 📦 intentional archive. When `warming`:
 > present as untouched with the note that judgment needs more data; no categories.
+> **Trend** — only when `trend` has 2+ periods: is the hunting ratio falling or rising,
+> and does that correlate with any `notes` (router changes)?
 > **Hunting** — only if scans > 20% of reads: which folder, what that suggests.
+> **Task clusters** — top 2-3 from `clusters`: "tasks like <example prompt> consistently
+> use <paths>" — flag when a cluster misses an obvious doc.
 > **Router proposals** — max 3, concrete ("add X to docs/README.md under Y").
 >
 > 📊 Full report: <artifact link or file path>
@@ -89,7 +95,23 @@ Show exactly this, nothing above or below it:
 Analysis rules (do not repeat them in the output): read counts are signals, not verdicts;
 files in `always_loaded` are never dead by definition (system-prompt injection); a file
 younger than the measurement period is new, not untouched; subagent reads (the `agents`
-field) count fully.
+field) count fully; skill uses make `.claude/skills/**` measurable — an invoked skill's
+SKILL.md counts as touched.
+
+## `$1` = "note"
+
+1. Take everything after the subcommand as the note text. Silently run:
+   `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-log.py" note "<text>"`
+   (the CLAUDE_SESSION_ID environment variable is picked up automatically when present).
+2. Answer with exactly one line: `🌳 Noted: "<text>" — it will show up in the trend timeline.`
+   Empty text → `Usage: /tt note <text>` in one line.
+
+## `$1` = "setup"
+
+1. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-setup.py"`
+   (append `--with-config` if `$2` is "config").
+2. Show the script's summary lines verbatim (they report created/updated/skipped per
+   step), nothing else.
 
 ## Any other `$1`
 

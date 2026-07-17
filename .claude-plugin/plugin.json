@@ -1,8 +1,8 @@
 {
   "name": "tt",
   "displayName": "Trigger Tree",
-  "version": "0.1.0",
-  "description": "Documentation-discovery telemetry: hooks log every doc read, live pulse dashboard (/tt watch), untouched/dead-path insights (/tt insights).",
+  "version": "0.2.0",
+  "description": "Documentation-discovery telemetry: hooks log every doc read and skill use, live pulse dashboard (/tt watch), untouched/dead-path insights with trend (/tt insights).",
   "author": {
     "name": "Hedde van der Heide"
   },

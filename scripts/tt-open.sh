@@ -1,6 +1,8 @@
 #!/bin/bash
-# Opens the Trigger Tree live dashboard (tt-watch.py) in a new Terminal window.
-# Usage: tt-open.sh [demo|replay]   (leeg = live tail van de echte history)
+# Opens the Trigger Tree live dashboard (tt-watch.py) in a new terminal pane/window.
+# Usage: tt-open.sh [demo|replay]   (empty = live tail of the real history)
+# Tries, in order: tmux split, macOS Terminal (osascript), gnome-terminal, konsole,
+# x-terminal-emulator, xterm. Prints the manual command if none is available.
 set -euo pipefail
 
 MODE="${1:-}"
@@ -22,14 +24,33 @@ if [ "${TT_OPEN_DRYRUN:-}" = "1" ]; then
   exit 0
 fi
 
+if [ -n "${TMUX:-}" ]; then
+  tmux split-window -h "$CMD"
+  echo "Trigger Tree watcher opened in a tmux split."
+  exit 0
+fi
+
 if [ "$(uname)" = "Darwin" ]; then
   osascript \
     -e 'tell application "Terminal"' \
     -e 'activate' \
     -e "do script \"$CMD\"" \
     -e 'end tell' >/dev/null
-else
-  echo "Not macOS — start manually in a second terminal:" >&2
-  echo "$CMD" >&2
-  exit 1
+  echo "Trigger Tree watcher opened in a new Terminal window."
+  exit 0
 fi
+
+for TERM_CMD in gnome-terminal konsole x-terminal-emulator xterm; do
+  if command -v "$TERM_CMD" >/dev/null 2>&1; then
+    case "$TERM_CMD" in
+      gnome-terminal) "$TERM_CMD" -- bash -c "$CMD" & ;;
+      *) "$TERM_CMD" -e bash -c "$CMD" & ;;
+    esac
+    echo "Trigger Tree watcher opened via $TERM_CMD."
+    exit 0
+  fi
+done
+
+echo "No supported terminal found — start manually in a second terminal:" >&2
+echo "$CMD" >&2
+exit 1

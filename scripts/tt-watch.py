@@ -8,10 +8,11 @@ Run in a second terminal pane next to a Claude Code session:
     python3 scripts/tt-watch.py --replay   # replays the real history, accelerated
 
 A read makes its file flash white and ripples a pulse up through its parent
-folders, then fades back to the file's heat color (read frequency). Dead paths
-stay dim gray. Quit with q or Ctrl+C. 256-color ANSI, stdlib only.
+folders, then fades back to the file's heat color (read frequency). Untouched
+paths stay dim gray. Quit with q or Ctrl+C. 256-color ANSI, stdlib only.
 """
 import argparse
+import glob as globmod
 import json
 import math
 import os
@@ -26,7 +27,7 @@ from collections import Counter, deque
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 HIST = os.path.join(ROOT, ".trigger-tree", "history.jsonl")
 
-# Project override wins over the plugin default (same rule as tt-log.sh/tt-stats.py).
+# Project override wins over the plugin default (same rule as tt-log.py/tt-stats.py).
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _proj_conf = os.path.join(ROOT, ".trigger-tree", "config.sh")
 _conf = open(_proj_conf if os.path.isfile(_proj_conf) else os.path.join(SCRIPT_DIR, "tt-config.sh")).read()
@@ -60,6 +61,10 @@ def inventory():
     return sorted(seen)
 
 
+def all_history_files():
+    return sorted(globmod.glob(os.path.join(ROOT, ".trigger-tree", "history*.jsonl")))
+
+
 class Tail:
     """Follow history.jsonl; survives the file not existing yet."""
 
@@ -90,6 +95,13 @@ class Tail:
         return events
 
 
+def load_all_events():
+    events = []
+    for path in all_history_files():
+        events.extend(Tail(path, from_start=True).poll())
+    return events
+
+
 class App:
     def __init__(self, files):
         self.files = list(files)
@@ -99,6 +111,7 @@ class App:
         self.ticker = deque(maxlen=4)
         self.total_reads = 0
         self.total_scans = 0
+        self.total_skills = 0
         self.sessions = set()
 
     def feed(self, ev, live=True):
@@ -119,6 +132,14 @@ class App:
             if live:
                 self._pulse(ev["path"])
                 self.ticker.appendleft((time.time(), "🔍", ev["path"], ev.get("agent", "main")))
+        elif t == "skill":
+            self.total_skills += 1
+            if live:
+                skill_file = f".claude/skills/{ev.get('skill', '')}/SKILL.md"
+                if skill_file in self.files:
+                    self._pulse(skill_file)
+                self.ticker.appendleft((time.time(), "⚡", f"skill:{ev.get('skill', '?')}",
+                                        ev.get("agent", "main")))
 
     def _pulse(self, path):
         now = time.time()
@@ -172,8 +193,8 @@ class App:
                 color, bold = self._node_color(
                     FOLDER if fcount else DEAD, self._glow(folder, now)
                 )
-                dead = sum(1 for f in files if not self.counts[f])
-                suffix = c256(DEAD, f"  ·{dead} untouched") if dead else ""
+                quiet = sum(1 for f in files if not self.counts[f])
+                suffix = c256(DEAD, f"  ·{quiet} untouched") if quiet else ""
                 body.append(
                     (folder, True, c256(color, f" {folder}/", bold) + suffix)
                 )
@@ -199,7 +220,7 @@ class App:
                      + c256(color, name, bold) + pad + stat)
                 )
 
-        # fit to screen: drop dead files first, then lowest-read files
+        # fit to screen: drop quiet files first, then truncate
         budget = height - len(lines) - 5
         if len(body) > budget:
             keep, dropped = [], 0
@@ -221,6 +242,7 @@ class App:
             c256(DIM, " ")
             + c256(WHITE, f"{self.total_reads}") + c256(DIM, " reads · ")
             + c256(WHITE, f"{self.total_scans}") + c256(DIM, " scans (hunting) · ")
+            + c256(WHITE, f"{self.total_skills}") + c256(DIM, " skill uses · ")
             + c256(WHITE, f"{len(self.sessions)}") + c256(DIM, " sessions")
         )
         for ts, icon, path, agent in list(self.ticker)[:3]:
@@ -236,8 +258,12 @@ def demo_event(files, rng):
     hot = rng.sample(files, min(6, len(files)))  # a "task" keeps favoring a few files
     def gen():
         while True:
-            if rng.random() < 0.15:
+            roll = rng.random()
+            if roll < 0.12:
                 yield {"t": "scan", "path": rng.choice(["docs", "docs/development", "agents"]),
+                       "session": "demo", "agent": "main"}
+            elif roll < 0.2:
+                yield {"t": "skill", "skill": rng.choice(["doc-update", "insights", "tt"]),
                        "session": "demo", "agent": "main"}
             else:
                 pool = hot if rng.random() < 0.7 else files
@@ -257,9 +283,9 @@ def main():
     tail = Tail(HIST)
     replay_events, replay_i = [], 0
     if args.replay:
-        replay_events = Tail(HIST, from_start=True).poll()
+        replay_events = load_all_events()
     else:
-        for ev in Tail(HIST, from_start=True).poll():
+        for ev in load_all_events():
             app.feed(ev, live=False)  # historic counts, no flashing
     rng = random.Random()
     demo = demo_event(app.files or ["CLAUDE.md"], rng) if args.demo else None

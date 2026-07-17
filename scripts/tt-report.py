@@ -79,6 +79,7 @@ def main():
         "<div class=kpi>"
         f"<div><b>{t['reads']}</b>reads</div>"
         f"<div><b>{t['scans']}</b>scans (hunting)</div>"
+        f"<div><b>{t.get('skill_uses', 0)}</b>skill uses</div>"
         f"<div><b>{s['sessions']}</b>sessions</div>"
         f"<div><b>{len(s['files'])}/{t['inventory_files']}</b>files touched</div>"
         f"<div><b>{len(s['untouched'])}</b>untouched</div>"
@@ -99,6 +100,16 @@ def main():
         )
     parts.append("</table></div>")
 
+    if s.get("skills"):
+        parts.append("<h2>Skill usage</h2><div class=scroll><table>")
+        parts.append("<tr><th>Skill</th><th>Uses</th><th>Sessions</th><th>Last used</th></tr>")
+        for sk in s["skills"]:
+            parts.append(
+                f"<tr><td><code>{esc(sk['name'])}</code></td><td>{sk['uses']}</td>"
+                f"<td>{sk['sessions']}</td><td><small>{esc(sk['last_used'])}</small></td></tr>"
+            )
+        parts.append("</table></div>")
+
     parts.append("<h2>Untouched paths</h2>")
     parts.append(f"<div class=note>{esc(MATURITY_NOTE[maturity])}</div>")
     if s["untouched"]:
@@ -114,6 +125,29 @@ def main():
             + ", ".join(f"<code>{esc(p)}</code>" for p in s["always_loaded"]) + "</small></p>"
         )
 
+    if s.get("trend") and len(s["trend"]) > 1:
+        max_bucket = max(b["reads"] + b["scans"] for b in s["trend"]) or 1
+        parts.append("<h2>Trend</h2><p class=muted>Hunting ratio per period — falling after a "
+                     "router change (see notes) means the change worked.</p><div class=scroll><table>")
+        parts.append("<tr><th>Period</th><th>Reads</th><th>Scans</th><th></th><th>Hunting ratio</th></tr>")
+        for b in s["trend"]:
+            w = max(4, int(120 * (b["reads"] + b["scans"]) / max_bucket))
+            ratio = "—" if b["hunting_ratio"] is None else b["hunting_ratio"]
+            parts.append(
+                f"<tr><td>{esc(b['period'])}</td><td>{b['reads']}</td><td>{b['scans']}</td>"
+                f"<td><span class=bar style='width:{w}px;background:{HEAT[2]}'></span></td>"
+                f"<td>{esc(ratio)}</td></tr>"
+            )
+        parts.append("</table></div>")
+
+    if s.get("notes"):
+        parts.append("<h2>Notes (router changes &amp; annotations)</h2><ul>")
+        parts.extend(
+            f"<li><small class=muted>{esc(n['ts'])}</small> — {esc(n['text'])}</li>"
+            for n in s["notes"]
+        )
+        parts.append("</ul>")
+
     if s["hunting"]:
         parts.append("<h2>Hunting (Glob/Grep inside doc folders)</h2><div class=scroll><table>")
         parts.append("<tr><th>Folder</th><th>Scans</th></tr>")
@@ -121,14 +155,14 @@ def main():
         parts.append("</table></div><p class=muted>Heavy hunting = the model is searching instead "
                      "of being routed. A candidate for sharper index instructions.</p>")
 
-    if s["fingerprints"]:
-        parts.append("<h2>Task fingerprints</h2><p class=muted>Set of doc paths per prompt; "
-                     "identical sets grouped across sessions.</p><div class=scroll><table>")
-        parts.append("<tr><th>×</th><th>Example prompt</th><th>Paths</th></tr>")
-        for g in s["fingerprints"][:12]:
-            prompt = esc(g["prompts"][0]) if g["prompts"] else "—"
-            paths = "<br>".join(f"<code>{esc(p)}</code>" for p in g["paths"])
-            parts.append(f"<tr><td>{g['count']}</td><td>{prompt}</td><td>{paths}</td></tr>")
+    if s.get("clusters"):
+        parts.append("<h2>Task clusters</h2><p class=muted>Doc-and-skill sets per prompt, grouped "
+                     "by similarity (Jaccard ≥ 0.6) across sessions.</p><div class=scroll><table>")
+        parts.append("<tr><th>×</th><th>Variants</th><th>Example prompt</th><th>Paths</th></tr>")
+        for c in s["clusters"]:
+            prompt = esc(c["prompts"][0]) if c["prompts"] else "—"
+            paths = "<br>".join(f"<code>{esc(p)}</code>" for p in c["paths"])
+            parts.append(f"<tr><td>{c['count']}</td><td>{c['variants']}</td><td>{prompt}</td><td>{paths}</td></tr>")
         parts.append("</table></div>")
 
     if s["co_read_top"]:

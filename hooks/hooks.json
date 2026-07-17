@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.sh session"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py session"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.sh prompt"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py prompt"
           }
         ]
       }
@@ -26,7 +26,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.sh read"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py read"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py skill"
           }
         ]
       }
