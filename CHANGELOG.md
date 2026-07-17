@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.3 — 2026-07-17
+
+- **Fix: both arrow keys browsed backwards.** The key loop mixed `select()` on
+  the raw fd with buffered `sys.stdin.read()`: the buffered read slurped the
+  whole escape sequence, the follow-up `select()` saw an empty fd, and the
+  leftover `[` replayed on the *next* keypress — so ← and → both acted as
+  "prev", one press late. Keys are now read raw via `os.read()` (`read_key()`),
+  with a pipe-based regression test.
+
 ## 0.5.2 — 2026-07-17
 
 - **Arrow keys** now browse prompts too (←/→ on macOS/Linux escape sequences and

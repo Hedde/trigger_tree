@@ -1,7 +1,9 @@
 import json
+import os
 import sys
 import time
 
+import pytest
 from conftest import FIXTURE, load_script
 
 
@@ -181,6 +183,21 @@ def test_arrow_key_normalizers():
     assert mod.normalize_escape("[A") is None       # up/down: ignored
     assert mod.normalize_windows("K") == "[" and mod.normalize_windows("M") == "]"
     assert mod.normalize_windows("H") is None
+
+
+def test_read_key_consumes_full_escape_sequence():
+    # Regression: buffered sys.stdin.read(1) slurped the whole escape sequence,
+    # leaving a stray "[" that made every arrow key act as "prev" one press late.
+    if os.name == "nt":
+        pytest.skip("read_key is POSIX-only (select on a pipe fd)")
+    mod = load_script("tt-watch.py", FIXTURE)
+    r, w = os.pipe()
+    try:
+        os.write(w, b"\x1b[C\x1b[D\x1b[Cq")  # right, left, right, quit — back to back
+        assert [mod.read_key(r) for _ in range(4)] == ["]", "[", "]", "q"]
+    finally:
+        os.close(r)
+        os.close(w)
 
 
 def test_handle_key_dispatch():
