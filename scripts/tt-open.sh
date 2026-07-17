@@ -36,17 +36,31 @@ case "$(uname)" in
     # Stay in the terminal you called it from: iTerm2 gets a split pane in the
     # current window instead of a foreign Terminal.app window.
     if [ "${TERM_PROGRAM:-}" = "iTerm.app" ]; then
+      # iTerm2's AppleScript `command` is exec-style (no shell), so a compound
+      # `cd ... && ...` dies instantly and the pane closes. Hand it a launcher
+      # script instead, which also keeps the pane open on failure.
+      LAUNCH="$(mktemp -t tt-watch)"
+      # shellcheck disable=SC2016  # $status/$0 must stay literal in the generated script
+      {
+        printf '#!/bin/bash\n%s\n' "$CMD"
+        printf 'status=$?\n'
+        printf 'if [ $status -ne 0 ]; then\n'
+        printf '  echo; echo "tt-watch exited with status $status - press Enter to close"\n'
+        printf '  read -r\nfi\n'
+        printf 'rm -f "$0"\n'
+      } > "$LAUNCH"
+      chmod +x "$LAUNCH"
       if osascript \
         -e 'tell application "iTerm2"' \
         -e 'tell current session of current window' \
-        -e "split vertically with default profile command \"$CMD\"" \
+        -e "split vertically with default profile command \"$LAUNCH\"" \
         -e 'end tell' \
         -e 'end tell' >/dev/null 2>&1; then
         echo "Trigger Tree watcher opened in an iTerm2 split (same window)."
       else
         osascript \
           -e 'tell application "iTerm2"' \
-          -e "create window with default profile command \"$CMD\"" \
+          -e "create window with default profile command \"$LAUNCH\"" \
           -e 'end tell' >/dev/null
         echo "Trigger Tree watcher opened in a new iTerm2 window."
       fi

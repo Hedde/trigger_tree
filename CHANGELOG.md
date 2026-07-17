@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.3 — 2026-07-17
+
+- **Fix: iTerm2 split closed instantly.** iTerm2's AppleScript `command` parameter
+  is exec-style (no shell), so the compound `cd … && …` command died on launch.
+  The split now runs a generated launcher script (shebang + shell), which also
+  keeps the pane open with the error message if the watcher ever exits non-zero.
+
 ## 0.3.2 — 2026-07-17
 
 - **Dashboard visual parity with the website demo**: three-tier heat palette
