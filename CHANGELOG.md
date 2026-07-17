@@ -17,8 +17,9 @@
   exact-set matching.
 - **`/tt setup`**: idempotent project wiring (gitignore, statusline copy +
   registration, optional config override).
-- **CI**: unit + smoke tests with an 80% coverage gate (currently ~93%), shellcheck,
-  `claude plugin validate`.
+- **CI**: unit + smoke tests with an 80% coverage gate, shellcheck,
+  `claude plugin validate`. Measured coverage is published as a live badge
+  (shields endpoint JSON on the `badges` branch — no external coverage service).
 - **Community files**: CONTRIBUTING, code of conduct, security policy, issue/PR
   templates, README badges.
 

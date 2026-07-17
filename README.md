@@ -1,7 +1,7 @@
 # 🌳 Trigger Tree
 
 [![CI](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
-[![coverage gate](https://img.shields.io/badge/coverage-%E2%89%A580%25-brightgreen.svg)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
+[![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fcoverage.json)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://code.claude.com/docs)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
