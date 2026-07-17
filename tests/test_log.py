@@ -73,6 +73,47 @@ def test_read_scan_and_filtering(tmp_path, monkeypatch):
     assert events[0]["agent"] == "main"
 
 
+def test_bash_doc_searches_are_scans_without_becoming_reads(tmp_path, monkeypatch):
+    docs = tmp_path / "docs" / "ui"
+    docs.mkdir(parents=True)
+    (docs / "empty-states.md").write_text("x")
+    (docs / "tables.md").write_text("x")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text("x")
+    mod = load_script("tt-log.py", tmp_path)
+    docs_arg = docs.as_posix()
+    empty_arg = (docs / "empty-states.md").as_posix()
+    tables_arg = (docs / "tables.md").as_posix()
+
+    commands = [
+        f'rg -il "empty.state|empty_state" "{docs_arg}" | sort',
+        f"rg -in empty_state '{empty_arg}' '{tables_arg}' | head -40",
+        f"grep -R empty {docs_arg} && find {docs_arg} -name '*.md'",
+        f"rg pattern {(tmp_path / 'src').as_posix()}",  # not a watched doc path
+        "echo 'rg docs/ui'",                    # text is not an executed search command
+        "rg pattern nowhere/docs",              # nonexistent target: do not guess
+        "rg 'unterminated",                     # malformed shell: ignored safely
+    ]
+    for command in commands:
+        payload = json.dumps({"session_id": "S", "agent_type": "Explore",
+                              "tool_name": "Bash", "tool_input": {"command": command}})
+        run_main(mod, monkeypatch, ["bash"], payload)
+
+    events = read_history(tmp_path)
+    assert len(events) == 3  # one scan per distinct target per Bash invocation
+    assert all(event["t"] == "scan" and event["tool"] == "Bash" for event in events)
+    assert all(event["path"] == "docs/ui" and event["agent"] == "Explore" for event in events)
+
+
+def test_shell_parser_and_bash_without_command(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    assert mod.shell_segments("cd docs && rg x . | sort; echo done") == [
+        ["cd", "docs"], ["rg", "x", "."], ["sort"], ["echo", "done"]]
+    assert mod.shell_segments("echo 'unterminated") == []
+    run_main(mod, monkeypatch, ["bash"], json.dumps({"tool_name": "Bash", "tool_input": {}}))
+    assert read_history(tmp_path) == []
+
+
 def test_prompt_modes(tmp_path, monkeypatch):
     conf_dir = tmp_path / ".trigger-tree"
     conf_dir.mkdir()

@@ -5,6 +5,7 @@ Events (first argument):
   session  SessionStart hook
   prompt   UserPromptSubmit hook (respects TT_LOG_PROMPTS: truncate|hash|off)
   read     PostToolUse on Read|Glob|Grep (Read → "read", Glob/Grep → "scan")
+  bash     PostToolUse on Bash (explicit rg/grep/find doc targets → "scan")
   skill    PostToolUse on Skill (logs the skill name)
   note     manual annotation: tt-log.py note "text" (e.g. "sharpened UX router")
   ingest   external adapter entry point: tt-log.py ingest '{"t":"read","path":"docs/x.md"}'
@@ -19,7 +20,9 @@ Hooks must never disturb the session: every failure exits 0 silently.
 import hashlib
 import json
 import os
+import posixpath
 import re
+import shlex
 import sys
 import time
 
@@ -73,6 +76,59 @@ def rel_path(target):
     t = target.replace("\\", "/")
     root = ROOT.replace("\\", "/").rstrip("/") + "/"
     return t[len(root):] if t.startswith(root) else t
+
+
+def shell_segments(command):
+    """Tokenize a shell command without executing it, split at control operators."""
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars="|;&")
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        return []
+    segments, current = [], []
+    for token in tokens:
+        if token and all(ch in "|;&" for ch in token):
+            if current:
+                segments.append(current)
+                current = []
+        else:
+            current.append(token)
+    if current:
+        segments.append(current)
+    return segments
+
+
+def bash_scan_paths(command, scan_regex):
+    """Return doc targets of explicit rg/grep/find commands, never their contents.
+
+    Only existing path arguments are considered. This deliberately avoids guessing
+    that arbitrary Bash commands or search patterns are documentation lookups.
+    Multiple file arguments collapse to their common directory so one shell search
+    produces one scan event rather than inflating the hunting count.
+    """
+    found = []
+    for segment in shell_segments(command):
+        tool_i = None
+        for i, token in enumerate(segment):
+            if os.path.basename(token).lower() in ("rg", "grep", "find"):
+                tool_i = i
+                break
+        if tool_i is None:
+            continue
+        targets = []
+        for token in segment[tool_i + 1:]:
+            candidate = token if os.path.isabs(token) else os.path.join(ROOT, token)
+            if os.path.exists(candidate):
+                rel = rel_path(os.path.abspath(candidate)).rstrip("/") or "."
+                if re.search(scan_regex, rel):
+                    targets.append(rel if os.path.isdir(candidate) else posixpath.dirname(rel))
+        targets = [target for target in targets if target]
+        if targets:
+            common = posixpath.commonpath(targets)
+            if common not in found and re.search(scan_regex, common):
+                found.append(common)
+    return found
 
 
 def main():
@@ -140,6 +196,12 @@ def main():
             return
         append({"t": typ, "ts": ts, "session": session, "tool": tool,
                 "path": rel, "agent": agent}, rotate)
+
+    elif event == "bash":
+        command = (data.get("tool_input") or {}).get("command", "")
+        for path in bash_scan_paths(command, cfg["TT_SCAN_REGEX"]):
+            append({"t": "scan", "ts": ts, "session": session, "tool": "Bash",
+                    "path": path, "agent": agent}, rotate)
 
     elif event == "skill":
         name = (data.get("tool_input") or {}).get("skill", "")

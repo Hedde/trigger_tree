@@ -97,14 +97,14 @@ trigger-tree registers three lightweight hooks — full transparency:
 |------|-------|---------|
 | SessionStart | new session | session marker |
 | UserPromptSubmit | your prompt | task marker (text configurable: truncate/hash/off) |
-| PostToolUse | `Read\|Glob\|Grep` and `Skill` | doc path + tool + agent, or skill name |
+| PostToolUse | `Read\|Glob\|Grep`, `Skill`, and Bash | doc reads, native searches, skill names, plus explicit `rg`/`grep`/`find` doc targets |
 
 1. **Hooks log shell-side** to `$PROJECT/.trigger-tree/history.jsonl` — zero model
    tokens, a few milliseconds per tool call, and a logging failure can never break
    your session (loggers always exit 0).
 2. **The aggregator is deterministic** — all counting happens in
    `tt-stats.py`; the model only interprets, never computes.
-3. **Discovery stays model-driven** — your CLAUDE.md remains the router. trigger-tree *measures* it; it never injects context or overrides routing.
+3. **Discovery stays model-driven** — your CLAUDE.md remains the router. trigger-tree *measures* it; it never injects context or overrides routing. Bash searches count only when `rg`, `grep`, or `find` explicitly targets an existing documentation path; search output is never treated as a read.
 
 Subagent reads are attributed (`Explore`, `Plan`, …). Auto-loaded context
 (CLAUDE.md, `.claude/rules`) is invisible to Read-telemetry by design and excluded
@@ -190,7 +190,7 @@ Optional per-project override: `.trigger-tree/config.sh` (create it with
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `TT_WATCH_REGEX` | docs/agents/skills/agent-briefs + CLAUDE/AGENTS.md | which reads count as documentation |
-| `TT_SCAN_REGEX` | doc folders | which Glob/Grep targets count as hunting |
+| `TT_SCAN_REGEX` | doc folders | which Glob/Grep and explicit Bash-search targets count as hunting |
 | `TT_ALWAYS_LOADED_REGEX` | CLAUDE/AGENTS.md, .claude/rules\|skills | auto-loaded files, excluded from cold analysis |
 | `TT_LOG_PROMPTS` | `truncate` | `truncate` (200 chars) · `hash` (sha1 only) · `off` (marker only) |
 | `TT_ROTATE_BYTES` | 5 MB | rotate history.jsonl to a timestamped archive beyond this size |
@@ -261,7 +261,7 @@ Honesty over marketing — know what the measurement can and cannot see:
 machine, gitignored.
 
 **Does this slow Claude down?** No tokens are ever spent; the hook adds a few
-milliseconds of shell time per Read/Glob/Grep call.
+milliseconds of shell time per relevant tool call.
 
 **Why does the statusline say "0 docs consulted" at session start?** CLAUDE.md is
 injected into the system prompt, not read via tools — the router is loaded, but

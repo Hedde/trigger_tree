@@ -38,6 +38,15 @@
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py skill || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py skill"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py bash || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py bash"
+          }
+        ]
       }
     ]
   }

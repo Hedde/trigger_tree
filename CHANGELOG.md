@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.1 — 2026-07-18
+
+- **Bash doc searches are visible.** PostToolUse telemetry now recognizes executed
+  `rg`, `grep`, and `find` command segments when they explicitly target existing
+  documentation paths. They appear as scans, never reads, so the live prompt view
+  no longer reports `0 scans` while the transcript visibly contains `rg` lookups.
+- Classification is deliberately conservative and private: commands, patterns,
+  output, nonexistent paths, source-code searches, and quoted mentions of `rg` are
+  not logged. Repeated search segments targeting the same folder in one Bash call
+  produce one scan.
+
 ## 0.6.0 — 2026-07-17
 
 - **Prompt navigation is directional and predictable.** ← always moves older and
