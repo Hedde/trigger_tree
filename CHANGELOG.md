@@ -8,6 +8,9 @@
   only a later Read hook moves it to `1 read · 1 scan`.
 - The hook manifest itself is regression-tested, ensuring Bash, native search/read,
   and Skill events cannot silently lose their logger route.
+- Arrow escape decoding now tolerates briefly delayed bytes on loaded terminals;
+  the previous 30 ms window proved flaky on a macOS CI runner and could recreate
+  the same ignored/right-arrow symptom under local system load.
 
 ## 0.6.1 — 2026-07-18
 

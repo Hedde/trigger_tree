@@ -70,6 +70,7 @@ GREEN, AMBER, RED = 114, 214, 196  # three heat tiers, matching the website demo
 DEAD, DIM, WHITE, FOLDER = 240, 245, 231, 250
 BUCKET_LIMIT = 20       # detailed per-prompt buckets kept for browsing (totals aggregate all)
 EVENTS_PER_BUCKET = 500  # cap against runaway tasks flooding one bucket
+ESCAPE_BYTE_TIMEOUT = 0.2  # tolerate delayed terminal bytes on loaded machines
 PULSE_SECS = 1.4        # how long a flash takes to fade
 RIPPLE_DELAY = 0.09     # per tree level, leaf → root
 
@@ -394,7 +395,7 @@ def read_key(fd):
         # consuming briefly until its final byte instead of leaving `[` behind
         # to be mistaken for "previous" on the next keypress.
         tail = bytearray()
-        while len(tail) < 16 and select.select([fd], [], [], 0.03)[0]:
+        while len(tail) < 16 and select.select([fd], [], [], ESCAPE_BYTE_TIMEOUT)[0]:
             part = os.read(fd, 1)
             if not part:  # EOF after a lone escape; do not spin on a readable pipe
                 return ""
