@@ -75,6 +75,15 @@ def main():
         f"<p class=muted>Period {esc(s['observed_from'])} → {esc(s['observed_to'])} "
         f"({esc(s.get('observed_days', 0))} days) · maturity: <b>{esc(maturity)}</b></p>"
     )
+    h = s.get("health")
+    if h:
+        provisional = "" if maturity == "mature" else " · provisional (measurement still young)"
+        parts.append(
+            "<div class=note style='display:flex;gap:1.1rem;align-items:center'>"
+            f"<span style='font-size:2.4rem;font-weight:700'>{esc(h['grade'])}</span>"
+            f"<span><b>Documentation health — {h['score']}/100</b>{esc(provisional)}<br>"
+            "<small class=muted>" + " · ".join(esc(d) for d in h["drivers"]) + "</small></span></div>"
+        )
     parts.append(
         "<div class=kpi>"
         f"<div><b>{t['reads']}</b>reads</div>"

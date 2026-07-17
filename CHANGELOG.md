@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.2 — 2026-07-17
+
+- **Dashboard visual parity with the website demo**: three-tier heat palette
+  (green → amber → red), clean folder lines (untouched counters only appear when
+  files are collapsed), "just now" ticker, dim `q quit` hint line.
+- **Documentation health grade**: deterministic A–F score (coverage, router gaps,
+  hunting ratio) in stats, `/tt status`, `/tt insights` and as hero card in the
+  HTML report — one number a product owner can track sprint over sprint.
+
 ## 0.3.1 — 2026-07-17
 
 - `/tt watch` on macOS now stays in the terminal you called it from: iTerm2 users

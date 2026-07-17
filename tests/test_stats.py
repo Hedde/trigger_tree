@@ -29,6 +29,7 @@ def test_pure_helpers():
     assert mod.jaccard(["a", "b"], ["a", "c"]) == 1 / 3
     assert mod.fingerprint(["b", "a"]) == mod.fingerprint(["a", "b"])
     assert mod._conf_regex("nothing here", "TT_MISSING", r"^fallback$").pattern == "^fallback$"
+    assert [mod.grade_for(x) for x in (95, 80, 65, 50, 10)] == ["A", "B", "C", "D", "F"]
 
 
 def test_load_events_skips_torn_lines(tmp_path):
@@ -63,6 +64,11 @@ def test_fixture_full_run(monkeypatch):
     assert s["clusters"][0]["count"] == 2 and s["clusters"][0]["variants"] == 2
     assert "docs/design/ui-patterns.md" in s["clusters"][0]["paths"]
     assert {"pair": ["docs/README.md", "docs/design/ui-patterns.md"], "count": 2} in s["co_read_top"]
+
+    assert s["health"] == {"score": 51, "grade": "D", "coverage": 0.42,
+                           "drivers": ["18 of 33 docs untouched",
+                                       "11 router gaps (untouched and unreferenced)",
+                                       "hunting ratio 0.12"]}
 
     # router-gap detection: accessibility.md is untouched AND unreferenced;
     # workflow.md is untouched but development/index.md mentions it

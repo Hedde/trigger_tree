@@ -108,6 +108,11 @@ def observed_days(timestamps):
     return round((last - first).total_seconds() / 86400, 2)
 
 
+def grade_for(score):
+    return ("A" if score >= 90 else "B" if score >= 75 else
+            "C" if score >= 60 else "D" if score >= 45 else "F")
+
+
 def jaccard(a, b):
     a, b = set(a), set(b)
     return len(a & b) / len(a | b) if a | b else 0.0
@@ -259,12 +264,31 @@ def main():
         for k, v in sorted(folder_map.items())
     ]
 
+    # Documentation health: one deterministic grade a product owner can track.
+    router_gaps = sum(1 for d in untouched_detail if not d["referenced_from"])
+    denom = max(1, len(docs) - len(always_loaded))
+    coverage_overall = round(len(touched_paths & set(docs)) / denom, 2)
+    hunting_ratio = round(len(scans) / len(reads), 2) if reads else 0.0
+    score = max(0, min(100, round(
+        100 - (1 - coverage_overall) * 40 - min(20, router_gaps * 4) - min(20, hunting_ratio * 50))))
+    health = {
+        "score": score,
+        "grade": grade_for(score),
+        "coverage": coverage_overall,
+        "drivers": [
+            f"{len(untouched)} of {len(docs)} docs untouched",
+            f"{router_gaps} router gaps (untouched and unreferenced)",
+            f"hunting ratio {hunting_ratio}",
+        ],
+    }
+
     out = {
         "observed_from": timestamps[0] if timestamps else None,
         "observed_to": timestamps[-1] if timestamps else None,
         "observed_days": days,
         "sessions": len(sessions),
         "maturity": maturity,
+        "health": health,
         "totals": {
             "events": len(events),
             "reads": len(reads),

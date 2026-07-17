@@ -52,6 +52,7 @@ Show exactly this, nothing above or below it:
 
 > **🌳 Trigger Tree status** _(period: <observed_from> → <observed_to>, <sessions> sessions)_
 > <reads> reads · <scans> scans · <skill_uses> skill uses · <files touched>/<inventory_files> files touched
+> **Health:** <health.grade> (<health.score>/100) — append "(provisional)" unless maturity is `mature`
 >
 > **Most consulted:** top 5 from `files` as `path (n×)`, comma-separated.
 > **Untouched:** <count of untouched> — followed by the maturity suffix:
@@ -80,6 +81,7 @@ Show exactly this, nothing above or below it:
 
 > **🌳 Trigger Tree insights** _(period, #sessions, maturity)_
 >
+> **Health** — grade + score with its three drivers, one line ("(provisional)" unless mature).
 > **Key figures** — reads, scans (hunting ratio), skill uses, files touched / inventory.
 > **Folder heat/cold map** — from `folders`: name the hottest folder (reads) and the
 > coldest (lowest coverage), one line each.

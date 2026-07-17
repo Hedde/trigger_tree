@@ -33,7 +33,9 @@ def test_heat_and_node_color():
     mod = load_script("tt-watch.py", FIXTURE)
     app = mod.App([])
     assert app._heat(0, 10) == mod.DEAD
-    assert app._heat(10, 10) == mod.HEAT[-1]
+    assert app._heat(1, 1000) == mod.GREEN
+    assert app._heat(8, 20) == mod.AMBER
+    assert app._heat(10, 10) == mod.RED
     assert app._node_color(100, 0.9) == (mod.WHITE, True)
     assert app._node_color(100, 0.5) == (229, True)
     assert app._node_color(100, 0.0) == (100, False)
@@ -46,10 +48,10 @@ def test_render_and_truncation():
     app.feed({"t": "read", "path": "docs/f00.md", "session": "S"})
     frame = "\n".join(app.render(time.time(), width=100, height=14))
     assert "TRIGGER TREE" in frame
-    assert "quiet files hidden" in frame
+    assert "untouched" in frame  # quiet files collapse into a folder counter
     import re
     plain = re.sub(r"\x1b\[[0-9;]*m", "", frame)
-    assert "1 reads" in plain
+    assert "1 reads" in plain and "q quit" in plain
 
 
 def test_tail_handles_rotation(tmp_path):
@@ -82,7 +84,7 @@ def test_render_hard_truncation_of_read_files():
     for f in files:  # every file read: quiet-file dropping can't help
         app.feed({"t": "read", "path": f, "session": "S"}, live=False)
     frame = "\n".join(app.render(time.time(), width=100, height=12))
-    assert "quiet files hidden" in frame
+    assert "files hidden" in frame
 
 
 def test_demo_event_generator():

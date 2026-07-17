@@ -28,7 +28,8 @@ def test_full_report_on_fixture(monkeypatch, capsys):
     for expected in ("<title>Trigger Tree Report</title>", "Most consulted", "Skill usage",
                      "Untouched paths (cold map)", "Folder heat", "router gap",
                      "referenced from", "Trend", "sharpened UX router", "Task clusters",
-                     "Most often read together", "cold-start"):
+                     "Most often read together", "cold-start",
+                     "Documentation health", "provisional"):
         assert expected in html, expected
     os.remove(out_path)  # keep the fixture clean for other tests
 

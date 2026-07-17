@@ -44,7 +44,7 @@ BASES = ["docs", "agents", "skills", "agent-briefs", ".claude/rules", ".claude/s
 
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 SPARK = " ▁▂▃▄▅▆▇█"
-HEAT = [108, 114, 148, 178, 214, 208, 202, 196]  # green → yellow → orange → red
+GREEN, AMBER, RED = 114, 214, 196  # three heat tiers, matching the website demo
 DEAD, DIM, WHITE, FOLDER = 240, 245, 231, 250
 PULSE_SECS = 1.4        # how long a flash takes to fade
 RIPPLE_DELAY = 0.09     # per tree level, leaf → root
@@ -168,8 +168,12 @@ class App:
     def _heat(self, count, max_count):
         if count <= 0:
             return DEAD
-        idx = int((len(HEAT) - 1) * (math.log1p(count) / math.log1p(max(max_count, 2))) + 1e-9)
-        return HEAT[min(idx, len(HEAT) - 1)]
+        level = math.log1p(count) / math.log1p(max(max_count, 2))
+        if level < 0.45:
+            return GREEN
+        if level < 0.8:
+            return AMBER
+        return RED
 
     def _node_color(self, base, glow):
         if glow > 0.66:
@@ -181,8 +185,8 @@ class App:
     def render(self, now, width, height):
         max_count = max(self.counts.values(), default=0)
         spin = SPINNER[int(now * 10) % len(SPINNER)]
-        lines = [
-            c256(114, f" {spin} ", bold=True)
+        header = [
+            c256(GREEN, f" {spin} ", bold=True)
             + c256(WHITE, "TRIGGER TREE", bold=True)
             + c256(DIM, f"  {os.path.basename(ROOT)} · live doc-discovery"),
             "",
@@ -193,24 +197,29 @@ class App:
         for f in sorted(self.files):
             folders.setdefault(os.path.dirname(f), []).append(f)
 
+        ticker_lines = min(3, len(self.ticker))
+        fixed = len(header) + 2 + ticker_lines + 1  # footer + hint line
+        budget = max(4, height - fixed)
+        total = sum((1 if d else 0) + len(fs) for d, fs in folders.items())
+        hide_quiet = total > budget
+
         body = []
         for folder in sorted(folders, key=lambda d: (d != "", d)):
             files = folders[folder]
+            if hide_quiet:
+                shown = [f for f in files if self.counts[f] or self._glow(f, now) > 0]
+            else:
+                shown = files
+            hidden = len(files) - len(shown)
             if folder:
-                fcount = sum(self.counts[f] for f in files)
-                color, bold = self._node_color(
-                    FOLDER if fcount else DEAD, self._glow(folder, now)
-                )
-                quiet = sum(1 for f in files if not self.counts[f])
-                suffix = c256(DEAD, f"  ·{quiet} untouched") if quiet else ""
-                body.append(
-                    (folder, True, c256(color, f" {folder}/", bold) + suffix)
-                )
-            for i, f in enumerate(files):
+                color, bold = self._node_color(FOLDER, self._glow(folder, now))
+                suffix = c256(DEAD, f"  ·{hidden} untouched") if hidden else ""
+                body.append(c256(color, f" {folder}/", bold) + suffix)
+            for i, f in enumerate(shown):
                 count = self.counts[f]
                 glow = self._glow(f, now)
                 color, bold = self._node_color(self._heat(count, max_count), glow)
-                branch = "└─" if i == len(files) - 1 else "├─"
+                branch = "└─" if i == len(shown) - 1 else "├─"
                 name = os.path.basename(f) if folder else f
                 if len(name) > 34:
                     name = name[:33] + "…"
@@ -222,43 +231,30 @@ class App:
                 else:
                     stat = c256(DEAD, f"· {0:>3}")
                 prefix = f"   {branch} " if folder else " "
-                body.append(
-                    (f, False,
-                     c256(244 if folder else DIM, prefix)
-                     + c256(color, name, bold) + pad + stat)
-                )
+                body.append(c256(244 if folder else DIM, prefix)
+                            + c256(color, name, bold) + pad + stat)
 
-        # fit to screen: drop quiet files first, then truncate
-        budget = height - len(lines) - 5
         if len(body) > budget:
-            keep, dropped = [], 0
-            for path, is_folder, text in body:
-                if is_folder or self.counts.get(path) or self._glow(path, now) > 0:
-                    keep.append((path, is_folder, text))
-                else:
-                    dropped += 1
-            body = keep
-            if len(body) > budget:
-                body, extra = body[:budget], len(body) - budget
-                dropped += extra
-            if dropped:
-                body.append(("", True, c256(DEAD, f"   … {dropped} quiet files hidden")))
+            hidden_extra = len(body) - budget
+            body = body[:budget]
+            body.append(c256(DEAD, f"   … {hidden_extra} files hidden"))
 
-        lines.extend(text for _, _, text in body)
+        lines = header + body
         lines.append("")
         lines.append(
             c256(DIM, " ")
-            + c256(WHITE, f"{self.total_reads}") + c256(DIM, " reads · ")
-            + c256(WHITE, f"{self.total_scans}") + c256(DIM, " scans (hunting) · ")
-            + c256(WHITE, f"{self.total_skills}") + c256(DIM, " skill uses · ")
-            + c256(WHITE, f"{len(self.sessions)}") + c256(DIM, " sessions")
+            + c256(WHITE, f"{self.total_reads}", bold=True) + c256(DIM, " reads · ")
+            + c256(WHITE, f"{self.total_scans}", bold=True) + c256(DIM, " scans (hunting) · ")
+            + c256(WHITE, f"{self.total_skills}", bold=True) + c256(DIM, " skill uses · ")
+            + c256(WHITE, f"{len(self.sessions)}", bold=True) + c256(DIM, " sessions")
         )
         for ts, icon, path, agent in list(self.ticker)[:3]:
             age = now - ts
-            agestr = f"{age:.0f}s" if age < 60 else f"{age/60:.0f}m"
+            agestr = "just now" if age < 3 else (f"{age:.0f}s ago" if age < 60 else f"{age/60:.0f}m ago")
             who = "" if agent == "main" else f" [{agent}]"
             fade = DIM if age < 8 else DEAD
-            lines.append(c256(fade, f"   {icon} {path}{who} · {agestr} ago"))
+            lines.append(c256(fade, f"   {icon} {path}{who} · {agestr}"))
+        lines.append(c256(DEAD, "   q quit · every flash is a doc read rippling up the tree"))
         return [ln[: width * 4] for ln in lines[:height]]  # *4: ANSI codes don't count
 
 
