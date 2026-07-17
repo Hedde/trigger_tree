@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2 — 2026-07-17
+
+- **Liveness heartbeat** in the dashboard hint line: "live · last event 12s ago",
+  or "listening for doc reads (injected context never shows here)" when nothing
+  has arrived yet — answers "is it stale or is nothing happening?" at a glance.
+
 ## 0.4.1 — 2026-07-17
 
 - Launcher pane messages now explain exit causes: SIGTERM/SIGINT (e.g. an external

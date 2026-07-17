@@ -51,7 +51,7 @@ def test_render_and_truncation():
     assert "untouched" in frame  # quiet files collapse into a folder counter
     import re
     plain = re.sub(r"\x1b\[[0-9;]*m", "", frame)
-    assert "1 reads" in plain and "q quit" in plain
+    assert "1 reads" in plain and "q quit" in plain and "last event just now" in plain
 
 
 def test_partial_or_broken_config_never_crashes(tmp_path):
@@ -92,6 +92,17 @@ def test_feed_discovers_unknown_path_and_long_names():
     app.feed({"t": "read", "path": long_name, "session": "S"})
     frame = "\n".join(app.render(time.time(), width=120, height=40))
     assert "…" in frame  # long basename truncated
+
+
+def test_heartbeat_when_no_live_events():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md"])
+    app.feed({"t": "read", "path": "docs/a.md", "session": "S"}, live=False)
+    frame = "\n".join(app.render(time.time(), width=100, height=30))
+    assert "listening for doc reads" in frame
+    app.last_event = time.time() - 120
+    frame = "\n".join(app.render(time.time(), width=100, height=30))
+    assert "last event 2m ago" in frame
 
 
 def test_render_hard_truncation_of_read_files():

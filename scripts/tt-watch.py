@@ -143,9 +143,12 @@ class App:
         self.total_scans = 0
         self.total_skills = 0
         self.sessions = set()
+        self.last_event = None  # wall-clock of the last live-fed event
 
     def feed(self, ev, live=True):
         t = ev.get("t")
+        if live:
+            self.last_event = time.time()
         self.sessions.add(ev.get("session", "?"))
         if t == "read":
             path = ev["path"]
@@ -276,7 +279,13 @@ class App:
             who = "" if agent == "main" else f" [{agent}]"
             fade = DIM if age < 8 else DEAD
             lines.append(c256(fade, f"   {icon} {path}{who} · {agestr}"))
-        lines.append(c256(DEAD, "   q quit · every flash is a doc read rippling up the tree"))
+        if self.last_event is None:
+            beat = "listening for doc reads (injected context never shows here)"
+        else:
+            age = now - self.last_event
+            beat = "last event just now" if age < 3 else (
+                f"last event {age:.0f}s ago" if age < 60 else f"last event {age/60:.0f}m ago")
+        lines.append(c256(DEAD, f"   q quit · live · {beat}"))
         return [ln[: width * 4] for ln in lines[:height]]  # *4: ANSI codes don't count
 
 
