@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.6 — 2026-07-17
+
+- **Positioning, research-backed**: README and site now state the validated gap —
+  agent observability tools measure tokens/traces, none measure per-task doc reads;
+  Anthropic's guidance says to prune CLAUDE.md but nothing validates the pruning;
+  the Fallow analogy (unused code → unused docs). Added a who-is-it-for table and
+  an honest Limitations section (official-plugin convention).
+
 ## 0.3.5 — 2026-07-17
 
 - **Branding: lowercase everywhere.** The plugin now presents itself as

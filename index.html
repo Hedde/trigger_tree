@@ -91,6 +91,10 @@
   read protects nothing</b> — an unread guardrail fails silently, and you only notice when the AI "ignores" a
   convention it simply never found. trigger-tree measures what actually gets read, flags what never does, and
   proves whether your fixes worked. Documentation becomes monitored infrastructure instead of a hopeful artifact.</p>
+  <p style="color:var(--muted);max-width:720px">And this metric exists nowhere else: agent observability platforms measure
+  tokens and traces — <b style="color:var(--fg)">none measure which of your docs the assistant actually read</b>.
+  Anthropic's own guidance says to keep CLAUDE.md lean; trigger-tree is the evidence that tells you what to prune,
+  what to reroute, and what to rescue.</p>
 
   <h2>Install</h2>
   <pre class="block">/plugin marketplace add Hedde/trigger_tree
