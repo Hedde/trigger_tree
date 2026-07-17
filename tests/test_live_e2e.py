@@ -55,7 +55,7 @@ def test_bash_lookup_then_read_improves_live_measurement_iteratively(tmp_path):
     time.sleep(0.7)
     log("bash", {
         "session_id": "e2e-bash", "agent_type": "Explore", "tool_name": "Bash",
-        "tool_input": {"command": f'rg -il "empty.state|empty_state" "{docs}" | sort'},
+        "tool_input": {"command": f'rg -il "empty.state|empty_state" "{docs.as_posix()}" | sort'},
     })
     time.sleep(0.9)  # watcher must render the scan-only intermediate state
     log("read", {
