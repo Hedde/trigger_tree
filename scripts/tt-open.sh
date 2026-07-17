@@ -46,8 +46,11 @@ case "$(uname)" in
       {
         printf '#!/bin/bash\n%s\n' "$CMD"
         printf 'status=$?\n'
-        printf 'if [ $status -ne 0 ]; then\n'
-        printf '  echo; echo "tt-watch exited with status $status - press Enter to close"\n'
+        printf 'if [ $status -eq 143 ] || [ $status -eq 130 ]; then\n'
+        printf '  echo; echo "tt-watch stopped: terminated from outside (signal $((status-128))) - not a crash. press Enter to close"\n'
+        printf '  read -r\n'
+        printf 'elif [ $status -ne 0 ]; then\n'
+        printf '  echo; echo "tt-watch crashed with status $status - press Enter to close"\n'
         printf '  read -r\nfi\n'
         printf 'rm -f "$0"\n'
       } > "$LAUNCH"

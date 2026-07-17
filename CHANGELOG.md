@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 — 2026-07-17
+
+- Launcher pane messages now explain exit causes: SIGTERM/SIGINT (e.g. an external
+  `kill`) reads "terminated from outside — not a crash" instead of a bare status
+  code; real crashes say "crashed". Ends the status-143 confusion.
+
 ## 0.4.0 — 2026-07-17
 
 - **External ingestion adapter**: `tt-log.py ingest '<event-json>'` — a stable,
