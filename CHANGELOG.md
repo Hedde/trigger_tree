@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0 — 2026-07-17
+
+- **Per-prompt browsing in the dashboard**: `[` and `]` step through every typed
+  prompt; the tree filters to exactly what that input aggregated (reads, scans,
+  skill uses) with the prompt text in the header; `a` returns to live. Reads
+  before the first prompt land in a "(session start)" bucket.
+- **End-to-end regression guard**: a test now spawns the watcher and the logger as
+  separate processes (exactly how real hooks write) and asserts the live tail
+  picks the events up — the "is it updating?" question is CI-proven forever.
+
 ## 0.4.2 — 2026-07-17
 
 - **Liveness heartbeat** in the dashboard hint line: "live · last event 12s ago",

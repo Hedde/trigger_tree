@@ -141,6 +141,10 @@ ripples up through its parent folders, then fades back to its heat color:
    🔍 docs/database [Explore] · 31s ago
 ```
 
+**Browse per prompt**: press `[` and `]` to step through every prompt you typed —
+the tree filters to exactly what was aggregated for that input (its reads, scans
+and skill uses, with the prompt text in the header). `a` returns to the live view.
+
 `--demo` for instant synthetic events, `--replay` to re-run your real history,
 `q` or Ctrl+C to quit.
 

@@ -94,6 +94,70 @@ def test_feed_discovers_unknown_path_and_long_names():
     assert "…" in frame  # long basename truncated
 
 
+def _browse_app(mod):
+    app = mod.App(["docs/a.md", "docs/b.md", "docs/c.md"])
+    app.feed({"t": "prompt", "prompt": "style the buttons", "session": "S", "ts": "2026-07-01T09:00:00Z"})
+    app.feed({"t": "read", "path": "docs/a.md", "session": "S", "ts": "2026-07-01T09:00:05Z"})
+    app.feed({"t": "scan", "path": "docs", "session": "S", "ts": "2026-07-01T09:00:06Z"})
+    app.feed({"t": "prompt", "prompt": "fix the migration", "session": "S", "ts": "2026-07-01T09:05:00Z"})
+    app.feed({"t": "read", "path": "docs/b.md", "session": "S", "ts": "2026-07-01T09:05:05Z"})
+    app.feed({"t": "skill", "skill": "deploy", "session": "S", "ts": "2026-07-01T09:05:09Z"})
+    return app
+
+
+def test_prompt_buckets_and_browsing():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = _browse_app(mod)
+    assert len(app.buckets) == 2
+    assert [b["prompt"] for b in app.buckets] == ["style the buttons", "fix the migration"]
+
+    app.select_prev()                    # from live → newest prompt
+    assert app.selected == 1
+    frame = "\n".join(app.render(time.time(), width=110, height=30))
+    assert "fix the migration" in frame and "▸ prompt 2/2" in frame
+    assert "b.md" in frame and "a.md" not in frame          # filtered to this bucket
+    assert "skill:deploy" in frame and "09:05:09" in frame  # bucket ticker with timestamps
+    assert "] next" in frame
+
+    app.select_prev()
+    assert app.selected == 0
+    frame = "\n".join(app.render(time.time(), width=110, height=30))
+    assert "style the buttons" in frame and "a.md" in frame and "b.md" not in frame
+    app.select_prev()
+    assert app.selected == 0             # clamped at the oldest prompt
+
+    app.select_next()
+    app.select_next()                    # step past newest → back to live
+    assert app.selected is None
+    frame = "\n".join(app.render(time.time(), width=110, height=30))
+    assert "browse prompts" in frame     # live hint restored
+
+
+def test_reads_before_any_prompt_get_a_session_start_bucket():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md"])
+    app.feed({"t": "read", "path": "docs/a.md", "session": "S", "ts": "2026-07-01T08:59:00Z"})
+    assert app.buckets[0]["prompt"] == "(session start)"
+    app.select_prev()
+    assert "(session start)" in "\n".join(app.render(time.time(), width=100, height=30))
+
+
+def test_handle_key_dispatch():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = _browse_app(mod)
+    assert mod.handle_key(app, "q") is True
+    assert mod.handle_key(app, "[") is False and app.selected == 1
+    assert mod.handle_key(app, "]") is False and app.selected is None
+    mod.handle_key(app, "[")
+    assert mod.handle_key(app, "a") is False and app.selected is None
+    assert mod.handle_key(app, "x") is False  # unknown keys are ignored
+    empty = mod.App([])
+    mod.handle_key(empty, "[")               # no buckets: stays live
+    assert empty.selected is None
+    mod.handle_key(empty, "]")               # ] in live mode is a no-op
+    assert empty.selected is None
+
+
 def test_heartbeat_when_no_live_events():
     mod = load_script("tt-watch.py", FIXTURE)
     app = mod.App(["docs/a.md"])

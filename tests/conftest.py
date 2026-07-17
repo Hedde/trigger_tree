@@ -12,6 +12,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(REPO, "scripts")
 FIXTURE = os.path.join(REPO, "tests", "fixture-project")
 
+__all__ = ["REPO", "SCRIPTS", "FIXTURE", "load_script"]
+
 
 def load_script(filename, project_root):
     old = os.environ.get("CLAUDE_PROJECT_DIR")

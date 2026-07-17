@@ -144,12 +144,31 @@ class App:
         self.total_skills = 0
         self.sessions = set()
         self.last_event = None  # wall-clock of the last live-fed event
+        self.buckets = []         # one bucket per typed prompt: its aggregated events
+        self._current = {}        # session -> active bucket
+        self.selected = None      # bucket index while browsing, None = live view
 
     def feed(self, ev, live=True):
         t = ev.get("t")
         if live:
             self.last_event = time.time()
-        self.sessions.add(ev.get("session", "?"))
+        s_id = ev.get("session", "?")
+        self.sessions.add(s_id)
+        if t == "prompt":
+            bucket = {"session": s_id, "ts": ev.get("ts", ""),
+                      "prompt": (ev.get("prompt") or "").strip() or "(prompt)", "events": []}
+            self.buckets.append(bucket)
+            self._current[s_id] = bucket
+        elif t in ("read", "scan", "skill"):
+            bucket = self._current.get(s_id)
+            if bucket is None:
+                bucket = {"session": s_id, "ts": ev.get("ts", ""),
+                          "prompt": "(session start)", "events": []}
+                self.buckets.append(bucket)
+                self._current[s_id] = bucket
+            bucket["events"].append({"t": t, "ts": ev.get("ts", ""),
+                                     "path": ev.get("path") or f"skill:{ev.get('skill', '?')}",
+                                     "agent": ev.get("agent", "main")})
         if t == "read":
             path = ev["path"]
             self.counts[path] += 1
@@ -183,6 +202,21 @@ class App:
             t0 = now + (len(parts) - i) * RIPPLE_DELAY
             self.pulses[node] = max(self.pulses.get(node, 0), t0)
 
+    def select_prev(self):
+        if not self.buckets:
+            return
+        self.selected = len(self.buckets) - 1 if self.selected is None else max(0, self.selected - 1)
+
+    def select_next(self):
+        if self.selected is None:
+            return
+        self.selected += 1
+        if self.selected >= len(self.buckets):
+            self.selected = None  # stepping past the newest prompt returns to live
+
+    def select_live(self):
+        self.selected = None
+
     def _glow(self, node, now):
         t0 = self.pulses.get(node)
         if t0 is None or now < t0:
@@ -208,7 +242,6 @@ class App:
         return base, False
 
     def render(self, now, width, height):
-        max_count = max(self.counts.values(), default=0)
         spin = SPINNER[int(now * 10) % len(SPINNER)]
         header = [
             c256(GREEN, f" {spin} ", bold=True)
@@ -216,10 +249,24 @@ class App:
             + c256(DIM, f"  {os.path.basename(ROOT)} · live doc-discovery"),
             "",
         ]
+        browsing = self.selected is not None and 0 <= self.selected < len(self.buckets)
+        if browsing:
+            b = self.buckets[self.selected]
+            counts = Counter(e["path"] for e in b["events"] if e["t"] == "read")
+            b_scans = sum(1 for e in b["events"] if e["t"] == "scan")
+            prompt_txt = b["prompt"][:56] + ("…" if len(b["prompt"]) > 56 else "")
+            header.insert(1, c256(AMBER, f" ▸ prompt {self.selected + 1}/{len(self.buckets)} ", bold=True)
+                          + c256(WHITE, f'"{prompt_txt}"')
+                          + c256(DIM, f" · {sum(counts.values())} reads · {b_scans} scans"))
+            files_src = sorted(counts)
+        else:
+            counts = self.counts
+            files_src = self.files
+        max_count = max(counts.values(), default=0)
 
         # group files per folder ("" = repo root)
         folders = {}
-        for f in sorted(self.files):
+        for f in sorted(files_src):
             folders.setdefault(os.path.dirname(f), []).append(f)
 
         ticker_lines = min(3, len(self.ticker))
@@ -232,7 +279,7 @@ class App:
         for folder in sorted(folders, key=lambda d: (d != "", d)):
             files = folders[folder]
             if hide_quiet:
-                shown = [f for f in files if self.counts[f] or self._glow(f, now) > 0]
+                shown = [f for f in files if counts[f] or self._glow(f, now) > 0]
             else:
                 shown = files
             hidden = len(files) - len(shown)
@@ -241,7 +288,7 @@ class App:
                 suffix = c256(DEAD, f"  ·{hidden} untouched") if hidden else ""
                 body.append(c256(color, f" {folder}/", bold) + suffix)
             for i, f in enumerate(shown):
-                count = self.counts[f]
+                count = counts[f]
                 glow = self._glow(f, now)
                 color, bold = self._node_color(self._heat(count, max_count), glow)
                 branch = "└─" if i == len(shown) - 1 else "├─"
@@ -273,20 +320,43 @@ class App:
             + c256(WHITE, f"{self.total_skills}", bold=True) + c256(DIM, " skill uses · ")
             + c256(WHITE, f"{len(self.sessions)}", bold=True) + c256(DIM, " sessions")
         )
-        for ts, icon, path, agent in list(self.ticker)[:3]:
-            age = now - ts
-            agestr = "just now" if age < 3 else (f"{age:.0f}s ago" if age < 60 else f"{age/60:.0f}m ago")
-            who = "" if agent == "main" else f" [{agent}]"
-            fade = DIM if age < 8 else DEAD
-            lines.append(c256(fade, f"   {icon} {path}{who} · {agestr}"))
-        if self.last_event is None:
-            beat = "listening for doc reads (injected context never shows here)"
+        if browsing:
+            icons = {"read": "●", "scan": "🔍", "skill": "⚡"}
+            for e in self.buckets[self.selected]["events"][-3:]:
+                who = "" if e["agent"] == "main" else f" [{e['agent']}]"
+                stamp = (e["ts"] or "")[11:19]
+                lines.append(c256(DIM, f"   {icons[e['t']]} {e['path']}{who} · {stamp}"))
         else:
-            age = now - self.last_event
-            beat = "last event just now" if age < 3 else (
-                f"last event {age:.0f}s ago" if age < 60 else f"last event {age/60:.0f}m ago")
-        lines.append(c256(DEAD, f"   q quit · live · {beat}"))
+            for ts, icon, path, agent in list(self.ticker)[:3]:
+                age = now - ts
+                agestr = "just now" if age < 3 else (f"{age:.0f}s ago" if age < 60 else f"{age/60:.0f}m ago")
+                who = "" if agent == "main" else f" [{agent}]"
+                fade = DIM if age < 8 else DEAD
+                lines.append(c256(fade, f"   {icon} {path}{who} · {agestr}"))
+        if browsing:
+            lines.append(c256(DEAD, "   [ prev · ] next · a live · q quit"))
+        else:
+            if self.last_event is None:
+                beat = "listening for doc reads (injected context never shows here)"
+            else:
+                age = now - self.last_event
+                beat = "last event just now" if age < 3 else (
+                    f"last event {age:.0f}s ago" if age < 60 else f"last event {age/60:.0f}m ago")
+            lines.append(c256(DEAD, f"   [ ] browse prompts · q quit · live · {beat}"))
         return [ln[: width * 4] for ln in lines[:height]]  # *4: ANSI codes don't count
+
+
+def handle_key(app, ch):
+    """Key dispatch for the interactive loop. Returns True when the watcher should quit."""
+    if ch in ("q", "Q"):
+        return True
+    if ch == "[":
+        app.select_prev()
+    elif ch == "]":
+        app.select_next()
+    elif ch in ("a", "A"):
+        app.select_live()
+    return False
 
 
 def demo_event(files, rng):
@@ -345,10 +415,10 @@ def main():
                 break
             if os.name == "nt" and stdin_tty:  # pragma: no cover — Windows console keys
                 import msvcrt
-                if msvcrt.kbhit() and msvcrt.getwch() in ("q", "Q"):
+                if msvcrt.kbhit() and handle_key(app, msvcrt.getwch()):
                     break
             elif use_termios and select.select([sys.stdin], [], [], 0)[0]:  # pragma: no cover
-                if sys.stdin.read(1) in ("q", "Q"):
+                if handle_key(app, sys.stdin.read(1)):
                     break
             if args.demo and now >= next_evt:
                 app.feed(next(demo))
