@@ -1,11 +1,29 @@
 {"t":"session","ts":"2026-07-01T09:00:00Z","session":"A"}
-{"t":"prompt","ts":"2026-07-01T09:00:05Z","session":"A","prompt":"improve the button styling"}
-{"t":"read","ts":"2026-07-01T09:00:10Z","session":"A","tool":"Read","path":"docs/a.md","agent":"main"}
-{"t":"read","ts":"2026-07-01T09:00:12Z","session":"A","tool":"Read","path":"docs/sub/b.md","agent":"Explore"}
-{"t":"scan","ts":"2026-07-01T09:00:14Z","session":"A","tool":"Grep","path":"docs","agent":"main"}
-{"t":"skill","ts":"2026-07-01T09:00:20Z","session":"A","skill":"deploy","agent":"main"}
+{"t":"prompt","ts":"2026-07-01T09:00:05Z","session":"A","prompt":"improve the button styling on the settings page"}
+{"t":"read","ts":"2026-07-01T09:00:10Z","session":"A","tool":"Read","path":"docs/README.md","agent":"main"}
+{"t":"read","ts":"2026-07-01T09:00:14Z","session":"A","tool":"Read","path":"docs/design/index.md","agent":"main"}
+{"t":"read","ts":"2026-07-01T09:00:18Z","session":"A","tool":"Read","path":"docs/design/principles.md","agent":"main"}
+{"t":"read","ts":"2026-07-01T09:00:22Z","session":"A","tool":"Read","path":"docs/design/ui-patterns.md","agent":"main"}
+{"t":"read","ts":"2026-07-01T09:00:26Z","session":"A","tool":"Read","path":"agents/ux-designer.md","agent":"Explore"}
+{"t":"scan","ts":"2026-07-01T09:00:30Z","session":"A","tool":"Grep","path":"docs","agent":"main"}
+{"t":"skill","ts":"2026-07-01T09:05:00Z","session":"A","skill":"deploy","agent":"main"}
 {"t":"note","ts":"2026-07-01T10:00:00Z","session":"A","text":"sharpened UX router"}
 {"t":"session","ts":"2026-07-02T09:00:00Z","session":"B"}
-{"t":"prompt","ts":"2026-07-02T09:00:05Z","session":"B","prompt":"more button styling work"}
-{"t":"read","ts":"2026-07-02T09:00:10Z","session":"B","tool":"Read","path":"docs/a.md","agent":"main"}
-{"t":"read","ts":"2026-07-02T09:00:12Z","session":"B","tool":"Read","path":"docs/sub/b.md","agent":"main"}
+{"t":"prompt","ts":"2026-07-02T09:00:05Z","session":"B","prompt":"more button styling work - hover states"}
+{"t":"read","ts":"2026-07-02T09:00:10Z","session":"B","tool":"Read","path":"docs/README.md","agent":"main"}
+{"t":"read","ts":"2026-07-02T09:00:14Z","session":"B","tool":"Read","path":"docs/design/index.md","agent":"main"}
+{"t":"read","ts":"2026-07-02T09:00:18Z","session":"B","tool":"Read","path":"docs/design/principles.md","agent":"main"}
+{"t":"read","ts":"2026-07-02T09:00:22Z","session":"B","tool":"Read","path":"docs/design/ui-patterns.md","agent":"main"}
+{"t":"session","ts":"2026-07-03T09:00:00Z","session":"C"}
+{"t":"prompt","ts":"2026-07-03T09:00:05Z","session":"C","prompt":"add a tenant_id column to the invoices table"}
+{"t":"read","ts":"2026-07-03T09:00:10Z","session":"C","tool":"Read","path":"docs/README.md","agent":"main"}
+{"t":"read","ts":"2026-07-03T09:00:14Z","session":"C","tool":"Read","path":"docs/database/index.md","agent":"main"}
+{"t":"read","ts":"2026-07-03T09:00:18Z","session":"C","tool":"Read","path":"docs/database/principles.md","agent":"main"}
+{"t":"read","ts":"2026-07-03T09:00:22Z","session":"C","tool":"Read","path":"docs/database/migrations.md","agent":"Plan"}
+{"t":"read","ts":"2026-07-03T09:00:26Z","session":"C","tool":"Read","path":"docs/architecture/database.md","agent":"Plan"}
+{"t":"read","ts":"2026-07-03T09:00:30Z","session":"C","tool":"Read","path":"agents/database-specialist.md","agent":"main"}
+{"t":"scan","ts":"2026-07-03T09:00:34Z","session":"C","tool":"Grep","path":"docs/database","agent":"main"}
+{"t":"session","ts":"2026-07-04T09:00:00Z","session":"D"}
+{"t":"prompt","ts":"2026-07-04T09:00:05Z","session":"D","prompt":"production incident - roll back the last deploy"}
+{"t":"read","ts":"2026-07-04T09:00:10Z","session":"D","tool":"Read","path":"docs/operations/index.md","agent":"main"}
+{"t":"read","ts":"2026-07-04T09:00:14Z","session":"D","tool":"Read","path":"docs/operations/runbooks/rollback.md","agent":"main"}

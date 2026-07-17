@@ -23,17 +23,17 @@ def run(script, args=None, project=None, stdin=None, env_extra=None):
 
 def test_stats():
     s = json.loads(run("tt-stats.py"))
-    assert s["maturity"] == "cold-start", s["maturity"]
-    assert s["totals"]["reads"] == 4
-    assert s["totals"]["scans"] == 1
+    assert s["maturity"] == "cold-start"
+    assert s["totals"]["reads"] == 17
+    assert s["totals"]["scans"] == 2
     assert s["totals"]["skill_uses"] == 1
-    assert s["sessions"] == 2
-    assert s["untouched"] == ["agents/x.md"], s["untouched"]
-    assert s["always_loaded"] == ["CLAUDE.md"], s["always_loaded"]  # used skill excluded
+    assert s["sessions"] == 4
+    assert len(s["untouched"]) == 18 and "docs/development/testing.md" in s["untouched"]
+    assert s["always_loaded"] == ["AGENTS.md", "CLAUDE.md"]  # used skill excluded
     assert s["skills"][0]["name"] == "deploy" and s["skills"][0]["uses"] == 1
-    assert len(s["trend"]) == 2 and s["trend"][0]["hunting_ratio"] == 0.5
+    assert len(s["trend"]) == 4 and s["trend"][0]["hunting_ratio"] == 0.2
     assert s["notes"][0]["text"] == "sharpened UX router"
-    assert len(s["clusters"]) == 1, s["clusters"]  # Jaccard 2/3 merges both buckets
+    assert len(s["clusters"]) == 3, s["clusters"]  # UX (merged), database, incident
     assert s["clusters"][0]["count"] == 2 and s["clusters"][0]["variants"] == 2
     print("stats OK")
 

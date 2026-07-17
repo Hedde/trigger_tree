@@ -43,16 +43,26 @@ def test_fixture_full_run(monkeypatch):
     mod = load_script("tt-stats.py", FIXTURE)
     s = run_stats(mod, monkeypatch)
     assert s["maturity"] == "cold-start"
-    assert s["totals"]["reads"] == 4 and s["totals"]["scans"] == 1 and s["totals"]["skill_uses"] == 1
-    assert s["untouched"] == ["agents/x.md"]
-    assert s["always_loaded"] == ["CLAUDE.md"]  # invoked skill's SKILL.md excluded
+    assert s["totals"]["reads"] == 17 and s["totals"]["scans"] == 2 and s["totals"]["skill_uses"] == 1
+    assert s["totals"]["inventory_files"] == 33
+    assert s["sessions"] == 4
+    assert len(s["untouched"]) == 18, s["untouched"]
+    for p in ("docs/architecture/decisions/001-event-sourcing.md",
+              "docs/development/testing.md", "docs/security/threat-model.md",
+              "docs/operations/runbooks/incident-response.md",
+              "agents/security-engineer.md", "skills/doc-update.md"):
+        assert p in s["untouched"], p
+    assert s["always_loaded"] == ["AGENTS.md", "CLAUDE.md"]  # invoked skill's SKILL.md excluded
+    assert s["files"][0]["path"] == "docs/README.md" and s["files"][0]["reads"] == 3
     assert s["skills"][0] == {"name": "deploy", "uses": 1, "sessions": 1,
-                              "last_used": "2026-07-01T09:00:20Z"}
-    assert len(s["trend"]) == 2 and s["trend"][0]["hunting_ratio"] == 0.5
+                              "last_used": "2026-07-01T09:05:00Z"}
+    assert len(s["trend"]) == 4 and s["trend"][0]["hunting_ratio"] == 0.2
     assert s["notes"] == [{"ts": "2026-07-01T10:00:00Z", "text": "sharpened UX router"}]
-    assert len(s["clusters"]) == 1
+    # three task clusters: UX (2 similar sessions merged via Jaccard), database, incident
+    assert len(s["clusters"]) == 3, s["clusters"]
     assert s["clusters"][0]["count"] == 2 and s["clusters"][0]["variants"] == 2
-    assert {"pair": ["docs/a.md", "docs/sub/b.md"], "count": 2} in s["co_read_top"]
+    assert "docs/design/ui-patterns.md" in s["clusters"][0]["paths"]
+    assert {"pair": ["docs/README.md", "docs/design/ui-patterns.md"], "count": 2} in s["co_read_top"]
 
 
 def _bulk_events(reads, sessions, days):
