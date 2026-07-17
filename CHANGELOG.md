@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.2 — 2026-07-17
+
+- **Arrow keys** now browse prompts too (←/→ on macOS/Linux escape sequences and
+  Windows console codes), and the hint lines say so in plain words
+  ("←/→ browse per prompt"). Fixes a truncation assertion in the 0.5.1 test run.
+- **Bounded prompt detail**: the browser keeps the last 20 prompts (500 events
+  each) while dashboard totals keep aggregating the full history — endless
+  sessions can't grow memory.
+- **Website demo** now demonstrates per-prompt browsing with ←/→ as well.
+
 ## 0.5.1 — 2026-07-17
 
 - **Typed prompts are now instantly visible in the live view**: every prompt

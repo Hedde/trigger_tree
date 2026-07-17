@@ -114,7 +114,7 @@ def test_prompt_events_are_visible_live():
     import re
     frame = re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(app.render(time.time(), width=110, height=30)))
     assert "1 prompts" in frame
-    assert '"why is the build red and what do our docs say about' in frame
+    assert '"why is the build red and what do our docs sa…"' in frame  # 44-char ticker cut
     assert "[prompt]" not in frame  # the pseudo-agent tag is not rendered
 
 
@@ -130,7 +130,7 @@ def test_prompt_buckets_and_browsing():
     assert "fix the migration" in frame and "▸ prompt 2/2" in frame
     assert "b.md" in frame and "a.md" not in frame          # filtered to this bucket
     assert "skill:deploy" in frame and "09:05:09" in frame  # bucket ticker with timestamps
-    assert "] next" in frame
+    assert "→ next" in frame
 
     app.select_prev()
     assert app.selected == 0
@@ -143,7 +143,7 @@ def test_prompt_buckets_and_browsing():
     app.select_next()                    # step past newest → back to live
     assert app.selected is None
     frame = "\n".join(app.render(time.time(), width=110, height=30))
-    assert "browse prompts" in frame     # live hint restored
+    assert "browse per prompt" in frame  # live hint restored
 
 
 def test_reads_before_any_prompt_get_a_session_start_bucket():
@@ -153,6 +153,34 @@ def test_reads_before_any_prompt_get_a_session_start_bucket():
     assert app.buckets[0]["prompt"] == "(session start)"
     app.select_prev()
     assert "(session start)" in "\n".join(app.render(time.time(), width=100, height=30))
+
+
+def test_bucket_retention_keeps_last_20_but_totals_aggregate_all():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md"])
+    for i in range(23):
+        app.feed({"t": "prompt", "prompt": f"task {i}", "session": "S"})
+        app.feed({"t": "read", "path": "docs/a.md", "session": "S"})
+    assert len(app.buckets) == mod.BUCKET_LIMIT == 20        # detail: last 20 only
+    assert app.buckets[0]["prompt"] == "task 3"              # oldest evicted
+    assert app.total_prompts == 23 and app.total_reads == 23  # totals aggregate everything
+    app.select_prev()
+    app.selected = 0                                          # browse the oldest kept bucket
+    app.feed({"t": "prompt", "prompt": "task 23", "session": "S"})
+    assert app.selected == 0 and len(app.buckets) == 20       # selection clamps on eviction
+
+    b = app.buckets[-1]
+    b["events"] = [{"t": "read", "ts": "", "path": "docs/a.md", "agent": "main"}] * 600
+    app.feed({"t": "read", "path": "docs/a.md", "session": "S"})
+    assert len(app.buckets[-1]["events"]) <= mod.EVENTS_PER_BUCKET  # runaway tasks trimmed
+
+
+def test_arrow_key_normalizers():
+    mod = load_script("tt-watch.py", FIXTURE)
+    assert mod.normalize_escape("[D") == "[" and mod.normalize_escape("[C") == "]"
+    assert mod.normalize_escape("[A") is None       # up/down: ignored
+    assert mod.normalize_windows("K") == "[" and mod.normalize_windows("M") == "]"
+    assert mod.normalize_windows("H") is None
 
 
 def test_handle_key_dispatch():

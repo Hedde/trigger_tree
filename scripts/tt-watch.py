@@ -68,6 +68,8 @@ SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 SPARK = " ▁▂▃▄▅▆▇█"
 GREEN, AMBER, RED = 114, 214, 196  # three heat tiers, matching the website demo
 DEAD, DIM, WHITE, FOLDER = 240, 245, 231, 250
+BUCKET_LIMIT = 20       # detailed per-prompt buckets kept for browsing (totals aggregate all)
+EVENTS_PER_BUCKET = 500  # cap against runaway tasks flooding one bucket
 PULSE_SECS = 1.4        # how long a flash takes to fade
 RIPPLE_DELAY = 0.09     # per tree level, leaf → root
 
@@ -161,6 +163,11 @@ class App:
             self.buckets.append(bucket)
             self._current[s_id] = bucket
             self.total_prompts += 1
+            if len(self.buckets) > BUCKET_LIMIT:
+                evicted = len(self.buckets) - BUCKET_LIMIT
+                del self.buckets[:evicted]
+                if self.selected is not None:
+                    self.selected = max(0, self.selected - evicted)
             if live:  # a typed prompt is instantly visible: the pipeline is alive
                 txt = bucket["prompt"][:44] + ("…" if len(bucket["prompt"]) > 44 else "")
                 self.ticker.appendleft((time.time(), "▸", f'"{txt}"', "prompt"))
@@ -174,6 +181,8 @@ class App:
             bucket["events"].append({"t": t, "ts": ev.get("ts", ""),
                                      "path": ev.get("path") or f"skill:{ev.get('skill', '?')}",
                                      "agent": ev.get("agent", "main")})
+            if len(bucket["events"]) > EVENTS_PER_BUCKET:
+                del bucket["events"][:len(bucket["events"]) - EVENTS_PER_BUCKET]
         if t == "read":
             path = ev["path"]
             self.counts[path] += 1
@@ -340,7 +349,7 @@ class App:
                 fade = DIM if age < 8 else DEAD
                 lines.append(c256(fade, f"   {icon} {path}{who} · {agestr}"))
         if browsing:
-            lines.append(c256(DEAD, "   [ prev · ] next · a live · q quit"))
+            lines.append(c256(DEAD, "   ← prev prompt · → next · a back to live · q quit"))
         else:
             if self.last_event is None:
                 beat = "listening for doc reads (injected context never shows here)"
@@ -348,8 +357,18 @@ class App:
                 age = now - self.last_event
                 beat = "last event just now" if age < 3 else (
                     f"last event {age:.0f}s ago" if age < 60 else f"last event {age/60:.0f}m ago")
-            lines.append(c256(DEAD, f"   [ ] browse prompts · q quit · live · {beat}"))
+            lines.append(c256(DEAD, f"   ←/→ browse per prompt · q quit · live · {beat}"))
         return [ln[: width * 4] for ln in lines[:height]]  # *4: ANSI codes don't count
+
+
+def normalize_escape(seq):
+    """Map a terminal arrow-key escape tail to its bracket equivalent."""
+    return {"[D": "[", "[C": "]"}.get(seq)
+
+
+def normalize_windows(code):
+    """Map a Windows console extended key code to its bracket equivalent."""
+    return {"K": "[", "M": "]"}.get(code)
 
 
 def handle_key(app, ch):
@@ -421,10 +440,17 @@ def main():
                 break
             if os.name == "nt" and stdin_tty:  # pragma: no cover — Windows console keys
                 import msvcrt
-                if msvcrt.kbhit() and handle_key(app, msvcrt.getwch()):
-                    break
+                if msvcrt.kbhit():
+                    wch = msvcrt.getwch()
+                    if wch in ("\x00", "\xe0"):
+                        wch = normalize_windows(msvcrt.getwch()) or ""
+                    if wch and handle_key(app, wch):
+                        break
             elif use_termios and select.select([sys.stdin], [], [], 0)[0]:  # pragma: no cover
-                if handle_key(app, sys.stdin.read(1)):
+                ch = sys.stdin.read(1)
+                if ch == "\x1b" and select.select([sys.stdin], [], [], 0.02)[0]:
+                    ch = normalize_escape(sys.stdin.read(2)) or ""
+                if ch and handle_key(app, ch):
                     break
             if args.demo and now >= next_evt:
                 app.feed(next(demo))
