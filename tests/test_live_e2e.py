@@ -17,13 +17,14 @@ def test_watcher_tails_events_from_another_process(tmp_path):
 
     watcher = subprocess.Popen(
         [sys.executable, os.path.join(SCRIPTS, "tt-watch.py"), "--seconds", "2.5"],
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
+        encoding="utf-8", errors="replace",  # Windows pipes default to cp1252
     )
     time.sleep(0.8)
     event = json.dumps({"session_id": "e2e", "tool_name": "Read",
                         "tool_input": {"file_path": str(tmp_path / "docs" / "a.md")}})
     subprocess.run([sys.executable, os.path.join(SCRIPTS, "tt-log.py"), "read"],
-                   input=event, text=True, env=env, check=True)
+                   input=event, encoding="utf-8", env=env, check=True)
     out, _ = watcher.communicate(timeout=30)
     assert watcher.returncode == 0
 
