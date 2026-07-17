@@ -7,6 +7,10 @@ Events (first argument):
   read     PostToolUse on Read|Glob|Grep (Read → "read", Glob/Grep → "scan")
   skill    PostToolUse on Skill (logs the skill name)
   note     manual annotation: tt-log.py note "text" (e.g. "sharpened UX router")
+  ingest   external adapter entry point: tt-log.py ingest '{"t":"read","path":"docs/x.md"}'
+           — lets any tool (a Codex wrapper, a git hook) append telemetry through a
+           stable interface. Missing ts/session are stamped; unknown/invalid events
+           are dropped silently.
 
 Appends one JSON line per event to $PROJECT/.trigger-tree/history.jsonl and rotates
 the file to history-<utc-timestamp>.jsonl when it exceeds TT_ROTATE_BYTES.
@@ -76,6 +80,23 @@ def main():
     cfg = conf()
     rotate = int(cfg["TT_ROTATE_BYTES"])
     ts = now_ts()
+
+    if event == "ingest":
+        try:
+            obj = json.loads(sys.argv[2])
+        except (IndexError, json.JSONDecodeError):
+            return
+        if obj.get("t") not in ("read", "scan", "skill", "note", "prompt", "session"):
+            return
+        if obj["t"] in ("read", "scan"):
+            if not obj.get("path"):
+                return
+            obj["path"] = rel_path(str(obj["path"]))
+        obj.setdefault("ts", ts)
+        obj.setdefault("session", os.environ.get("CLAUDE_SESSION_ID", "external"))
+        obj.setdefault("agent", "external")
+        append(obj, rotate)
+        return
 
     if event == "note":
         text = " ".join(sys.argv[2:]).strip()[:300]

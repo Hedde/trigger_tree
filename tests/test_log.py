@@ -116,6 +116,31 @@ def test_note_uses_session_env(tmp_path, monkeypatch):
     assert len(read_history(tmp_path)) == 1
 
 
+def test_ingest_external_events(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "codex-1")
+
+    def ingest(payload):
+        monkeypatch.setattr(sys, "argv", ["tt-log.py", "ingest", payload])
+        mod.main()
+
+    ingest('{"t":"read","path":"docs/a.md"}')
+    entry = read_history(tmp_path)[0]
+    assert entry["t"] == "read" and entry["path"] == "docs/a.md"
+    assert entry["session"] == "codex-1" and entry["agent"] == "external" and entry["ts"]
+
+    ingest('{"t":"scan"}')            # scan without path: dropped
+    ingest('{"t":"bogus","x":1}')     # unknown type: dropped
+    ingest('not-json')                # invalid json: dropped
+    monkeypatch.setattr(sys, "argv", ["tt-log.py", "ingest"])
+    mod.main()                        # missing payload: dropped
+    assert len(read_history(tmp_path)) == 1
+
+    ingest('{"t":"note","text":"from codex","ts":"2026-07-01T00:00:00Z"}')
+    entry = read_history(tmp_path)[-1]
+    assert entry["text"] == "from codex" and entry["ts"] == "2026-07-01T00:00:00Z"
+
+
 def test_rotation(tmp_path, monkeypatch):
     (tmp_path / ".trigger-tree").mkdir()
     (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_ROTATE_BYTES='10'\n")

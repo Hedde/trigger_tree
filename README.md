@@ -199,6 +199,19 @@ Team auto-install — in your project's `.claude/settings.json`:
 }
 ```
 
+### External tools (Codex, git hooks, editors)
+
+Other tools don't fire Claude Code hooks, but they can feed the same telemetry
+through a stable adapter entry point:
+
+```bash
+python3 <plugin>/scripts/tt-log.py ingest '{"t":"read","path":"docs/design/index.md"}'
+```
+
+Missing `ts`/`session` are stamped automatically; invalid events are dropped
+silently. A Codex wrapper is just a few lines around this call — the plugin side
+is ready.
+
 ## Privacy & data
 
 - ✅ **No network calls of any kind** — python3 standard library only; audit every line.
@@ -232,8 +245,8 @@ Honesty over marketing — know what the measurement can and cannot see:
 - **Signals, not verdicts.** Untouched files are only called *dead-path candidates*
   once the measurement is mature; new files, templates, and runbooks are recognized
   and treated accordingly.
-- **Claude Code sessions only.** Other tools (e.g. Codex) don't fire these hooks;
-  their doc usage is not recorded (yet).
+- **Claude Code hooks only fire in Claude Code.** Other tools can participate via
+  the `ingest` adapter entry point (see External tools) — but only if you wire them up.
 
 ## FAQ
 

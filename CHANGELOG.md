@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — 2026-07-17
+
+- **External ingestion adapter**: `tt-log.py ingest '<event-json>'` — a stable,
+  validated entry point so any tool (a Codex wrapper, a git hook, an editor
+  plugin) can append telemetry to the same history. Missing ts/session stamped,
+  invalid events dropped silently. Completes the plugin side of multi-tool support.
+
 ## 0.3.7 — 2026-07-17
 
 - `/tt watch` confirmation line now prints the running plugin version
