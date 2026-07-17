@@ -9,6 +9,16 @@ MODE="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 PY="$(command -v python3 || command -v python || echo python3)"
+PLATFORM="$(uname)"
+# Claude may expose a native C:\... project path while the launcher runs in Git
+# Bash. Convert it before quoting so `cd` and the child environment use one form.
+case "$PLATFORM" in
+  MINGW*|MSYS*|CYGWIN*)
+    if command -v cygpath >/dev/null 2>&1; then
+      ROOT="$(cygpath -u "$ROOT")"
+    fi
+    ;;
+esac
 VERSION="$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$SCRIPT_DIR/../.claude-plugin/plugin.json" 2>/dev/null | head -1)"
 V="v${VERSION:-?}"
 
@@ -38,7 +48,7 @@ if [ -n "${TMUX:-}" ]; then
   exit 0
 fi
 
-case "$(uname)" in
+case "$PLATFORM" in
   Darwin)
     # Stay in the terminal you called it from: iTerm2 gets a split pane in the
     # current window instead of a foreign Terminal.app window.
