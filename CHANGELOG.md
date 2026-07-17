@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.2 — 2026-07-18
+
+- **End-to-end proof for Bash discovery telemetry.** A cross-process regression
+  test now proves the complete live progression: the watcher starts at
+  `0 reads · 0 scans`, an external Bash hook moves it to `0 reads · 1 scan`, and
+  only a later Read hook moves it to `1 read · 1 scan`.
+- The hook manifest itself is regression-tested, ensuring Bash, native search/read,
+  and Skill events cannot silently lose their logger route.
+
 ## 0.6.1 — 2026-07-18
 
 - **Bash doc searches are visible.** PostToolUse telemetry now recognizes executed
