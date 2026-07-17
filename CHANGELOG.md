@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.0 — 2026-07-17
+
+- **Prompt navigation is directional and predictable.** ← always moves older and
+  → always moves newer; both ends clamp instead of wrapping or changing mode, and
+  `a` explicitly returns to the live overview. The input decoder now also handles
+  fragmented, application-cursor, and modified arrow escape sequences atomically.
+- **`/tt doctor` removes setup guesswork.** One command verifies the hook manifest,
+  local-data gitignore, optional statusline, and valid telemetry in the invoking
+  repository, with a concrete recovery action for each problem.
+- **Real-time means the invoking repo, without path exceptions.** The split launcher
+  safely handles spaces, apostrophes, and shell metacharacters. Cross-process tests
+  prove a running watcher displays hook events appended after startup and remains
+  bound to the exact repository.
+- **100% is now the release floor.** CI raises its cross-platform coverage gate from
+  80% to 100%.
+
 ## 0.5.3 — 2026-07-17
 
 - **Fix: both arrow keys browsed backwards.** The key loop mixed `select()` on

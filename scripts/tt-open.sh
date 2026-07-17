@@ -19,7 +19,12 @@ case "$MODE" in
   *) echo "usage: tt-open.sh [demo|replay]" >&2; exit 1 ;;
 esac
 
-CMD="cd '$ROOT' && CLAUDE_PROJECT_DIR='$ROOT' '$PY' '$SCRIPT_DIR/tt-watch.py' $FLAG"
+# Build a shell-safe command. Repository names can legally contain spaces,
+# apostrophes and shell metacharacters; the split must still tail that exact repo.
+printf -v Q_ROOT '%q' "$ROOT"
+printf -v Q_PY '%q' "$PY"
+printf -v Q_WATCH '%q' "$SCRIPT_DIR/tt-watch.py"
+CMD="cd $Q_ROOT && CLAUDE_PROJECT_DIR=$Q_ROOT $Q_PY $Q_WATCH $FLAG"
 
 # Testable without opening a window.
 if [ "${TT_OPEN_DRYRUN:-}" = "1" ]; then

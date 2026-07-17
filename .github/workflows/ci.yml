@@ -20,7 +20,7 @@ jobs:
           python-version: "3.12"
       - run: pip install pytest coverage
       - run: coverage run -m pytest tests -q
-      - run: coverage report --fail-under=80
+      - run: coverage report --fail-under=100
       - name: Publish measured coverage badge
         if: matrix.os == 'ubuntu-latest' && github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |

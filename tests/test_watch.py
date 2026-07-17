@@ -132,7 +132,7 @@ def test_prompt_buckets_and_browsing():
     assert "fix the migration" in frame and "▸ prompt 2/2" in frame
     assert "b.md" in frame and "a.md" not in frame          # filtered to this bucket
     assert "skill:deploy" in frame and "09:05:09" in frame  # bucket ticker with timestamps
-    assert "→ next" in frame
+    assert "→ newer prompt" in frame
 
     app.select_prev()
     assert app.selected == 0
@@ -142,10 +142,12 @@ def test_prompt_buckets_and_browsing():
     assert app.selected == 0             # clamped at the oldest prompt
 
     app.select_next()
-    app.select_next()                    # step past newest → back to live
+    app.select_next()                    # newest is a stable boundary
+    assert app.selected == 1
+    app.select_live()
     assert app.selected is None
     frame = "\n".join(app.render(time.time(), width=110, height=30))
-    assert "browse per prompt" in frame  # live hint restored
+    assert "open newest prompt" in frame  # live hint restored
 
 
 def test_reads_before_any_prompt_get_a_session_start_bucket():
@@ -181,6 +183,8 @@ def test_arrow_key_normalizers():
     mod = load_script("tt-watch.py", FIXTURE)
     assert mod.normalize_escape("[D") == "[" and mod.normalize_escape("[C") == "]"
     assert mod.normalize_escape("[A") is None       # up/down: ignored
+    assert mod.normalize_escape("OC") == "]" and mod.normalize_escape("OD") == "["
+    assert mod.normalize_escape("[1;5C") == "]" and mod.normalize_escape("[1;5D") == "["
     assert mod.normalize_windows("K") == "[" and mod.normalize_windows("M") == "]"
     assert mod.normalize_windows("H") is None
 
@@ -200,20 +204,91 @@ def test_read_key_consumes_full_escape_sequence():
         os.close(w)
 
 
+def test_read_key_ignores_lone_escape_at_eof():
+    if os.name == "nt":
+        pytest.skip("read_key is POSIX-only (select on a pipe fd)")
+    mod = load_script("tt-watch.py", FIXTURE)
+    r, w = os.pipe()
+    os.write(w, b"\x1b")
+    os.close(w)
+    try:
+        assert mod.read_key(r) == ""
+    finally:
+        os.close(r)
+
+
+def test_read_key_ignores_timed_out_partial_escape():
+    if os.name == "nt":
+        pytest.skip("read_key is POSIX-only (select on a pipe fd)")
+    mod = load_script("tt-watch.py", FIXTURE)
+    r, w = os.pipe()
+    try:
+        os.write(w, b"\x1b[")
+        assert mod.read_key(r) == ""
+    finally:
+        os.close(r)
+        os.close(w)
+
+
+def test_read_key_handles_fragmented_arrows_and_navigation_is_reversible():
+    if os.name == "nt":
+        pytest.skip("read_key is POSIX-only (select on a pipe fd)")
+    import threading
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = _browse_app(mod)
+    r, w = os.pipe()
+
+    def fragmented_right():
+        for part in (b"\x1b", b"[", b"C"):
+            os.write(w, part)
+            time.sleep(0.005)
+
+    try:
+        os.write(w, b"\x1b[D")
+        assert mod.handle_key(app, mod.read_key(r)) is False
+        assert app.selected == 1                 # live -> newest (2/2)
+        os.write(w, b"\x1b[D")
+        assert mod.handle_key(app, mod.read_key(r)) is False
+        assert app.selected == 0                 # left -> older (1/2)
+        writer = threading.Thread(target=fragmented_right)
+        writer.start()
+        assert mod.handle_key(app, mod.read_key(r)) is False
+        writer.join()
+        assert app.selected == 1                 # right reverses to newest (2/2)
+    finally:
+        os.close(r)
+        os.close(w)
+
+
 def test_handle_key_dispatch():
     mod = load_script("tt-watch.py", FIXTURE)
     app = _browse_app(mod)
     assert mod.handle_key(app, "q") is True
     assert mod.handle_key(app, "[") is False and app.selected == 1
-    assert mod.handle_key(app, "]") is False and app.selected is None
-    mod.handle_key(app, "[")
+    assert mod.handle_key(app, "]") is False and app.selected == 1
     assert mod.handle_key(app, "a") is False and app.selected is None
     assert mod.handle_key(app, "x") is False  # unknown keys are ignored
     empty = mod.App([])
     mod.handle_key(empty, "[")               # no buckets: stays live
     assert empty.selected is None
-    mod.handle_key(empty, "]")               # ] in live mode is a no-op
+    mod.handle_key(empty, "]")               # no buckets: stays live
     assert empty.selected is None
+
+
+def test_prompt_timeline_is_bounded_directional_and_reversible():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = _browse_app(mod)
+    app.select_next()
+    assert app.selected == 1                  # either arrow opens newest from live
+    app.select_prev()
+    assert app.selected == 0                  # left: 2/2 -> 1/2 (older)
+    app.select_next()
+    assert app.selected == 1                  # right reverses: 1/2 -> 2/2
+    app.select_next()
+    assert app.selected == 1                  # newest boundary stays put
+    for _ in range(5):
+        app.select_prev()
+    assert app.selected == 0                  # oldest boundary stays put
 
 
 def test_heartbeat_when_no_live_events():

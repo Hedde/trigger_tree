@@ -1,6 +1,6 @@
 ---
 name: tt
-description: trigger-tree — documentation-discovery telemetry. Subcommands; /tt status (snapshot), /tt watch [demo|replay] (live dashboard), /tt insights (heat/cold map report + HTML), /tt suggestions (prioritized router fixes), /tt note <text> (annotate router changes), /tt setup (wire into project), /tt help.
+description: trigger-tree — documentation-discovery telemetry. Subcommands; /tt status (snapshot), /tt watch [demo|replay] (live dashboard), /tt insights (heat/cold map report + HTML), /tt suggestions (prioritized router fixes), /tt note <text> (annotate router changes), /tt doctor (installation health), /tt setup (wire into project), /tt help.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Artifact
 arguments:
@@ -40,6 +40,7 @@ Show exactly this, nothing above or below it:
 > | `/tt insights` | Analysis report: heat/cold map, untouched paths, hunting, trend + HTML |
 > | `/tt suggestions` | Max 5 prioritized, concrete router fixes — apply after confirmation |
 > | `/tt note <text>` | Annotate the timeline (e.g. "sharpened UX router") — shows up in the trend |
+> | `/tt doctor` | Verify hooks, privacy, statusline, and telemetry with actionable fixes |
 > | `/tt setup` | Wire trigger-tree into this project: gitignore, statusline, optional config |
 > | `/tt help` | This overview |
 >
@@ -143,6 +144,12 @@ SKILL.md counts as touched.
    (append `--with-config` if `$2` is "config").
 2. Show the script's summary lines verbatim (they report created/updated/skipped per
    step), nothing else.
+
+## `$1` = "doctor"
+
+Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-doctor.py"` (fall back to
+`python` if needed). Show its output verbatim. A failed check is a diagnostic result,
+not a skill error: still show the complete output.
 
 ## Any other `$1`
 

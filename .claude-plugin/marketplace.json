@@ -10,7 +10,7 @@
       "name": "trigger-tree",
       "displayName": "trigger-tree",
       "source": "./",
-      "description": "Documentation-discovery telemetry: /tt status, /tt watch, /tt insights",
+      "description": "Documentation-discovery telemetry: /tt status, /tt watch, /tt doctor, /tt insights",
       "category": "documentation",
       "tags": ["docs", "telemetry", "observability"]
     }

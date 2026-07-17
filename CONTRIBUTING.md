@@ -25,7 +25,7 @@ claude --plugin-dir /path/to/trigger_tree
 
 ```bash
 .venv/bin/python -m coverage run -m pytest tests -q
-.venv/bin/python -m coverage report        # CI gates at 80% minimum
+.venv/bin/python -m coverage report --fail-under=100
 ```
 
 `tests/smoke.py` is the end-to-end pass over the fixture project; `tests/test_*.py`

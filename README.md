@@ -64,6 +64,7 @@ rescue docs nobody dared judge.
 /plugin marketplace add Hedde/trigger_tree
 /plugin install trigger-tree@trigger-tree
 /tt setup          # wires gitignore + statusline into your project (idempotent)
+/tt doctor         # proves this repo is wired and receiving telemetry
 ```
 
 Work normally for a few sessions — the hooks log silently — then:
@@ -75,7 +76,7 @@ Work normally for a few sessions — the hooks log silently — then:
 
 ## Commands
 
-One plugin, one command, seven subcommands:
+One plugin, one command, eight subcommands:
 
 | Command | Does |
 |---------|------|
@@ -85,6 +86,7 @@ One plugin, one command, seven subcommands:
 | **`/tt insights`** | Heat/cold map analysis: untouched paths, hunting, trend, task clusters + HTML report |
 | **`/tt suggestions`** | Max 5 prioritized, evidence-backed router fixes — applied only after you confirm |
 | **`/tt note <text>`** | Annotate the timeline ("sharpened UX router") — visible in the trend |
+| **`/tt doctor`** | Verify hooks, privacy, statusline, and live telemetry with actionable fixes |
 | **`/tt setup`** | Wire trigger-tree into a project: gitignore, statusline, optional config override |
 
 ## How it works
@@ -141,9 +143,10 @@ ripples up through its parent folders, then fades back to its heat color:
    🔍 docs/database [Explore] · 31s ago
 ```
 
-**Browse per prompt**: press `[` and `]` to step through every prompt you typed —
-the tree filters to exactly what was aggregated for that input (its reads, scans
-and skill uses, with the prompt text in the header). `a` returns to the live view.
+**Browse per prompt**: press ← to move to older prompts and → to move to newer
+ones — the tree filters to exactly what was aggregated for that input (its reads,
+scans and skill uses, with the prompt text in the header). The timeline never wraps
+or changes mode at its ends; `a` returns to the live overview.
 
 `--demo` for instant synthetic events, `--replay` to re-run your real history,
 `q` or Ctrl+C to quit.
@@ -275,6 +278,11 @@ session (or start a fresh one). Since v0.3.7 the confirmation line prints the
 running version — if it doesn't match the [latest release](https://github.com/Hedde/trigger_tree/releases),
 reload. A *real* crash keeps the pane open with the error since v0.3.3.
 
+**How do I know this repository is wired correctly?** Run `/tt doctor`. It checks
+the plugin hooks, local-data gitignore, statusline registration, and whether this
+exact repository has received valid telemetry. `/tt watch` always binds its split
+to the repository that invoked it and tails new hook events in real time.
+
 **Can I turn prompt logging off?** Yes: `TT_LOG_PROMPTS='off'` in
 `.trigger-tree/config.sh`. Fingerprints and clusters keep working.
 
@@ -285,12 +293,12 @@ Always use a virtual environment (never your system python):
 ```bash
 python3 -m venv .venv && .venv/bin/pip install pytest coverage
 .venv/bin/python -m coverage run -m pytest tests -q
-.venv/bin/python -m coverage report         # CI gates at 80%; the suite sits at 100%
+.venv/bin/python -m coverage report --fail-under=100
 claude plugin validate .
 python3 scripts/tt-watch.py --demo
 ```
 
-CI: pytest + coverage gate on ubuntu/macos/windows, shellcheck, plugin validation,
+CI: pytest + a 100% coverage gate on ubuntu/macos/windows, shellcheck, plugin validation,
 and a live coverage badge. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License

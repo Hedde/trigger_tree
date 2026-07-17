@@ -222,11 +222,14 @@ class App:
         self.selected = len(self.buckets) - 1 if self.selected is None else max(0, self.selected - 1)
 
     def select_next(self):
-        if self.selected is None:
+        if not self.buckets:
             return
-        self.selected += 1
-        if self.selected >= len(self.buckets):
-            self.selected = None  # stepping past the newest prompt returns to live
+        # A bounded timeline: right always means newer. It never wraps or
+        # silently changes to the unrelated live overview (`a` does that).
+        if self.selected is None:
+            self.selected = len(self.buckets) - 1
+        else:
+            self.selected = min(len(self.buckets) - 1, self.selected + 1)
 
     def select_live(self):
         self.selected = None
@@ -349,7 +352,7 @@ class App:
                 fade = DIM if age < 8 else DEAD
                 lines.append(c256(fade, f"   {icon} {path}{who} · {agestr}"))
         if browsing:
-            lines.append(c256(DEAD, "   ← prev prompt · → next · a back to live · q quit"))
+            lines.append(c256(DEAD, "   ← older prompt · → newer prompt · a live overview · q quit"))
         else:
             if self.last_event is None:
                 beat = "listening for doc reads (injected context never shows here)"
@@ -357,13 +360,19 @@ class App:
                 age = now - self.last_event
                 beat = "last event just now" if age < 3 else (
                     f"last event {age:.0f}s ago" if age < 60 else f"last event {age/60:.0f}m ago")
-            lines.append(c256(DEAD, f"   ←/→ browse per prompt · q quit · live · {beat}"))
+            lines.append(c256(DEAD, f"   ←/→ open newest prompt · q quit · live · {beat}"))
         return [ln[: width * 4] for ln in lines[:height]]  # *4: ANSI codes don't count
 
 
 def normalize_escape(seq):
     """Map a terminal arrow-key escape tail to its bracket equivalent."""
-    return {"[D": "[", "[C": "]"}.get(seq)
+    # Terminals may send CSI (`[C`), application-cursor (`OC`) or modified
+    # variants (`[1;5C`). The final byte carries the direction in all of them.
+    if seq.startswith(("[", "O")) and seq.endswith("D"):
+        return "["
+    if seq.startswith(("[", "O")) and seq.endswith("C"):
+        return "]"
+    return None
 
 
 def normalize_windows(code):
@@ -380,8 +389,19 @@ def read_key(fd):
     every arrow key acted as "prev" one press late.
     """
     ch = os.read(fd, 1).decode(errors="replace")
-    if ch == "\x1b" and select.select([fd], [], [], 0.02)[0]:
-        ch = normalize_escape(os.read(fd, 2).decode(errors="replace")) or ""
+    if ch == "\x1b":
+        # Reads from a tty are allowed to return a partial escape sequence. Keep
+        # consuming briefly until its final byte instead of leaving `[` behind
+        # to be mistaken for "previous" on the next keypress.
+        tail = bytearray()
+        while len(tail) < 16 and select.select([fd], [], [], 0.03)[0]:
+            part = os.read(fd, 1)
+            if not part:  # EOF after a lone escape; do not spin on a readable pipe
+                return ""
+            tail.extend(part)
+            if tail and (65 <= tail[-1] <= 90 or tail[-1] == 126):
+                return normalize_escape(tail.decode(errors="replace")) or ""
+        ch = normalize_escape(tail.decode(errors="replace")) or ""
     return ch
 
 
