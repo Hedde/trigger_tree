@@ -371,6 +371,20 @@ def normalize_windows(code):
     return {"K": "[", "M": "]"}.get(code)
 
 
+def read_key(fd):
+    """Read one keypress from a raw fd, arrow escapes normalized to [ / ].
+
+    Must use os.read, never sys.stdin: the buffered reader slurps the whole
+    escape sequence off the fd in one read(1), the follow-up select() then sees
+    an empty fd, and the leftover "[" is replayed on the *next* keypress — so
+    every arrow key acted as "prev" one press late.
+    """
+    ch = os.read(fd, 1).decode(errors="replace")
+    if ch == "\x1b" and select.select([fd], [], [], 0.02)[0]:
+        ch = normalize_escape(os.read(fd, 2).decode(errors="replace")) or ""
+    return ch
+
+
 def handle_key(app, ch):
     """Key dispatch for the interactive loop. Returns True when the watcher should quit."""
     if ch in ("q", "Q"):
@@ -447,9 +461,7 @@ def main():
                     if wch and handle_key(app, wch):
                         break
             elif use_termios and select.select([sys.stdin], [], [], 0)[0]:  # pragma: no cover
-                ch = sys.stdin.read(1)
-                if ch == "\x1b" and select.select([sys.stdin], [], [], 0.02)[0]:
-                    ch = normalize_escape(sys.stdin.read(2)) or ""
+                ch = read_key(sys.stdin.fileno())
                 if ch and handle_key(app, ch):
                     break
             if args.demo and now >= next_evt:
