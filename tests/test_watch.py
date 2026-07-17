@@ -57,10 +57,32 @@ def test_tail_handles_rotation(tmp_path):
     p = tmp_path / "h.jsonl"
     tail = mod.Tail(str(p))
     assert tail.poll() == []  # file does not exist yet
-    p.write_text('{"t":"read","path":"docs/a.md"}\n')
-    assert tail.poll()[0]["path"] == "docs/a.md"
+    p.write_text('{"t":"read","path":"docs/a.md"}\ntorn{line\n')
+    assert [e["path"] for e in tail.poll()] == ["docs/a.md"]  # torn line skipped
+    assert tail.poll() == []  # unchanged file: nothing new
     p.write_text('{"t":"scan","path":"docs"}\n')  # smaller file: rotation/truncation
     assert tail.poll()[0]["t"] == "scan"
+
+
+def test_feed_discovers_unknown_path_and_long_names():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md"])
+    app.feed({"t": "read", "path": "docs/brand-new-file.md", "session": "S"})
+    assert "docs/brand-new-file.md" in app.files
+    long_name = "docs/" + "x" * 40 + ".md"
+    app.feed({"t": "read", "path": long_name, "session": "S"})
+    frame = "\n".join(app.render(time.time(), width=120, height=40))
+    assert "…" in frame  # long basename truncated
+
+
+def test_render_hard_truncation_of_read_files():
+    mod = load_script("tt-watch.py", FIXTURE)
+    files = [f"docs/f{i:02d}.md" for i in range(25)]
+    app = mod.App(files)
+    for f in files:  # every file read: quiet-file dropping can't help
+        app.feed({"t": "read", "path": f, "session": "S"}, live=False)
+    frame = "\n".join(app.render(time.time(), width=100, height=12))
+    assert "quiet files hidden" in frame
 
 
 def test_demo_event_generator():
@@ -71,13 +93,52 @@ def test_demo_event_generator():
     assert kinds <= {"read", "scan", "skill"} and "read" in kinds
 
 
-def test_main_demo_and_replay(monkeypatch, capsys):
+def test_main_tty_mode_writes_alt_screen(monkeypatch, capsys):
     mod = load_script("tt-watch.py", FIXTURE)
-    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--demo", "--seconds", "0.3"])
+    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--demo", "--seconds", "0.2"])
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True, raising=False)
+    mod.main()
+    out = capsys.readouterr().out
+    assert "\x1b[?1049h" in out and "\x1b[?1049l" in out  # alt screen enter + restore
+
+
+def test_main_demo_and_replay(monkeypatch, capsys):
+    # first event fires at t+0.5s, so run just past it to exercise the feed branches
+    mod = load_script("tt-watch.py", FIXTURE)
+    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--demo", "--seconds", "0.7"])
     mod.main()
     assert "--frame--" in capsys.readouterr().out
 
     mod = load_script("tt-watch.py", FIXTURE)
-    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--replay", "--seconds", "0.3"])
+    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--replay", "--seconds", "0.7"])
     mod.main()
+    assert "TRIGGER TREE" in capsys.readouterr().out
+
+
+def test_main_live_mode_picks_up_appended_events(tmp_path, monkeypatch, capsys):
+    import re
+    import threading
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x")
+    (tmp_path / ".trigger-tree").mkdir()
+    hist = tmp_path / ".trigger-tree" / "history.jsonl"
+    hist.write_text("")
+    mod = load_script("tt-watch.py", tmp_path)
+
+    def append_event():
+        with open(hist, "a") as fh:
+            fh.write('{"t":"read","path":"docs/a.md","session":"S","agent":"main"}\n')
+
+    threading.Timer(0.05, append_event).start()
+    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--seconds", "0.5"])
+    mod.main()
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().out)
+    assert "1 reads" in plain  # the live tail fed the appended event
+
+
+def test_main_exits_on_keyboard_interrupt(monkeypatch, capsys):
+    mod = load_script("tt-watch.py", FIXTURE)
+    monkeypatch.setattr(sys, "argv", ["tt-watch.py"])  # no --seconds: only KI can stop it
+    monkeypatch.setattr(mod.time, "sleep", lambda _: (_ for _ in ()).throw(KeyboardInterrupt))
+    mod.main()  # must swallow the interrupt and restore cleanly
     assert "TRIGGER TREE" in capsys.readouterr().out

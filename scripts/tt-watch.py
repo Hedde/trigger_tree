@@ -296,7 +296,7 @@ def main():
     old_term = None
     if is_tty:
         sys.stdout.write("\x1b[?1049h\x1b[?25l")
-    if stdin_tty:
+    if stdin_tty:  # pragma: no cover — needs a real tty
         import termios, tty
         old_term = termios.tcgetattr(sys.stdin)
         tty.setcbreak(sys.stdin.fileno())
@@ -307,7 +307,7 @@ def main():
             now = time.time()
             if args.seconds and now - start >= args.seconds:
                 break
-            if stdin_tty and select.select([sys.stdin], [], [], 0)[0]:
+            if stdin_tty and select.select([sys.stdin], [], [], 0)[0]:  # pragma: no cover
                 if sys.stdin.read(1) in ("q", "Q"):
                     break
             if args.demo and now >= next_evt:
@@ -331,7 +331,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        if stdin_tty and old_term is not None:
+        if stdin_tty and old_term is not None:  # pragma: no cover — needs a real tty
             import termios
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_term)
         if is_tty:

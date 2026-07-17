@@ -4,3 +4,6 @@ source = scripts
 [report]
 show_missing = True
 precision = 1
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:

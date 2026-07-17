@@ -40,3 +40,15 @@ def test_report_on_empty_project(tmp_path, monkeypatch, capsys):
     html = open(out_path).read()
     assert "Measurement just started" in html
     assert "docs/a.md" in html  # untouched listing
+
+
+def test_report_when_nothing_untouched(tmp_path, monkeypatch, capsys):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x")
+    (tmp_path / ".trigger-tree").mkdir()
+    (tmp_path / ".trigger-tree" / "history.jsonl").write_text(
+        '{"t":"read","ts":"2026-07-01T09:00:00Z","session":"A","tool":"Read",'
+        '"path":"docs/a.md","agent":"main"}\n')
+    mod = load_script("tt-report.py", tmp_path)
+    html = open(run_report(mod, monkeypatch, capsys, tmp_path)).read()
+    assert "None — every inventoried file has been read" in html

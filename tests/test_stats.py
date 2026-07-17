@@ -24,9 +24,11 @@ def test_pure_helpers():
     assert mod.parse_ts("2026-07-01T09:00:00Z").year == 2026
     assert mod.parse_ts("garbage") is None and mod.parse_ts(None) is None
     assert mod.observed_days(["2026-07-01T00:00:00Z", "2026-07-02T00:00:00Z"]) == 1.0
+    assert mod.observed_days(["bad", "also-bad"]) == 0.0
     assert mod.jaccard([], []) == 0.0
     assert mod.jaccard(["a", "b"], ["a", "c"]) == 1 / 3
     assert mod.fingerprint(["b", "a"]) == mod.fingerprint(["a", "b"])
+    assert mod._conf_regex("nothing here", "TT_MISSING", r"^fallback$").pattern == "^fallback$"
 
 
 def test_load_events_skips_torn_lines(tmp_path):
@@ -91,3 +93,35 @@ def test_unknown_reads_and_explicit_history(tmp_path, monkeypatch):
     s = run_stats(mod, monkeypatch, [explicit])
     assert s["unknown_reads"] == ["docs/ghost.md"]
     assert s["untouched"] == ["docs/a.md"]
+
+
+def test_two_prompts_in_one_session_make_two_buckets(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x")
+    (tmp_path / "docs" / "b.md").write_text("x")
+    write_history(tmp_path, [
+        {"t": "prompt", "ts": "2026-07-01T09:00:00Z", "session": "A", "prompt": "task one"},
+        {"t": "read", "ts": "2026-07-01T09:00:10Z", "session": "A", "tool": "Read",
+         "path": "docs/a.md", "agent": "main"},
+        {"t": "prompt", "ts": "2026-07-01T09:05:00Z", "session": "A", "prompt": "task two"},
+        {"t": "read", "ts": "2026-07-01T09:05:10Z", "session": "A", "tool": "Read",
+         "path": "docs/b.md", "agent": "main"},
+    ])
+    mod = load_script("tt-stats.py", tmp_path)
+    s = run_stats(mod, monkeypatch)
+    assert s["totals"]["prompts_with_doc_reads"] == 2
+    assert len(s["clusters"]) == 2  # disjoint sets don't cluster together
+
+
+def test_trend_skips_unparseable_timestamps(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x")
+    write_history(tmp_path, [
+        {"t": "read", "ts": "not-a-ts", "session": "A", "tool": "Read",
+         "path": "docs/a.md", "agent": "main"},
+        {"t": "read", "ts": "2026-07-01T09:00:00Z", "session": "A", "tool": "Read",
+         "path": "docs/a.md", "agent": "main"},
+    ])
+    mod = load_script("tt-stats.py", tmp_path)
+    s = run_stats(mod, monkeypatch)
+    assert len(s["trend"]) == 1 and s["trend"][0]["reads"] == 1

@@ -50,3 +50,11 @@ def test_gitignore_appends_to_existing(tmp_path, capsys):
     mod.ensure_gitignore()
     content = (tmp_path / ".gitignore").read_text()
     assert content.startswith("node_modules\n") and ".trigger-tree/*" in content
+
+
+def test_gitignore_without_trailing_newline(tmp_path, capsys):
+    (tmp_path / ".gitignore").write_text("node_modules")  # no trailing newline
+    mod = load_script("tt-setup.py", tmp_path)
+    mod.ensure_gitignore()
+    content = (tmp_path / ".gitignore").read_text()
+    assert "node_modules\n.trigger-tree/*" in content

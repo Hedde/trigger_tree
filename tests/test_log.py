@@ -23,6 +23,18 @@ def test_rel_path(tmp_path):
     assert mod.rel_path("/elsewhere/x.md") == "/elsewhere/x.md"
 
 
+def test_conf_unreadable_falls_back_to_defaults(tmp_path):
+    cfg = tmp_path / ".trigger-tree" / "config.sh"
+    cfg.parent.mkdir()
+    cfg.write_text("TT_LOG_PROMPTS='hash'\n")
+    cfg.chmod(0)  # unreadable file: open() raises OSError
+    try:
+        mod = load_script("tt-log.py", tmp_path)
+        assert mod.conf() == mod.DEFAULTS
+    finally:
+        cfg.chmod(0o644)
+
+
 def test_conf_defaults_and_override(tmp_path):
     mod = load_script("tt-log.py", tmp_path)
     assert mod.conf()["TT_LOG_PROMPTS"] == "truncate"
