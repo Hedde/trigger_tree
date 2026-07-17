@@ -47,7 +47,7 @@ def test_render_and_truncation():
     app = mod.App(files)
     app.feed({"t": "read", "path": "docs/f00.md", "session": "S"})
     frame = "\n".join(app.render(time.time(), width=100, height=14))
-    assert "TRIGGER TREE" in frame
+    assert "trigger-tree" in frame
     assert "untouched" in frame  # quiet files collapse into a folder counter
     import re
     plain = re.sub(r"\x1b\[[0-9;]*m", "", frame)
@@ -131,7 +131,7 @@ def test_main_demo_and_replay(monkeypatch, capsys):
     mod = load_script("tt-watch.py", FIXTURE)
     monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--replay", "--seconds", "0.7"])
     mod.main()
-    assert "TRIGGER TREE" in capsys.readouterr().out
+    assert "trigger-tree" in capsys.readouterr().out
 
 
 def test_main_live_mode_picks_up_appended_events(tmp_path, monkeypatch, capsys):
@@ -160,4 +160,4 @@ def test_main_exits_on_keyboard_interrupt(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["tt-watch.py"])  # no --seconds: only KI can stop it
     monkeypatch.setattr(mod.time, "sleep", lambda _: (_ for _ in ()).throw(KeyboardInterrupt))
     mod.main()  # must swallow the interrupt and restore cleanly
-    assert "TRIGGER TREE" in capsys.readouterr().out
+    assert "trigger-tree" in capsys.readouterr().out

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trigger Tree live watcher — colored ASCII pulse animation over the docs tree.
+"""trigger-tree live watcher — colored ASCII pulse animation over the docs tree.
 
 Run in a second terminal pane next to a Claude Code session:
 
@@ -209,7 +209,7 @@ class App:
         spin = SPINNER[int(now * 10) % len(SPINNER)]
         header = [
             c256(GREEN, f" {spin} ", bold=True)
-            + c256(WHITE, "TRIGGER TREE", bold=True)
+            + c256(WHITE, "trigger-tree", bold=True)
             + c256(DIM, f"  {os.path.basename(ROOT)} · live doc-discovery"),
             "",
         ]

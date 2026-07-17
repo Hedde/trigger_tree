@@ -4,11 +4,11 @@
     "name": "Hedde van der Heide",
     "url": "https://github.com/Hedde"
   },
-  "description": "Trigger Tree — documentation-discovery telemetry for Claude Code",
+  "description": "trigger-tree — documentation-discovery telemetry for Claude Code",
   "plugins": [
     {
       "name": "trigger-tree",
-      "displayName": "Trigger Tree",
+      "displayName": "trigger-tree",
       "source": "./",
       "description": "Documentation-discovery telemetry: /tt status, /tt watch, /tt insights",
       "category": "documentation",

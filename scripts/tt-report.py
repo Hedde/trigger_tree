@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trigger Tree HTML report.
+"""trigger-tree HTML report.
 
 Runs tt-stats.py, renders a self-contained HTML page (inline CSS, no external
 resources, light+dark) and writes it to $PROJECT/.trigger-tree/report.html.
@@ -69,8 +69,8 @@ def main():
     maturity = s.get("maturity", "cold-start")
     max_reads = max((f["reads"] for f in s["files"]), default=1)
 
-    parts = [f"<title>Trigger Tree Report</title><style>{CSS}</style>"]
-    parts.append("<h1>🌳 Trigger Tree — documentation telemetry</h1>")
+    parts = [f"<title>trigger-tree Report</title><style>{CSS}</style>"]
+    parts.append("<h1>🌳 trigger-tree — documentation telemetry</h1>")
     parts.append(
         f"<p class=muted>Period {esc(s['observed_from'])} → {esc(s['observed_to'])} "
         f"({esc(s.get('observed_days', 0))} days) · maturity: <b>{esc(maturity)}</b></p>"

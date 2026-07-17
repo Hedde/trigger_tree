@@ -2,7 +2,7 @@
 
 ## Data handling
 
-Trigger Tree is local-only by design: telemetry is written to
+trigger-tree is local-only by design: telemetry is written to
 `$PROJECT/.trigger-tree/` on your machine and never leaves it. No network calls, no
 external services, no dependencies. Prompt logging is configurable
 (`TT_LOG_PROMPTS=truncate|hash|off`) for teams that don't want prompt text on disk.

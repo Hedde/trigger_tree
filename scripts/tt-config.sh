@@ -1,4 +1,4 @@
-# Trigger Tree — default configuration.
+# trigger-tree — default configuration.
 # Override per project: create $PROJECT/.trigger-tree/config.sh with the same variables.
 # Paths are relative to the project root.
 

@@ -1,4 +1,4 @@
-# 🌳 Trigger Tree
+# 🌳 trigger-tree
 
 [![CI](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fcoverage.json)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
@@ -9,7 +9,7 @@
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 > **AI coding assistants read your project documentation to decide how to work.
-> Trigger Tree shows you which docs they actually use — and which ones they never
+> trigger-tree shows you which docs they actually use — and which ones they never
 > find.** 100% local. Zero model tokens. No cloud, no analytics vendors.
 
 ✓ heat & cold maps of your documentation &nbsp;·&nbsp; ✓ live pulse dashboard &nbsp;·&nbsp; ✓ evidence-backed router fixes
@@ -37,7 +37,7 @@ Teams invest heavily in writing docs, then assume they work — but an unread
 guardrail fails silently. You only notice when the AI "ignores" a convention that,
 in truth, it simply never found.
 
-Trigger Tree closes that loop. It measures which docs are actually consulted per
+trigger-tree closes that loop. It measures which docs are actually consulted per
 task, surfaces the ones that never are (and *why* — unrouted? unreferenced? obsolete?),
 and proves whether your fixes worked. Documentation stops being a hopeful artifact
 and becomes monitored infrastructure — with a health grade to track sprint over sprint.
@@ -69,11 +69,11 @@ One plugin, one command, seven subcommands:
 | **`/tt insights`** | Heat/cold map analysis: untouched paths, hunting, trend, task clusters + HTML report |
 | **`/tt suggestions`** | Max 5 prioritized, evidence-backed router fixes — applied only after you confirm |
 | **`/tt note <text>`** | Annotate the timeline ("sharpened UX router") — visible in the trend |
-| **`/tt setup`** | Wire Trigger Tree into a project: gitignore, statusline, optional config override |
+| **`/tt setup`** | Wire trigger-tree into a project: gitignore, statusline, optional config override |
 
 ## How it works
 
-Trigger Tree registers three lightweight hooks — full transparency:
+trigger-tree registers three lightweight hooks — full transparency:
 
 | Hook | Event | Records |
 |------|-------|---------|
@@ -86,8 +86,7 @@ Trigger Tree registers three lightweight hooks — full transparency:
    your session (loggers always exit 0).
 2. **The aggregator is deterministic** — all counting happens in
    `tt-stats.py`; the model only interprets, never computes.
-3. **Discovery stays model-driven** — your CLAUDE.md remains the router. Trigger
-   Tree *measures* it; it never injects context or overrides routing.
+3. **Discovery stays model-driven** — your CLAUDE.md remains the router. trigger-tree *measures* it; it never injects context or overrides routing.
 
 Subagent reads are attributed (`Explore`, `Plan`, …). Auto-loaded context
 (CLAUDE.md, `.claude/rules`) is invisible to Read-telemetry by design and excluded
@@ -112,7 +111,7 @@ is mature (enough reads, sessions, and days). Then the loop closes:
 ripples up through its parent folders, then fades back to its heat color:
 
 ```
- ⠹ TRIGGER TREE  myproject · live doc-discovery
+ ⠹ trigger-tree  myproject · live doc-discovery
 
  docs/design/
    ├─ principles.md        ▆  12
@@ -132,7 +131,7 @@ ripples up through its parent folders, then fades back to its heat color:
 ## Structuring your docs for discovery
 
 How should a docs tree look so an assistant actually finds things? Claude Code has
-native mechanisms, and there is one popular community convention — Trigger Tree
+native mechanisms, and there is one popular community convention — trigger-tree
 measures whichever you use. The facts, per the
 [official memory docs](https://code.claude.com/docs/en/memory.md):
 
@@ -149,15 +148,15 @@ Practical guidance, as encoded in `/tt suggestions`:
 1. **Root CLAUDE.md is a router, not a manual.** Short, with a task→docs map
    ("UI work → docs/design/, start at index.md").
 2. **Give every folder one entry point** — an `index.md` (or a nested `CLAUDE.md`)
-   that says what lives there and when to read what. Trigger Tree flags folders
+   that says what lives there and when to read what. trigger-tree flags folders
    without one ("no index file") and `/tt suggestions` proposes adding it.
 3. **Know the measurement trade-off.** Injected context (root and nested CLAUDE.md,
-   rules, imports) is invisible to read-telemetry — Trigger Tree honestly lists it
+   rules, imports) is invisible to read-telemetry — trigger-tree honestly lists it
    as *always loaded* instead of guessing. Router files read via tools (`index.md`)
    **are** measurable. If you want provable discovery, route through index files
    and keep injected files thin.
 4. **Prefix templates with `_`** (`_template.md`). Claude attaches no special
-   meaning to the underscore — but Trigger Tree recognizes the convention and files
+   meaning to the underscore — but trigger-tree recognizes the convention and files
    them as intentional archive instead of nagging you about "dead" templates.
 
 ## Configuration

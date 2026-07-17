@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.5 — 2026-07-17
+
+- **Branding: lowercase everywhere.** The plugin now presents itself as
+  `trigger-tree` across README, website, dashboard banner, SKILL, report and
+  manifests — matching the naming convention of official Claude Code plugins
+  (`commit-commands`, `security-guidance`, …). The `/tt` command is unchanged.
+
 ## 0.3.4 — 2026-07-17
 
 - **Stability: layered, crash-proof config resolution** in all scripts (project

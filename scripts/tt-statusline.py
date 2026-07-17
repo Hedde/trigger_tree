@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trigger Tree statusline — live doc-discovery stats for the current session.
+"""trigger-tree statusline — live doc-discovery stats for the current session.
 
 Portable (macOS/Linux), stdlib only. The dot pulses with the age of the last read:
 ● bright green < 90s, ◐ amber < 10min, ○ dim otherwise.

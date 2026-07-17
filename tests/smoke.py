@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trigger Tree smoke test — exercises stats, report, logger and statusline
+"""trigger-tree smoke test — exercises stats, report, logger and statusline
 against the fixture project. Exits non-zero on any failed assertion."""
 import json
 import os
@@ -41,7 +41,7 @@ def test_stats():
 def test_report():
     out_path = run("tt-report.py").strip()
     html = open(out_path, encoding="utf-8").read()
-    assert "<title>Trigger Tree Report</title>" in html
+    assert "<title>trigger-tree Report</title>" in html
     assert "Task clusters" in html and "Skill usage" in html and "sharpened UX router" in html
     print("report OK")
 

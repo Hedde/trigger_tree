@@ -1,5 +1,5 @@
 #!/bin/bash
-# Opens the Trigger Tree live dashboard (tt-watch.py) in a new terminal pane/window.
+# Opens the trigger-tree live dashboard (tt-watch.py) in a new terminal pane/window.
 # Usage: tt-open.sh [demo|replay]   (empty = live tail of the real history)
 # Tries, in order: tmux split, macOS Terminal (osascript), Windows Terminal/start
 # (Git Bash), gnome-terminal, konsole, x-terminal-emulator, xterm.
@@ -27,7 +27,7 @@ fi
 
 if [ -n "${TMUX:-}" ]; then
   tmux split-window -h "$CMD"
-  echo "Trigger Tree watcher opened in a tmux split."
+  echo "trigger-tree watcher opened in a tmux split."
   exit 0
 fi
 
@@ -71,20 +71,20 @@ tell application "iTerm2"
 end tell
 OSA
       then
-        echo "Trigger Tree watcher opened in an iTerm2 split next to this session."
+        echo "trigger-tree watcher opened in an iTerm2 split next to this session."
       elif osascript \
         -e 'tell application "iTerm2"' \
         -e 'tell current session of current window' \
         -e "split vertically with default profile command \"$LAUNCH\"" \
         -e 'end tell' \
         -e 'end tell' >/dev/null 2>&1; then
-        echo "Trigger Tree watcher opened in an iTerm2 split (same window)."
+        echo "trigger-tree watcher opened in an iTerm2 split (same window)."
       else
         osascript \
           -e 'tell application "iTerm2"' \
           -e "create window with default profile command \"$LAUNCH\"" \
           -e 'end tell' >/dev/null
-        echo "Trigger Tree watcher opened in a new iTerm2 window."
+        echo "trigger-tree watcher opened in a new iTerm2 window."
       fi
       exit 0
     fi
@@ -93,7 +93,7 @@ OSA
       -e 'activate' \
       -e "do script \"$CMD\"" \
       -e 'end tell' >/dev/null
-    echo "Trigger Tree watcher opened in a new Terminal window."
+    echo "trigger-tree watcher opened in a new Terminal window."
     exit 0
     ;;
   MINGW*|MSYS*|CYGWIN*)  # Windows (Git Bash)
@@ -102,7 +102,7 @@ OSA
     else
       cmd.exe /c start bash -lc "$CMD" &
     fi
-    echo "Trigger Tree watcher opened in a new window."
+    echo "trigger-tree watcher opened in a new window."
     exit 0
     ;;
 esac
@@ -113,7 +113,7 @@ for TERM_CMD in gnome-terminal konsole x-terminal-emulator xterm; do
       gnome-terminal) "$TERM_CMD" -- bash -c "$CMD" & ;;
       *) "$TERM_CMD" -e bash -c "$CMD" & ;;
     esac
-    echo "Trigger Tree watcher opened via $TERM_CMD."
+    echo "trigger-tree watcher opened via $TERM_CMD."
     exit 0
   fi
 done

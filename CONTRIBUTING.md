@@ -1,4 +1,4 @@
-# Contributing to Trigger Tree
+# Contributing to trigger-tree
 
 Thanks for considering a contribution! This project is small on purpose — a zero-token
 telemetry layer plus one `/tt` skill — so the bar for new code is "does it make the

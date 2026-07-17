@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Trigger Tree — see where your docs actually get read</title>
+<title>trigger-tree — see where your docs actually get read</title>
 <meta name="description" content="Claude Code plugin: documentation-discovery telemetry. 100% local, zero tokens. Heat & cold maps, live pulse dashboard, evidence-backed router fixes.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
 <style>
@@ -53,9 +53,9 @@
 <body>
 <div class="wrap">
   <div class="hero">
-    <h1>🌳 Trigger Tree</h1>
+    <h1>🌳 trigger-tree</h1>
     <p class="tag">AI coding assistants read your project docs to decide how to work.<br>
-       Trigger Tree shows which docs they <b>actually</b> use — and which they never find.</p>
+       trigger-tree shows which docs they <b>actually</b> use — and which they never find.</p>
     <p class="creds">100% local · zero model tokens · no cloud, no analytics vendors</p>
   </div>
 
@@ -89,7 +89,7 @@
   <p style="color:var(--muted);max-width:720px">In AI-assisted development, documentation is the steering wheel:
   it tells the assistant how <i>your</i> team builds software. But <b style="color:var(--fg)">a rule that is never
   read protects nothing</b> — an unread guardrail fails silently, and you only notice when the AI "ignores" a
-  convention it simply never found. Trigger Tree measures what actually gets read, flags what never does, and
+  convention it simply never found. trigger-tree measures what actually gets read, flags what never does, and
   proves whether your fixes worked. Documentation becomes monitored infrastructure instead of a hopeful artifact.</p>
 
   <h2>Install</h2>
@@ -139,7 +139,7 @@
   function bar(n) { return n === 0 ? "·" : SPARK[Math.min(7, Math.floor(Math.log1p(n) / Math.log1p(20) * 7))]; }
   function render() {
     const pulsePath = currentPulse;
-    let out = `<span class="spin"> ${SPIN[spin % SPIN.length]} </span><b>TRIGGER TREE</b><span class="f">  your-project · live doc-discovery</span>\n\n`;
+    let out = `<span class="spin"> ${SPIN[spin % SPIN.length]} </span><b>trigger-tree</b><span class="f">  your-project · live doc-discovery</span>\n\n`;
     for (const g of tree) {
       const folderPulse = pulsePath && pulsePath.startsWith(g.folder) ? "pulse" : "fade";
       out += ` <span class="folder ${folderPulse}">${g.folder}</span>\n`;

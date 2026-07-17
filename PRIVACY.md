@@ -1,16 +1,16 @@
-# Privacy Policy — Trigger Tree
+# Privacy Policy — trigger-tree
 
 _Last updated: 2026-07-17_
 
 ## The short version
 
-Trigger Tree collects **no data**. Everything it records stays on your machine, in
+trigger-tree collects **no data**. Everything it records stays on your machine, in
 your project directory, under your control. There are no network calls, no external
 services, no analytics, and no dependencies that could introduce any.
 
 ## What the plugin records, and where
 
-Trigger Tree's hooks write a local event log to `$PROJECT/.trigger-tree/history.jsonl`
+trigger-tree's hooks write a local event log to `$PROJECT/.trigger-tree/history.jsonl`
 inside the project you use it in:
 
 - **Documentation reads**: the relative path of files read by Read/Glob/Grep tool

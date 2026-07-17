@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trigger Tree aggregator.
+"""trigger-tree aggregator.
 
 Combines $PROJECT/.trigger-tree/history*.jsonl (current file + rotated archives) with
 an inventory of the documentation tree and prints a stats JSON to stdout.

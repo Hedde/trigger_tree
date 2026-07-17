@@ -1,6 +1,6 @@
 ---
 name: tt
-description: Trigger Tree — documentation-discovery telemetry. Subcommands; /tt status (snapshot), /tt watch [demo|replay] (live dashboard), /tt insights (heat/cold map report + HTML), /tt suggestions (prioritized router fixes), /tt note <text> (annotate router changes), /tt setup (wire into project), /tt help.
+description: trigger-tree — documentation-discovery telemetry. Subcommands; /tt status (snapshot), /tt watch [demo|replay] (live dashboard), /tt insights (heat/cold map report + HTML), /tt suggestions (prioritized router fixes), /tt note <text> (annotate router changes), /tt setup (wire into project), /tt help.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Artifact
 arguments:
@@ -8,7 +8,7 @@ arguments:
   - option
 ---
 
-# /tt — Trigger Tree
+# /tt — trigger-tree
 
 Execute the subcommand in `$1` (option/text in `$2` and beyond; `$ARGUMENTS` holds everything).
 
@@ -29,7 +29,7 @@ Scripts live in `${CLAUDE_SKILL_DIR}/scripts/`. Project data lives in
 
 Show exactly this, nothing above or below it:
 
-> **🌳 Trigger Tree** — measures which documentation your agents actually use
+> **🌳 trigger-tree** — measures which documentation your agents actually use
 >
 > | Command | Does |
 > |---------|------|
@@ -40,7 +40,7 @@ Show exactly this, nothing above or below it:
 > | `/tt insights` | Analysis report: heat/cold map, untouched paths, hunting, trend + HTML |
 > | `/tt suggestions` | Max 5 prioritized, concrete router fixes — apply after confirmation |
 > | `/tt note <text>` | Annotate the timeline (e.g. "sharpened UX router") — shows up in the trend |
-> | `/tt setup` | Wire Trigger Tree into this project: gitignore, statusline, optional config |
+> | `/tt setup` | Wire trigger-tree into this project: gitignore, statusline, optional config |
 > | `/tt help` | This overview |
 >
 > Telemetry runs automatically via hooks; the statusline shows the live session counter.
@@ -50,7 +50,7 @@ Show exactly this, nothing above or below it:
 1. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-stats.py"` and read the JSON.
 2. Show only this block:
 
-> **🌳 Trigger Tree status** _(period: <observed_from> → <observed_to>, <sessions> sessions)_
+> **🌳 trigger-tree status** _(period: <observed_from> → <observed_to>, <sessions> sessions)_
 > <reads> reads · <scans> scans · <skill_uses> skill uses · <files touched>/<inventory_files> files touched
 > **Health:** <health.grade> (<health.score>/100) — append "(provisional)" unless maturity is `mature`
 >
@@ -74,12 +74,12 @@ Show exactly this, nothing above or below it:
    `🌳 Not enough data yet (<reads> reads, <sessions> sessions) — check back after a few working sessions.` Stop.
 3. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-report.py"` — it writes
    `.trigger-tree/report.html` and prints the path.
-4. Publish that file with the Artifact tool (favicon `🌳`, description "Trigger Tree
+4. Publish that file with the Artifact tool (favicon `🌳`, description "trigger-tree
    documentation telemetry report"). No Artifact tool available → use the local path
    as the link.
 5. Show only the final report, compact (guideline ≤ 15 lines):
 
-> **🌳 Trigger Tree insights** _(period, #sessions, maturity)_
+> **🌳 trigger-tree insights** _(period, #sessions, maturity)_
 >
 > **Health** — grade + score with its three drivers, one line ("(provisional)" unless mature).
 > **Key figures** — reads, scans (hunting ratio), skill uses, files touched / inventory.

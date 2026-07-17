@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trigger Tree logger — invoked by the plugin hooks. Stdlib only, no jq needed.
+"""trigger-tree logger — invoked by the plugin hooks. Stdlib only, no jq needed.
 
 Events (first argument):
   session  SessionStart hook

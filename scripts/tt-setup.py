@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trigger Tree setup — wires the plugin into the current project. Idempotent.
+"""trigger-tree setup — wires the plugin into the current project. Idempotent.
 
 Steps (each reported as created/updated/skipped):
   1. .gitignore: ensure the .trigger-tree entries (data ignored, config committed).

@@ -25,7 +25,7 @@ def test_full_report_on_fixture(monkeypatch, capsys):
     mod = load_script("tt-report.py", FIXTURE)
     out_path = run_report(mod, monkeypatch, capsys, FIXTURE)
     html = open(out_path, encoding="utf-8").read()
-    for expected in ("<title>Trigger Tree Report</title>", "Most consulted", "Skill usage",
+    for expected in ("<title>trigger-tree Report</title>", "Most consulted", "Skill usage",
                      "Untouched paths (cold map)", "Folder heat", "router gap",
                      "referenced from", "Trend", "sharpened UX router", "Task clusters",
                      "Most often read together", "cold-start",
