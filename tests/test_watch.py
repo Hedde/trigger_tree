@@ -230,6 +230,24 @@ def test_read_key_ignores_timed_out_partial_escape():
         os.close(w)
 
 
+@pytest.mark.skipif(os.name != "nt", reason="covers mocked POSIX decoder on Windows coverage run")
+def test_read_key_posix_decoder_branches_under_windows(monkeypatch):
+    mod = load_script("tt-watch.py", FIXTURE)
+
+    def decode(reads, readiness):
+        chunks = iter(reads)
+        ready = iter(readiness)
+        monkeypatch.setattr(mod.os, "read", lambda _fd, _size: next(chunks))
+        monkeypatch.setattr(mod.select, "select",
+                            lambda *_args: ([1], [], []) if next(ready) else ([], [], []))
+        return mod.read_key(1)
+
+    assert decode([b"q"], []) == "q"
+    assert decode([b"\x1b", b"[", b"C"], [True, True]) == "]"
+    assert decode([b"\x1b", b""], [True]) == ""
+    assert decode([b"\x1b", b"["], [True, False]) == ""
+
+
 def test_read_key_handles_fragmented_arrows_and_navigation_is_reversible():
     if os.name == "nt":
         pytest.skip("read_key is POSIX-only (select on a pipe fd)")

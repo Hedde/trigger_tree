@@ -155,25 +155,24 @@ def test_two_prompts_in_one_session_make_two_buckets(tmp_path, monkeypatch):
     assert len(s["clusters"]) == 2  # disjoint sets don't cluster together
 
 
-import os as _os
-import pytest
-
-
-@pytest.mark.skipif(_os.name == "nt", reason="chmod 0 does not block reads on Windows")
 def test_unreadable_doc_does_not_break_crossref(tmp_path, monkeypatch):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "a.md").write_text("x")
     locked = tmp_path / "docs" / "locked.md"
     locked.write_text("secret")
-    locked.chmod(0)
-    try:
-        write_history(tmp_path, [{"t": "read", "ts": "2026-07-01T09:00:00Z", "session": "A",
-                                  "tool": "Read", "path": "docs/a.md", "agent": "main"}])
-        mod = load_script("tt-stats.py", tmp_path)
-        s = run_stats(mod, monkeypatch)
-        assert "docs/locked.md" in s["untouched"]  # unreadable file still analyzed
-    finally:
-        locked.chmod(0o644)
+    write_history(tmp_path, [{"t": "read", "ts": "2026-07-01T09:00:00Z", "session": "A",
+                              "tool": "Read", "path": "docs/a.md", "agent": "main"}])
+    mod = load_script("tt-stats.py", tmp_path)
+    real_open = open
+
+    def fail_locked(path, *args, **kwargs):
+        if str(path).endswith("locked.md"):
+            raise OSError("permission denied")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", fail_locked)
+    s = run_stats(mod, monkeypatch)
+    assert "docs/locked.md" in s["untouched"]  # unreadable file still analyzed
 
 
 def test_trend_skips_unparseable_timestamps(tmp_path, monkeypatch):
