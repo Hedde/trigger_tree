@@ -42,6 +42,22 @@ task, surfaces the ones that never are (and *why* — unrouted? unreferenced? ob
 and proves whether your fixes worked. Documentation stops being a hopeful artifact
 and becomes monitored infrastructure — with a health grade to track sprint over sprint.
 
+**This measurement doesn't exist anywhere else.** Anthropic's own
+[best-practices guide](https://code.claude.com/docs/en/best-practices) warns that a
+bloated CLAUDE.md causes instructions to be ignored — so high-performing teams prune
+ruthlessly. But nothing tells them whether the pruning was *right*. Agent
+observability platforms (Langfuse, Arize, W&B Weave) measure tokens and traces;
+none measure which project docs were read per task. And just as
+[Fallow](https://github.com/fallow-rs/fallow) gave teams the confidence to delete
+code nobody dared touch, trigger-tree gives you the evidence to prune, reroute, or
+rescue docs nobody dared judge.
+
+| You are | Your question | trigger-tree answers with |
+|---------|---------------|---------------------------|
+| Senior developer | "Why maintain docs nobody reads?" | Read counts and router gaps per file |
+| Tech lead | "Was our CLAUDE.md pruning correct?" | Trend: hunting ratio before/after each `/tt note` |
+| Product owner | "We track token cost — where's doc utility?" | One A–F documentation health grade |
+
 ## Quick start
 
 ```
@@ -203,6 +219,21 @@ Full policy: [PRIVACY.md](PRIVACY.md) · Security reports: [SECURITY.md](SECURIT
 
 CI runs the full test suite on all three platforms. Requirements: `python3` (or
 `python`) on PATH — nothing else.
+
+## Limitations
+
+Honesty over marketing — know what the measurement can and cannot see:
+
+- **Injected context is invisible.** Root/nested CLAUDE.md, `.claude/rules` and
+  `@imports` enter the context without a Read call; trigger-tree lists them as
+  *always loaded* rather than guessing. Only tool-driven reads are measurable.
+- **Read ≠ understood.** A read count proves discovery, not that the content was
+  good or followed. Pair the telemetry with your own judgment.
+- **Signals, not verdicts.** Untouched files are only called *dead-path candidates*
+  once the measurement is mature; new files, templates, and runbooks are recognized
+  and treated accordingly.
+- **Claude Code sessions only.** Other tools (e.g. Codex) don't fire these hooks;
+  their doc usage is not recorded (yet).
 
 ## FAQ
 
