@@ -252,6 +252,12 @@ from cold-path analysis.
 verdict — check `/tt insights`: if it's a *router gap* (no doc links to it), the fix
 is a link, not deletion.
 
+**The `/tt watch` split flashes and disappears instantly.** Your session is running
+a stale cached plugin version from before v0.3.3. Run `/reload-plugins` in that
+session (or start a fresh one). Since v0.3.7 the confirmation line prints the
+running version — if it doesn't match the [latest release](https://github.com/Hedde/trigger_tree/releases),
+reload. A *real* crash keeps the pane open with the error since v0.3.3.
+
 **Can I turn prompt logging off?** Yes: `TT_LOG_PROMPTS='off'` in
 `.trigger-tree/config.sh`. Fingerprints and clusters keep working.
 

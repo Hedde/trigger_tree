@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.7 — 2026-07-17
+
+- `/tt watch` confirmation line now prints the running plugin version
+  ("trigger-tree v0.3.7 watcher opened …") so a stale session cache is instantly
+  visible. FAQ entry added for the flash-and-disappear symptom (stale pre-v0.3.3
+  cache → `/reload-plugins`).
+
 ## 0.3.6 — 2026-07-17
 
 - **Positioning, research-backed**: README and site now state the validated gap —
