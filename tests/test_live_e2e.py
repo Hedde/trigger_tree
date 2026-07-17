@@ -43,7 +43,7 @@ def test_bash_lookup_then_read_improves_live_measurement_iteratively(tmp_path):
     env = dict(os.environ, CLAUDE_PROJECT_DIR=str(tmp_path))
 
     watcher = subprocess.Popen(
-        [sys.executable, os.path.join(SCRIPTS, "tt-watch.py"), "--seconds", "3.4"],
+        [sys.executable, os.path.join(SCRIPTS, "tt-watch.py"), "--seconds", "8"],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
         encoding="utf-8", errors="replace",
     )
@@ -52,24 +52,33 @@ def test_bash_lookup_then_read_improves_live_measurement_iteratively(tmp_path):
         subprocess.run([sys.executable, os.path.join(SCRIPTS, "tt-log.py"), kind],
                        input=json.dumps(payload), encoding="utf-8", env=env, check=True)
 
-    time.sleep(0.7)
+    def next_frame_containing(needle):
+        frame = []
+        while True:
+            line = watcher.stdout.readline()
+            if not line:
+                raise AssertionError(f"watcher exited before rendering {needle!r}")
+            if line.rstrip() == "--frame--":
+                plain = re.sub(r"\x1b\[[0-9;]*m", "", "".join(frame))
+                if needle in plain:
+                    return plain
+                frame = []
+            else:
+                frame.append(line)
+
+    initial = next_frame_containing("0 reads · 0 scans")  # watcher is ready
     log("bash", {
         "session_id": "e2e-bash", "agent_type": "Explore", "tool_name": "Bash",
         "tool_input": {"command": f'rg -il "empty.state|empty_state" "{docs.as_posix()}" | sort'},
     })
-    time.sleep(0.9)  # watcher must render the scan-only intermediate state
+    discovered = next_frame_containing("0 reads · 1 scans")
     log("read", {
         "session_id": "e2e-bash", "agent_type": "Explore", "tool_name": "Read",
         "tool_input": {"file_path": str(target)},
     })
-    out, _ = watcher.communicate(timeout=30)
-    assert watcher.returncode == 0
-
-    plain = re.sub(r"\x1b\[[0-9;]*m", "", out)
-    frames = plain.split("--frame--")
-    initial = next(frame for frame in frames if "0 reads · 0 scans" in frame)
-    discovered = next(frame for frame in frames if "0 reads · 1 scans" in frame)
-    consulted = next(frame for frame in frames if "1 reads · 1 scans" in frame)
+    consulted = next_frame_containing("1 reads · 1 scans")
+    watcher.terminate()
+    watcher.communicate(timeout=30)
     assert "🔍" not in initial
     assert "🔍 docs/ui [Explore]" in discovered
     assert "empty-states.md" in consulted
