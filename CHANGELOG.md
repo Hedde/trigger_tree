@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 — 2026-07-17
+
+- `/tt watch` on macOS now stays in the terminal you called it from: iTerm2 users
+  get a split pane in the current window (detected via `TERM_PROGRAM`), with a
+  new-window fallback; Terminal.app remains the fallback for everything else.
+
 ## 0.3.0 — 2026-07-17
 
 - **Windows support**: posix path normalization, utf-8 everywhere, ANSI console

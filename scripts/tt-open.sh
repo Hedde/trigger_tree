@@ -33,6 +33,25 @@ fi
 
 case "$(uname)" in
   Darwin)
+    # Stay in the terminal you called it from: iTerm2 gets a split pane in the
+    # current window instead of a foreign Terminal.app window.
+    if [ "${TERM_PROGRAM:-}" = "iTerm.app" ]; then
+      if osascript \
+        -e 'tell application "iTerm2"' \
+        -e 'tell current session of current window' \
+        -e "split vertically with default profile command \"$CMD\"" \
+        -e 'end tell' \
+        -e 'end tell' >/dev/null 2>&1; then
+        echo "Trigger Tree watcher opened in an iTerm2 split (same window)."
+      else
+        osascript \
+          -e 'tell application "iTerm2"' \
+          -e "create window with default profile command \"$CMD\"" \
+          -e 'end tell' >/dev/null
+        echo "Trigger Tree watcher opened in a new iTerm2 window."
+      fi
+      exit 0
+    fi
     osascript \
       -e 'tell application "Terminal"' \
       -e 'activate' \

@@ -148,7 +148,7 @@ Full policy: [PRIVACY.md](PRIVACY.md) · Security reports: [SECURITY.md](SECURIT
 
 | Platform | Telemetry & analysis | `/tt watch` window |
 |----------|---------------------|--------------------|
-| macOS | ✅ | tmux split or Terminal.app |
+| macOS | ✅ | iTerm2 split (same window), tmux split, or Terminal.app |
 | Linux | ✅ | tmux split, gnome-terminal, konsole, xterm |
 | Windows | ✅ (Git Bash) | Windows Terminal (`wt.exe`) or `start` |
 
