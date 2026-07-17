@@ -28,8 +28,17 @@ def test_pure_helpers():
     assert mod.jaccard([], []) == 0.0
     assert mod.jaccard(["a", "b"], ["a", "c"]) == 1 / 3
     assert mod.fingerprint(["b", "a"]) == mod.fingerprint(["a", "b"])
-    assert mod._conf_regex("nothing here", "TT_MISSING", r"^fallback$").pattern == "^fallback$"
+    assert mod._conf_regex("TT_MISSING", r"^fallback$").pattern == "^fallback$"
     assert [mod.grade_for(x) for x in (95, 80, 65, 50, 10)] == ["A", "B", "C", "D", "F"]
+
+
+def test_broken_project_config_falls_back_to_plugin_default(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x")
+    (tmp_path / ".trigger-tree").mkdir()
+    (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_WATCH_REGEX='([broken'\n")
+    mod = load_script("tt-stats.py", tmp_path)  # must not crash on the invalid regex
+    assert mod.WATCH.search("docs/a.md") and mod.WATCH.search("agents/x.md")
 
 
 def test_load_events_skips_torn_lines(tmp_path):
@@ -45,9 +54,9 @@ def test_fixture_full_run(monkeypatch):
     s = run_stats(mod, monkeypatch)
     assert s["maturity"] == "cold-start"
     assert s["totals"]["reads"] == 17 and s["totals"]["scans"] == 2 and s["totals"]["skill_uses"] == 1
-    assert s["totals"]["inventory_files"] == 33
+    assert s["totals"]["inventory_files"] == 34
     assert s["sessions"] == 4
-    assert len(s["untouched"]) == 18, s["untouched"]
+    assert len(s["untouched"]) == 19, s["untouched"]
     for p in ("docs/architecture/decisions/001-event-sourcing.md",
               "docs/development/testing.md", "docs/security/threat-model.md",
               "docs/operations/runbooks/incident-response.md",
@@ -65,20 +74,24 @@ def test_fixture_full_run(monkeypatch):
     assert "docs/design/ui-patterns.md" in s["clusters"][0]["paths"]
     assert {"pair": ["docs/README.md", "docs/design/ui-patterns.md"], "count": 2} in s["co_read_top"]
 
-    assert s["health"] == {"score": 51, "grade": "D", "coverage": 0.42,
-                           "drivers": ["18 of 33 docs untouched",
-                                       "11 router gaps (untouched and unreferenced)",
+    assert s["health"] == {"score": 50, "grade": "D", "coverage": 0.41,
+                           "drivers": ["19 of 34 docs untouched",
+                                       "12 router gaps (untouched and unreferenced)",
                                        "hunting ratio 0.12"]}
 
     # router-gap detection: accessibility.md is untouched AND unreferenced;
     # workflow.md is untouched but development/index.md mentions it
-    detail = {d["path"]: d["referenced_from"] for d in s["untouched_detail"]}
-    assert detail["docs/design/accessibility.md"] == []
-    assert "docs/development/index.md" in detail["docs/development/workflow.md"]
+    detail = {d["path"]: d for d in s["untouched_detail"]}
+    assert detail["docs/design/accessibility.md"]["referenced_from"] == []
+    assert "docs/development/index.md" in detail["docs/development/workflow.md"]["referenced_from"]
+    assert detail["docs/architecture/decisions/_template.md"]["template"] is True
+    assert detail["docs/design/accessibility.md"]["template"] is False
 
     # folder heat/cold map: design 3/4 touched, security fully cold, runbooks 1/2
     folders = {f["folder"]: f for f in s["folders"]}
     assert folders["docs/design"]["touched"] == 3 and folders["docs/design"]["coverage"] == 0.75
+    assert folders["docs/design"]["has_index"] is True
+    assert folders["docs/architecture/decisions"]["has_index"] is False
     assert folders["docs/security"]["coverage"] == 0.0
     assert folders["docs/operations/runbooks"]["touched"] == 1
     assert folders["docs/README.md".rsplit("/", 1)[0]]["reads"] == 3  # docs/ root folder

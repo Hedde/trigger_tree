@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.4 — 2026-07-17
+
+- **Stability: layered, crash-proof config resolution** in all scripts (project
+  override → plugin default → hardcoded; broken regexes skipped). Fixes the
+  instant-crash of `/tt watch` in projects with a partial `.trigger-tree/config.sh`.
+- **Multi-session safe splits**: the iTerm2 split now targets the exact session
+  that invoked it (via `ITERM_SESSION_ID`) — two Claude sessions in different
+  projects each get their own split, never the frontmost window by accident.
+- **Discovery-structure awareness**: folders without an entry point are flagged
+  ("no index file") and `/tt suggestions` proposes adding one; `_template.md`-style
+  files are auto-classified as intentional archive; nested `CLAUDE.md`/
+  `CLAUDE.local.md` files count as always-loaded (they inject on demand and are
+  invisible to read-telemetry — per official memory docs).
+- **README/site**: layman-first hero, "Why measure documentation?" and a sourced
+  "Structuring your docs for discovery" guide; site now has six feature cards and
+  a "Why this matters" section.
+
 ## 0.3.3 — 2026-07-17
 
 - **Fix: iTerm2 split closed instantly.** iTerm2's AppleScript `command` parameter

@@ -33,20 +33,31 @@ TREND_DAILY_MAX_DAYS = 14    # daily buckets up to here, weekly beyond
 CLUSTER_JACCARD = 0.6        # min similarity to join an existing task cluster
 
 
-def _conf_text():
-    proj = os.path.join(ROOT, ".trigger-tree", "config.sh")
-    path = proj if os.path.isfile(proj) else os.path.join(SCRIPT_DIR, "tt-config.sh")
-    return open(path, encoding="utf-8").read()
+def _conf_texts():
+    # Layered: project override → plugin default. Broken entries never crash.
+    texts = []
+    for path in (os.path.join(ROOT, ".trigger-tree", "config.sh"),
+                 os.path.join(SCRIPT_DIR, "tt-config.sh")):
+        try:
+            texts.append(open(path, encoding="utf-8").read())
+        except OSError:
+            continue
+    return texts
 
 
-def _conf_regex(text, name, fallback):
-    m = re.search(name + r"='([^']+)'", text)
-    return re.compile(m.group(1) if m else fallback)
+def _conf_regex(name, fallback):
+    for text in _conf_texts():
+        m = re.search(name + r"='([^']+)'", text)
+        if m:
+            try:
+                return re.compile(m.group(1))
+            except re.error:
+                continue
+    return re.compile(fallback)
 
 
-_conf = _conf_text()
-WATCH = _conf_regex(_conf, "TT_WATCH_REGEX", r"^docs/.*\.md$")
-ALWAYS = _conf_regex(_conf, "TT_ALWAYS_LOADED_REGEX", r"^(CLAUDE|AGENTS)\.md$")
+WATCH = _conf_regex("TT_WATCH_REGEX", r"^docs/.*\.md$")
+ALWAYS = _conf_regex("TT_ALWAYS_LOADED_REGEX", r"^(CLAUDE|AGENTS)\.md$")
 
 INVENTORY_BASES = ["docs", "agents", "skills", "agent-briefs", ".claude/rules", ".claude/skills", "."]
 
@@ -247,7 +258,8 @@ def main():
     for p in untouched:
         base = p.rsplit("/", 1)[-1]
         refs = [q for q, t in texts.items() if q != p and (p in t or base in t)]
-        untouched_detail.append({"path": p, "referenced_from": sorted(refs)[:5]})
+        untouched_detail.append({"path": p, "referenced_from": sorted(refs)[:5],
+                                 "template": base.startswith("_")})
 
     # Folder heat/cold map: coverage (files touched) and read volume per folder.
     folder_map = defaultdict(lambda: {"files": 0, "touched": 0, "reads": 0})
@@ -259,8 +271,12 @@ def main():
         if p in touched_paths:
             fm["touched"] += 1
         fm["reads"] += per_file[p]["reads"] if p in per_file else 0
+    index_names = {"index.md", "_index.md", "README.md", "CLAUDE.md"}
+    folders_with_index = {p.rsplit("/", 1)[0] if "/" in p else "(root)"
+                          for p in docs if p.rsplit("/", 1)[-1] in index_names}
     folders = [
-        {"folder": k, **v, "coverage": round(v["touched"] / v["files"], 2)}
+        {"folder": k, **v, "coverage": round(v["touched"] / v["files"], 2),
+         "has_index": k in folders_with_index}
         for k, v in sorted(folder_map.items())
     ]
 

@@ -28,7 +28,7 @@ def test_stats():
     assert s["totals"]["scans"] == 2
     assert s["totals"]["skill_uses"] == 1
     assert s["sessions"] == 4
-    assert len(s["untouched"]) == 18 and "docs/development/testing.md" in s["untouched"]
+    assert len(s["untouched"]) == 19 and "docs/development/testing.md" in s["untouched"]
     assert s["always_loaded"] == ["AGENTS.md", "CLAUDE.md"]  # used skill excluded
     assert s["skills"][0]["name"] == "deploy" and s["skills"][0]["uses"] == 1
     assert len(s["trend"]) == 4 and s["trend"][0]["hunting_ratio"] == 0.2

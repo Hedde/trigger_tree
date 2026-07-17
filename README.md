@@ -8,9 +8,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-> Your CLAUDE.md routes every task through a docs tree — but which paths does the
-> model **actually** take? Trigger Tree measures it. **100% local. Zero model tokens.
-> No cloud, no analytics vendors.**
+> **AI coding assistants read your project documentation to decide how to work.
+> Trigger Tree shows you which docs they actually use — and which ones they never
+> find.** 100% local. Zero model tokens. No cloud, no analytics vendors.
 
 ✓ heat & cold maps of your documentation &nbsp;·&nbsp; ✓ live pulse dashboard &nbsp;·&nbsp; ✓ evidence-backed router fixes
 
@@ -18,10 +18,29 @@
 
 ## Table of contents
 
-- [Quick start](#quick-start) · [Commands](#commands) · [How it works](#how-it-works)
-- [The improvement loop](#the-improvement-loop) · [The dashboard](#the-dashboard)
+- [Why measure documentation?](#why-measure-documentation) · [Quick start](#quick-start) · [Commands](#commands)
+- [How it works](#how-it-works) · [The improvement loop](#the-improvement-loop) · [The dashboard](#the-dashboard)
+- [Structuring your docs for discovery](#structuring-your-docs-for-discovery)
 - [Configuration](#configuration) · [Privacy & data](#privacy--data)
 - [Platform support](#platform-support) · [FAQ](#faq) · [Development](#development)
+
+## Why measure documentation?
+
+In AI-assisted development, documentation is no longer just for humans — it is the
+**steering wheel**. Your CLAUDE.md, conventions, and architecture docs tell the
+assistant how *your* team builds software: which patterns to copy, which guardrails
+to respect, which decisions were already made. When the assistant reads the right
+doc, it works your way. When it doesn't, it guesses.
+
+And here is the uncomfortable part: **a rule that is never read protects nothing.**
+Teams invest heavily in writing docs, then assume they work — but an unread
+guardrail fails silently. You only notice when the AI "ignores" a convention that,
+in truth, it simply never found.
+
+Trigger Tree closes that loop. It measures which docs are actually consulted per
+task, surfaces the ones that never are (and *why* — unrouted? unreferenced? obsolete?),
+and proves whether your fixes worked. Documentation stops being a hopeful artifact
+and becomes monitored infrastructure — with a health grade to track sprint over sprint.
 
 ## Quick start
 
@@ -109,6 +128,37 @@ ripples up through its parent folders, then fades back to its heat color:
 
 `--demo` for instant synthetic events, `--replay` to re-run your real history,
 `q` or Ctrl+C to quit.
+
+## Structuring your docs for discovery
+
+How should a docs tree look so an assistant actually finds things? Claude Code has
+native mechanisms, and there is one popular community convention — Trigger Tree
+measures whichever you use. The facts, per the
+[official memory docs](https://code.claude.com/docs/en/memory.md):
+
+| Mechanism | Loads | Status |
+|-----------|-------|--------|
+| Root `CLAUDE.md` — keep it **under 200 lines**, pointers over inlining | at launch | ✅ official |
+| Nested `CLAUDE.md` per subdirectory | on demand, when files there are read | ✅ official |
+| `.claude/rules/*.md` with `paths:` glob frontmatter | on demand, on matching files | ✅ official |
+| `@imports` (`@docs/foo.md`, max 4 hops deep) | at launch — they always cost context | ✅ official |
+| Per-folder `index.md`/`README.md` routers + `_template.md` | when the model follows your router instructions | community pattern |
+
+Practical guidance, as encoded in `/tt suggestions`:
+
+1. **Root CLAUDE.md is a router, not a manual.** Short, with a task→docs map
+   ("UI work → docs/design/, start at index.md").
+2. **Give every folder one entry point** — an `index.md` (or a nested `CLAUDE.md`)
+   that says what lives there and when to read what. Trigger Tree flags folders
+   without one ("no index file") and `/tt suggestions` proposes adding it.
+3. **Know the measurement trade-off.** Injected context (root and nested CLAUDE.md,
+   rules, imports) is invisible to read-telemetry — Trigger Tree honestly lists it
+   as *always loaded* instead of guessing. Router files read via tools (`index.md`)
+   **are** measurable. If you want provable discovery, route through index files
+   and keep injected files thin.
+4. **Prefix templates with `_`** (`_template.md`). Claude attaches no special
+   meaning to the underscore — but Trigger Tree recognizes the convention and files
+   them as intentional archive instead of nagging you about "dead" templates.
 
 ## Configuration
 

@@ -130,8 +130,9 @@ def main():
             col = heat_color(fo["touched"], max(f["files"] for f in s["folders"]))
             if fo["coverage"] == 0:
                 col = HEAT[0]
+            no_index = "" if fo.get("has_index") else " <small class=muted>· no index file</small>"
             parts.append(
-                f"<tr><td><code>{esc(fo['folder'])}/</code></td>"
+                f"<tr><td><code>{esc(fo['folder'])}/</code>{no_index}</td>"
                 f"<td>{fo['touched']}/{fo['files']}</td>"
                 f"<td><span class=bar style='width:{w}px;background:{col}'></span></td>"
                 f"<td>{int(fo['coverage'] * 100)}%</td><td>{fo['reads']}</td></tr>"
@@ -146,7 +147,10 @@ def main():
         detail = {d["path"]: d["referenced_from"] for d in s.get("untouched_detail", [])}
         for p in s["untouched"]:
             refs = detail.get(p, [])
-            if refs:
+            tmpl = {d["path"]: d.get("template") for d in s.get("untouched_detail", [])}
+            if tmpl.get(p):
+                info = "template — intentional archive"
+            elif refs:
                 info = "referenced from " + ", ".join(f"<code>{esc(r)}</code>" for r in refs)
             else:
                 info = "<b>not referenced by any doc — router gap</b>"

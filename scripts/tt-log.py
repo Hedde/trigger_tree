@@ -31,17 +31,18 @@ DEFAULTS = {
 
 
 def conf():
-    proj = os.path.join(ROOT, ".trigger-tree", "config.sh")
-    path = proj if os.path.isfile(proj) else os.path.join(SCRIPT_DIR, "tt-config.sh")
-    try:
-        text = open(path, encoding="utf-8").read()
-    except OSError:
-        text = ""
+    # Layered per key: plugin default first, project override wins where present.
     out = dict(DEFAULTS)
-    for key in out:
-        m = re.search(key + r"='([^']+)'", text)
-        if m:
-            out[key] = m.group(1)
+    for path in (os.path.join(SCRIPT_DIR, "tt-config.sh"),
+                 os.path.join(ROOT, ".trigger-tree", "config.sh")):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except OSError:
+            continue
+        for key in DEFAULTS:
+            m = re.search(key + r"='([^']+)'", text)
+            if m:
+                out[key] = m.group(1)
     return out
 
 

@@ -34,12 +34,34 @@ try:
 except AttributeError:  # pragma: no cover — exotic stdout replacement
     pass
 
-# Project override wins over the plugin default (same rule as tt-log.py/tt-stats.py).
+# Layered config: project override → plugin default → hardcoded. A partial or
+# broken config.sh must never crash the watcher.
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-_proj_conf = os.path.join(ROOT, ".trigger-tree", "config.sh")
-_conf = open(_proj_conf if os.path.isfile(_proj_conf) else os.path.join(SCRIPT_DIR, "tt-config.sh"),
-             encoding="utf-8").read()
-WATCH = re.compile(re.search(r"TT_WATCH_REGEX='([^']+)'", _conf).group(1))
+
+
+def _conf_texts():
+    texts = []
+    for path in (os.path.join(ROOT, ".trigger-tree", "config.sh"),
+                 os.path.join(SCRIPT_DIR, "tt-config.sh")):
+        try:
+            texts.append(open(path, encoding="utf-8").read())
+        except OSError:
+            continue
+    return texts
+
+
+def _conf_regex(name, fallback):
+    for text in _conf_texts():
+        m = re.search(name + r"='([^']+)'", text)
+        if m:
+            try:
+                return re.compile(m.group(1))
+            except re.error:
+                continue
+    return re.compile(fallback)
+
+
+WATCH = _conf_regex("TT_WATCH_REGEX", r"^docs/.*\.md$")
 BASES = ["docs", "agents", "skills", "agent-briefs", ".claude/rules", ".claude/skills", "."]
 
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"

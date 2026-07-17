@@ -33,7 +33,9 @@ def test_conf_unreadable_falls_back_to_defaults(tmp_path):
     cfg.chmod(0)  # unreadable file: open() raises OSError
     try:
         mod = load_script("tt-log.py", tmp_path)
-        assert mod.conf() == mod.DEFAULTS
+        cfg_out = mod.conf()
+        assert cfg_out["TT_LOG_PROMPTS"] == "truncate"  # hash override unreadable → ignored
+        assert "agents" in cfg_out["TT_WATCH_REGEX"]    # plugin default file wins over DEFAULTS
     finally:
         cfg.chmod(0o644)
 

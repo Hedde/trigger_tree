@@ -88,8 +88,9 @@ Show exactly this, nothing above or below it:
 > **Untouched paths** — when `mature`: one line per path with a category — 🗑 remove/merge,
 > 🧭 sharpen router (with a concrete proposal), 📦 intentional archive. Use
 > `untouched_detail`: a path with empty `referenced_from` is a **router gap** (no doc
-> links to it) — that's nearly always 🧭. When `warming`: present as untouched with the
-> note that judgment needs more data; no categories.
+> links to it) — that's nearly always 🧭; `template: true` entries are automatically 📦.
+> When `warming`: present as untouched with the note that judgment needs more data;
+> no categories.
 > **Trend** — only when `trend` has 2+ periods: is the hunting ratio falling or rising,
 > and does that correlate with any `notes` (router changes)?
 > **Hunting** — only if scans > 20% of reads: which folder, what that suggests.
@@ -113,8 +114,12 @@ SKILL.md counts as touched.
 3. Produce **at most 5** prioritized suggestions, each exactly one numbered line:
    *what to change, in which file, and the evidence* (counts from the stats). Draw them
    from, in priority order:
-   - `untouched_detail` entries with empty `referenced_from` → "Add a link to <path>
-     in <its folder's index or docs/README.md> — untouched and no doc references it (router gap)."
+   - `untouched_detail` entries with empty `referenced_from` and `template: false` →
+     "Add a link to <path> in <its folder's index or docs/README.md> — untouched and
+     no doc references it (router gap)." Entries with `template: true` are intentional
+     archive — never suggest deleting or linking them.
+   - `folders` with `has_index: false` and low coverage → "Add an index.md router file
+     to <folder>/ — the folder has no entry point, so discovery depends on luck."
    - `folders` with coverage 0 → "Folder <x>/ was never entered (<n> files) — route to it or archive it."
    - `hunting` folders with high scan counts → "Sharpen the index instructions of <folder> —
      <n> searches instead of routed reads."

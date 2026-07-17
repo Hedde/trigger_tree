@@ -50,7 +50,29 @@ case "$(uname)" in
         printf 'rm -f "$0"\n'
       } > "$LAUNCH"
       chmod +x "$LAUNCH"
-      if osascript \
+      # Target the exact session that invoked us (ITERM_SESSION_ID), so two Claude
+      # sessions in different projects each get their own split — never the
+      # frontmost window by accident.
+      SESSION_UUID="${ITERM_SESSION_ID#*:}"
+      if [ -n "${ITERM_SESSION_ID:-}" ] && osascript >/dev/null 2>&1 <<OSA
+tell application "iTerm2"
+  set found to false
+  repeat with w in windows
+    repeat with t in tabs of w
+      repeat with s in sessions of t
+        if (id of s as text) is "$SESSION_UUID" then
+          tell s to split vertically with default profile command "$LAUNCH"
+          set found to true
+        end if
+      end repeat
+    end repeat
+  end repeat
+  if not found then error "no matching session"
+end tell
+OSA
+      then
+        echo "Trigger Tree watcher opened in an iTerm2 split next to this session."
+      elif osascript \
         -e 'tell application "iTerm2"' \
         -e 'tell current session of current window' \
         -e "split vertically with default profile command \"$LAUNCH\"" \

@@ -54,6 +54,23 @@ def test_render_and_truncation():
     assert "1 reads" in plain and "q quit" in plain
 
 
+def test_partial_or_broken_config_never_crashes(tmp_path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x")
+    conf = tmp_path / ".trigger-tree"
+    conf.mkdir()
+    # partial config (the historic instant-crash in other projects)
+    (conf / "config.sh").write_text("TT_LOG_PROMPTS='hash'\n")
+    mod = load_script("tt-watch.py", tmp_path)
+    assert mod.WATCH.search("agents/x.md")  # plugin default fills the gap
+    # broken regex: skip it, fall through to the plugin default
+    (conf / "config.sh").write_text("TT_WATCH_REGEX='([broken'\n")
+    mod = load_script("tt-watch.py", tmp_path)
+    assert mod.WATCH.search("docs/a.md")
+    # hardcoded last resort when nothing defines the key at all
+    assert mod._conf_regex("TT_MISSING", r"^x$").pattern == "^x$"
+
+
 def test_tail_handles_rotation(tmp_path):
     mod = load_script("tt-watch.py", FIXTURE)
     p = tmp_path / "h.jsonl"
