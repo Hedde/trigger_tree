@@ -14,5 +14,5 @@ The latest release on `main` receives fixes. Older versions: please upgrade.
 ## Reporting a vulnerability
 
 Please do **not** open a public issue for security problems. Email
-**heddevanderheide@gmail.com** with a description and reproduction steps. You will
+**me@heddevanderheide.nl** with a description and reproduction steps. You will
 get a response within a few days; fixes are credited unless you prefer otherwise.

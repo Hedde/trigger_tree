@@ -6,5 +6,5 @@ In short: be respectful, be constructive, assume good intent. Harassment,
 discrimination, and personal attacks are not tolerated in issues, pull requests,
 discussions, or any other project space.
 
-Reports: email **heddevanderheide@gmail.com**. All reports are reviewed and handled
+Reports: email **me@heddevanderheide.nl**. All reports are reviewed and handled
 confidentially.

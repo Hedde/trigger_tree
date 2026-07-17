@@ -46,4 +46,4 @@ committed or shared through version control.
 ## Changes and contact
 
 Changes to this policy are recorded in this file's git history. Questions:
-**heddevanderheide@gmail.com**.
+**me@heddevanderheide.nl**.
