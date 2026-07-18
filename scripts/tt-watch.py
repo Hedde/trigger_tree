@@ -152,6 +152,10 @@ class App:
         self._current = {}        # session -> active bucket
         self.selected = None      # bucket index while browsing, None = live view
 
+    def sync_inventory(self, files):
+        """Make the live tree reflect disk; historical counters remain intact."""
+        self.files = sorted(set(files))
+
     def feed(self, ev, live=True):
         t = ev.get("t")
         if live:
@@ -188,7 +192,7 @@ class App:
             path = ev["path"]
             self.counts[path] += 1
             self.total_reads += 1
-            if path not in self.files:
+            if path not in self.files and os.path.isfile(os.path.join(ROOT, path)):
                 self.files.append(path)
             if live:
                 self._pulse(path)
@@ -279,7 +283,8 @@ class App:
                           + c256(DIM, f" · {sum(counts.values())} reads · {b_scans} scans"))
             files_src = sorted(counts)
         else:
-            counts = self.counts
+            counts = Counter({path: count for path, count in self.counts.items()
+                              if path in self.files})
             scan_counts = Counter({path.rstrip("/"): count for path, count in self.scans.items()})
             files_src = self.files
         max_count = max(counts.values(), default=0)
@@ -296,6 +301,8 @@ class App:
         normalized_scans = Counter()
         for target, count in scan_counts.items():
             folder = os.path.dirname(target) if target.lower().endswith(".md") else target
+            if not browsing and not os.path.isdir(os.path.join(ROOT, folder)):
+                continue  # deleted historical folders do not reappear in live view
             normalized_scans[folder] += count
             folders.setdefault(folder, [])
 
@@ -473,6 +480,7 @@ def main():
     rng = random.Random()
     demo = demo_event(app.files or ["CLAUDE.md"], rng) if args.demo else None
     next_evt = time.time() + 0.5
+    next_inventory_sync = time.time() + 1.0
 
     is_tty = sys.stdout.isatty()
     stdin_tty = sys.stdin.isatty()
@@ -513,6 +521,9 @@ def main():
             elif not args.demo and not args.replay:
                 for ev in tail.poll():
                     app.feed(ev)
+                if now >= next_inventory_sync:
+                    app.sync_inventory(inventory())
+                    next_inventory_sync = now + 1.0
             size = shutil.get_terminal_size(fallback=(100, 34))
             frame = app.render(now, size.columns, size.lines)
             if is_tty:

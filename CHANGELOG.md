@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.1 — 2026-07-18
+
+- **Deleted docs no longer haunt the live tree.** Historical Read events retain
+  their counters but cannot re-add a path that no longer exists; historical scans
+  of removed folders likewise stay out of the live overview.
+- The watcher refreshes its documentation inventory every second, so a file or
+  folder removed while the pane is open disappears without a restart. Prompt
+  history still shows the original evidence when browsing ←/→.
+
 ## 0.7.0 — 2026-07-18
 
 - **Folders no longer look untouched while being searched.** Every folder row now

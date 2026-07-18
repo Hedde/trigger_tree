@@ -85,15 +85,42 @@ def test_tail_handles_rotation(tmp_path):
     assert tail.poll()[0]["t"] == "scan"
 
 
-def test_feed_discovers_unknown_path_and_long_names():
-    mod = load_script("tt-watch.py", FIXTURE)
+def test_feed_discovers_new_file_but_not_deleted_historical_path(tmp_path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x")
+    mod = load_script("tt-watch.py", tmp_path)
     app = mod.App(["docs/a.md"])
+    (tmp_path / "docs" / "brand-new-file.md").write_text("x")
     app.feed({"t": "read", "path": "docs/brand-new-file.md", "session": "S"})
     assert "docs/brand-new-file.md" in app.files
+    app.feed({"t": "read", "path": "docs/deleted.md", "session": "old"}, live=False)
+    assert "docs/deleted.md" not in app.files
+    assert app.counts["docs/deleted.md"] == 1  # history retained, tree stays current
     long_name = "docs/" + "x" * 40 + ".md"
+    (tmp_path / long_name).write_text("x")
     app.feed({"t": "read", "path": long_name, "session": "S"})
     frame = "\n".join(app.render(time.time(), width=120, height=40))
     assert "…" in frame  # long basename truncated
+
+
+def test_inventory_sync_prunes_deleted_files_without_erasing_history(tmp_path):
+    (tmp_path / "docs" / "adr").mkdir(parents=True)
+    old = tmp_path / "docs" / "adr" / "old.md"
+    old.write_text("x")
+    mod = load_script("tt-watch.py", tmp_path)
+    app = mod.App(["docs/adr/old.md"])
+    app.feed({"t": "read", "path": "docs/adr/old.md", "session": "S"}, live=False)
+    app.feed({"t": "scan", "path": "docs/adr", "session": "S"}, live=False)
+    old.unlink()
+    (tmp_path / "docs" / "adr").rmdir()
+    app.sync_inventory(mod.inventory())
+    import re
+    frame = re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(app.render(time.time(), 100, 30)))
+    assert "docs/adr" not in frame
+    assert app.total_reads == 1 and app.total_scans == 1
+    app.select_prev()  # historical prompt/session context remains inspectable
+    historic = re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(app.render(time.time(), 100, 30)))
+    assert "docs/adr" in historic
 
 
 def _browse_app(mod):
@@ -164,8 +191,11 @@ def test_scan_only_prompt_shows_folder_search_without_faking_a_read():
     assert "a.md" not in frame and "b.md" not in frame
 
 
-def test_folder_counters_keep_searches_separate_from_unread_files():
-    mod = load_script("tt-watch.py", FIXTURE)
+def test_folder_counters_keep_searches_separate_from_unread_files(tmp_path):
+    (tmp_path / "docs" / "ui").mkdir(parents=True)
+    (tmp_path / "docs" / "ui" / "a.md").write_text("x")
+    (tmp_path / "docs" / "ui" / "b.md").write_text("x")
+    mod = load_script("tt-watch.py", tmp_path)
     app = mod.App(["docs/ui/a.md", "docs/ui/b.md"])
     app.feed({"t": "scan", "path": "docs/ui/", "session": "S"}, live=False)
     app.feed({"t": "scan", "path": "docs/ui/a.md", "session": "S"}, live=False)
@@ -401,7 +431,7 @@ def test_main_live_mode_picks_up_appended_events(tmp_path, monkeypatch, capsys):
             fh.write('{"t":"read","path":"docs/a.md","session":"S","agent":"main"}\n')
 
     threading.Timer(0.05, append_event).start()
-    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--seconds", "0.5"])
+    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--seconds", "1.2"])
     mod.main()
     plain = re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().out)
     assert "1 reads" in plain  # the live tail fed the appended event
