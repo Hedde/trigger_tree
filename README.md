@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fcoverage.json)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
-[![python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![python](https://img.shields.io/badge/python-3.10–3.13-blue.svg)](https://www.python.org/)
 [![platforms](https://img.shields.io/badge/platforms-macOS%20·%20Linux%20·%20Windows-lightgrey.svg)](#platform-support)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://code.claude.com/docs)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
