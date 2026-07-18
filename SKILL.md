@@ -1,6 +1,6 @@
 ---
 name: tt
-description: trigger-tree — documentation-discovery telemetry. Subcommands; /tt status (snapshot), /tt watch [demo|replay] (live dashboard), /tt insights (heat/cold map report + HTML), /tt suggestions (prioritized router fixes), /tt note <text> (annotate router changes), /tt doctor (installation health), /tt setup (wire into project), /tt help.
+description: See which docs your AI actually discovers with local, zero-token telemetry. Subcommands; /tt status, /tt watch [demo|replay], /tt insights, /tt suggestions, /tt note <text>, /tt doctor, /tt setup, /tt help.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Artifact
 arguments:

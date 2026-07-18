@@ -4,13 +4,13 @@
     "name": "Hedde van der Heide",
     "url": "https://github.com/Hedde"
   },
-  "description": "trigger-tree — documentation-discovery telemetry for Claude Code",
+  "description": "See which docs your AI actually discovers — local documentation telemetry for Claude Code",
   "plugins": [
     {
       "name": "trigger-tree",
       "displayName": "trigger-tree",
       "source": "./",
-      "description": "Documentation-discovery telemetry: folder search/unread counters, /tt watch, /tt suggestions, /tt doctor",
+      "description": "Local, zero-token documentation discovery: live dashboard, heat maps, router fixes, and setup diagnostics",
       "category": "documentation",
       "tags": ["docs", "telemetry", "observability"]
     }

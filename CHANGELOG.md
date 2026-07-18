@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.5 — 2026-07-18
+
+- **Privacy-hardened prompt markers:** the default is now `hash`, so prompt text is
+  never stored unless a project explicitly opts in to `truncate`. `off` remains
+  available for marker-only telemetry; existing project overrides keep their choice.
+- Clarified that trigger-tree records local telemetry but sends nothing off-device,
+  and aligned plugin, marketplace, README, security, privacy, and website copy around
+  “See which docs your AI actually discovers.”
+
 ## 0.7.4 — 2026-07-18
 
 - The live overview is now focused on at most ten folders with proven activity:

@@ -98,7 +98,7 @@ trigger-tree registers three lightweight hooks — full transparency:
 | Hook | Event | Records |
 |------|-------|---------|
 | SessionStart | new session | session marker |
-| UserPromptSubmit | your prompt | task marker (text configurable: truncate/hash/off) |
+| UserPromptSubmit | your prompt | hashed task marker by default (text is explicit opt-in) |
 | PostToolUse | `Read\|Glob\|Grep`, `Skill`, and Bash | doc reads, native searches, skill names, plus explicit `rg`/`grep`/`find` doc targets |
 
 1. **Hooks log shell-side** to `$PROJECT/.trigger-tree/history.jsonl` — zero model
@@ -208,7 +208,7 @@ Optional per-project override: `.trigger-tree/config.sh` (create it with
 | `TT_WATCH_REGEX` | docs/agents/skills/agent-briefs + CLAUDE/AGENTS.md | which reads count as documentation |
 | `TT_SCAN_REGEX` | doc folders | which Glob/Grep and explicit Bash-search targets count as hunting |
 | `TT_ALWAYS_LOADED_REGEX` | CLAUDE/AGENTS.md, .claude/rules\|skills | auto-loaded files, excluded from cold analysis |
-| `TT_LOG_PROMPTS` | `truncate` | `truncate` (200 chars) · `hash` (sha1 only) · `off` (marker only) |
+| `TT_LOG_PROMPTS` | `hash` | `hash` (sha1 only) · `truncate` (opt-in, 200 chars) · `off` (marker only) |
 | `TT_ROTATE_BYTES` | 5 MB | rotate history.jsonl to a timestamped archive beyond this size |
 
 Team auto-install — in your project's `.claude/settings.json`:
@@ -240,7 +240,7 @@ is ready.
 - ✅ **No network calls of any kind** — python3 standard library only; audit every line.
 - ✅ **Nothing leaves your machine** — data lives in `$PROJECT/.trigger-tree/` (gitignored).
 - ✅ **Paths and metadata only** — file *contents* are never read or stored.
-- ✅ **Prompt text is optional** — `TT_LOG_PROMPTS=hash` or `off` for teams.
+- ✅ **No prompt text by default** — only a short hash; `truncate` is explicit opt-in.
 - ✅ **You own deletion** — remove `.trigger-tree/` and all history is gone.
 
 Full policy: [PRIVACY.md](PRIVACY.md) · Security reports: [SECURITY.md](SECURITY.md)
@@ -299,8 +299,9 @@ the plugin hooks, local-data gitignore, statusline registration, and whether thi
 exact repository has received valid telemetry. `/tt watch` always binds its split
 to the repository that invoked it and tails new hook events in real time.
 
-**Can I turn prompt logging off?** Yes: `TT_LOG_PROMPTS='off'` in
-`.trigger-tree/config.sh`. Fingerprints and clusters keep working.
+**Can I change prompt logging?** The default stores only a short SHA-1 hash, never
+prompt text. Set `TT_LOG_PROMPTS='off'` for marker-only events or explicitly opt in
+to `truncate` (first 200 characters) in `.trigger-tree/config.sh`.
 
 ## Development
 

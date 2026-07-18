@@ -34,7 +34,7 @@ def test_conf_unreadable_falls_back_to_defaults(tmp_path):
     try:
         mod = load_script("tt-log.py", tmp_path)
         cfg_out = mod.conf()
-        assert cfg_out["TT_LOG_PROMPTS"] == "truncate"  # hash override unreadable → ignored
+        assert cfg_out["TT_LOG_PROMPTS"] == "hash"  # unreadable override → safe default
         assert "agents" in cfg_out["TT_WATCH_REGEX"]    # plugin default file wins over DEFAULTS
     finally:
         cfg.chmod(0o644)
@@ -42,7 +42,7 @@ def test_conf_unreadable_falls_back_to_defaults(tmp_path):
 
 def test_conf_defaults_and_override(tmp_path):
     mod = load_script("tt-log.py", tmp_path)
-    assert mod.conf()["TT_LOG_PROMPTS"] == "truncate"
+    assert mod.conf()["TT_LOG_PROMPTS"] == "hash"
     (tmp_path / ".trigger-tree").mkdir()
     (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_LOG_PROMPTS='off'\n")
     cfg = mod.conf()
@@ -121,12 +121,12 @@ def test_prompt_modes(tmp_path, monkeypatch):
 
     mod = load_script("tt-log.py", tmp_path)
     run_main(mod, monkeypatch, ["prompt"], payload)
-    assert read_history(tmp_path)[-1]["prompt"] == "secret plans line two"
-
-    (conf_dir / "config.sh").write_text("TT_LOG_PROMPTS='hash'\n")
-    run_main(mod, monkeypatch, ["prompt"], payload)
     entry = read_history(tmp_path)[-1]
     assert "prompt_hash" in entry and "secret" not in json.dumps(entry)
+
+    (conf_dir / "config.sh").write_text("TT_LOG_PROMPTS='truncate'\n")
+    run_main(mod, monkeypatch, ["prompt"], payload)
+    assert read_history(tmp_path)[-1]["prompt"] == "secret plans line two"
 
     (conf_dir / "config.sh").write_text("TT_LOG_PROMPTS='off'\n")
     run_main(mod, monkeypatch, ["prompt"], payload)

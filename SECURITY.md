@@ -4,8 +4,9 @@
 
 trigger-tree is local-only by design: telemetry is written to
 `$PROJECT/.trigger-tree/` on your machine and never leaves it. No network calls, no
-external services, no dependencies. Prompt logging is configurable
-(`TT_LOG_PROMPTS=truncate|hash|off`) for teams that don't want prompt text on disk.
+external services, no dependencies. Prompt text is not stored by default: task
+markers use a short SHA-1 hash. Projects can choose `TT_LOG_PROMPTS=off` or
+explicitly opt in to `truncate`.
 
 ## Supported versions
 

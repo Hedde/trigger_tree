@@ -4,9 +4,9 @@ _Last updated: 2026-07-18_
 
 ## The short version
 
-trigger-tree collects **no data**. Everything it records stays on your machine, in
-your project directory, under your control. There are no network calls, no external
-services, no analytics, and no dependencies that could introduce any.
+trigger-tree sends **no data off your machine**. Its local telemetry stays in your
+project directory, under your control. There are no network calls, external services,
+analytics vendors, or runtime dependencies.
 
 ## What the plugin records, and where
 
@@ -17,10 +17,10 @@ inside the project you use it in:
   or explicitly passed as existing doc paths to Bash `rg`/`grep`/`find` commands,
   with a timestamp, session id, and agent type.
 - **Skill invocations**: the name of invoked skills.
-- **Prompt markers**: by default the first 200 characters of your prompt. This is
+- **Prompt markers**: by default a short SHA-1 hash with no prompt text. This is
   configurable via `TT_LOG_PROMPTS` in `.trigger-tree/config.sh`:
-  - `truncate` (default) — first 200 characters
-  - `hash` — a SHA-1 digest only, no text
+  - `hash` (default) — a SHA-1 digest only, no text
+  - `truncate` (explicit opt-in) — first 200 characters
   - `off` — a bare marker, nothing else
 - **Notes**: text you explicitly add with `/tt note`.
 

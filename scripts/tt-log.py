@@ -32,7 +32,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULTS = {
     "TT_WATCH_REGEX": r"^docs/.*\.md$",
     "TT_SCAN_REGEX": r"^docs(/|$)",
-    "TT_LOG_PROMPTS": "truncate",
+    "TT_LOG_PROMPTS": "hash",
     "TT_ROTATE_BYTES": "5242880",
 }
 

@@ -1,8 +1,8 @@
 {
   "name": "trigger-tree",
   "displayName": "trigger-tree",
-  "version": "0.7.4",
-  "description": "Documentation-discovery telemetry: per-folder search/unread counters, real-time repo-bound dashboard, concise evidence-backed suggestions, health diagnostics, and router-gap detection. macOS/Linux/Windows.",
+  "version": "0.7.5",
+  "description": "See which docs your AI actually discovers. Local, zero-token documentation telemetry with a live dashboard, heat maps, health diagnostics, and evidence-backed router fixes. macOS/Linux/Windows.",
   "author": {
     "name": "Hedde van der Heide"
   },
