@@ -97,6 +97,7 @@ def history_files(explicit=None):
 
 def load_events(paths):
     events = []
+    seen_tool_calls = set()
     for path in paths:
         if not os.path.isfile(path):
             continue
@@ -106,10 +107,57 @@ def load_events(paths):
                 if not line:
                     continue
                 try:
-                    events.append(json.loads(line))
+                    event = json.loads(line)
                 except json.JSONDecodeError:
                     continue  # a torn write should not kill the whole report
+                # Session resume/compaction can replay hook delivery around a boundary.
+                # Claude's tool_use_id is stable for that call, so count it once even
+                # when the duplicate straddles a rotated archive.
+                tool_use_id = event.get("tool_use_id")
+                if tool_use_id and event.get("t") in ("read", "scan", "skill"):
+                    identity = (event.get("session"), event.get("t"), tool_use_id)
+                    if identity in seen_tool_calls:
+                        continue
+                    seen_tool_calls.add(identity)
+                events.append(event)
     return events
+
+
+IMPORT_RE = re.compile(r"(?<![\w`])@([^\s`]+)")
+
+
+def claude_import_graph(docs):
+    """Return inventory files whose content is injected through CLAUDE.md imports.
+
+    Imports are resolved relative to the importing file, remain inside the project,
+    and are followed recursively with cycle protection. External/absolute imports
+    are intentionally ignored because they cannot be classified in this inventory.
+    """
+    doc_set = set(docs)
+    seeds = [p for p in docs if p == "CLAUDE.md" or p.endswith("/CLAUDE.md")]
+    loaded = set(seeds)
+    pending = list(seeds)
+    while pending:
+        source = pending.pop()
+        try:
+            text = open(os.path.join(ROOT, source), encoding="utf-8", errors="ignore").read()
+        except OSError:
+            continue
+        base = posix_dirname(source)
+        for raw in IMPORT_RE.findall(text):
+            target = raw.rstrip(".,;:)").replace("\\", "/")
+            if target.startswith(("/", "~", "http://", "https://")):
+                continue
+            candidate = os.path.normpath(os.path.join(base, target)).replace(os.sep, "/")
+            if candidate.startswith("../") or candidate not in doc_set or candidate in loaded:
+                continue
+            loaded.add(candidate)
+            pending.append(candidate)
+    return loaded
+
+
+def posix_dirname(path):
+    return path.rsplit("/", 1)[0] if "/" in path else ""
 
 
 def fingerprint(paths):
@@ -267,9 +315,11 @@ def main():
         for name in per_skill
         if f".claude/skills/{name}/SKILL.md" in set(docs)
     }
+    imported_files = claude_import_graph(docs)
+    always_loaded_set = {p for p in docs if ALWAYS.search(p)} | imported_files
     unread = [p for p in docs if p not in read_paths and p not in used_skill_files]
-    untouched = [p for p in unread if not ALWAYS.search(p)]
-    always_loaded = [p for p in unread if ALWAYS.search(p)]
+    untouched = [p for p in unread if p not in always_loaded_set]
+    always_loaded = [p for p in unread if p in always_loaded_set]
 
     # Router-gap detection: an untouched file that no other doc links to is invisible
     # to the router; an untouched file that IS referenced points at content/naming.
@@ -379,6 +429,14 @@ def main():
         "untouched_detail": untouched_detail,
         "folders": folders,
         "always_loaded": always_loaded,
+        "always_loaded_imports": sorted(imported_files),
+        "signal_integrity": {
+            "subagent_reads": "captured",
+            "subagent_read_events": sum(1 for e in reads if e.get("agent_id")),
+            "compaction_boundaries": sum(
+                1 for e in events if e.get("t") == "session" and e.get("source") == "compact"
+            ),
+        },
         "unknown_reads": sorted(p for p in read_paths if p not in docs),
         "hunting": [{"path": p, "scans": n} for p, n in scan_targets.most_common(10)],
         "trend": trend,

@@ -58,7 +58,38 @@ def test_session_event_and_bad_stdin(tmp_path, monkeypatch):
         "t": "session",
         "ts": read_history(tmp_path)[0]["ts"],
         "session": "?",
+        "source": "unknown",
     }
+
+
+def test_session_boundary_and_subagent_identity_are_preserved(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    run_main(
+        mod,
+        monkeypatch,
+        ["session"],
+        json.dumps({"session_id": "S", "source": "compact"}),
+    )
+    run_main(
+        mod,
+        monkeypatch,
+        ["read"],
+        json.dumps(
+            {
+                "session_id": "S",
+                "agent_id": "agent-123",
+                "agent_type": "Explore",
+                "tool_use_id": "toolu-read-1",
+                "tool_name": "Read",
+                "tool_input": {"file_path": str(tmp_path / "docs" / "a.md")},
+            }
+        ),
+    )
+    session, read = read_history(tmp_path)
+    assert session["source"] == "compact"
+    assert read["agent"] == "Explore"
+    assert read["agent_id"] == "agent-123"
+    assert read["tool_use_id"] == "toolu-read-1"
 
 
 def test_read_scan_and_filtering(tmp_path, monkeypatch):

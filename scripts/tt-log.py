@@ -170,9 +170,25 @@ def main():
         data = {}
     session = data.get("session_id", "?")
     agent = data.get("agent_type", "main")
+    agent_id = data.get("agent_id")
+
+    def hook_identity(entry):
+        if data.get("tool_use_id"):
+            entry["tool_use_id"] = data["tool_use_id"]
+        if agent_id:
+            entry["agent_id"] = agent_id
+        return entry
 
     if event == "session":
-        append({"t": "session", "ts": ts, "session": session}, rotate)
+        append(
+            {
+                "t": "session",
+                "ts": ts,
+                "session": session,
+                "source": data.get("source", "unknown"),
+            },
+            rotate,
+        )
 
     elif event == "prompt":
         entry = {"t": "prompt", "ts": ts, "session": session}
@@ -198,7 +214,9 @@ def main():
         if not re.search(regex, rel):
             return
         append(
-            {"t": typ, "ts": ts, "session": session, "tool": tool, "path": rel, "agent": agent},
+            hook_identity(
+                {"t": typ, "ts": ts, "session": session, "tool": tool, "path": rel, "agent": agent}
+            ),
             rotate,
         )
 
@@ -206,14 +224,16 @@ def main():
         command = (data.get("tool_input") or {}).get("command", "")
         for path in bash_scan_paths(command, cfg["TT_SCAN_REGEX"]):
             append(
-                {
-                    "t": "scan",
-                    "ts": ts,
-                    "session": session,
-                    "tool": "Bash",
-                    "path": path,
-                    "agent": agent,
-                },
+                hook_identity(
+                    {
+                        "t": "scan",
+                        "ts": ts,
+                        "session": session,
+                        "tool": "Bash",
+                        "path": path,
+                        "agent": agent,
+                    }
+                ),
                 rotate,
             )
 
@@ -221,7 +241,10 @@ def main():
         name = (data.get("tool_input") or {}).get("skill", "")
         if name:
             append(
-                {"t": "skill", "ts": ts, "session": session, "skill": name, "agent": agent}, rotate
+                hook_identity(
+                    {"t": "skill", "ts": ts, "session": session, "skill": name, "agent": agent}
+                ),
+                rotate,
             )
 
 

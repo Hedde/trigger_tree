@@ -49,6 +49,83 @@ def test_load_events_skips_torn_lines(tmp_path):
     assert [e["t"] for e in events] == ["read", "scan"]
 
 
+def test_recursive_claude_imports_are_always_loaded_not_cold(tmp_path, monkeypatch):
+    (tmp_path / "docs" / "rules").mkdir(parents=True)
+    (tmp_path / "CLAUDE.md").write_text(
+        "Project context: @docs/router.md @https://example.com/external.md @docs/missing.md\n"
+    )
+    (tmp_path / "docs" / "router.md").write_text("Nested rules: @rules/critical.md @../CLAUDE.md\n")
+    (tmp_path / "docs" / "rules" / "critical.md").write_text(
+        "Never expose secrets. @../../../outside.md\n"
+    )
+    (tmp_path / "docs" / "unused.md").write_text("Unused.\n")
+    write_history(tmp_path, [{"t": "session", "session": "S", "ts": "2026-07-01T00:00:00Z"}])
+
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+
+    assert stats["always_loaded_imports"] == [
+        "CLAUDE.md",
+        "docs/router.md",
+        "docs/rules/critical.md",
+    ]
+    assert "docs/router.md" in stats["always_loaded"]
+    assert "docs/rules/critical.md" in stats["always_loaded"]
+    assert "docs/router.md" not in stats["untouched"]
+    assert "docs/rules/critical.md" not in {item["path"] for item in stats["untouched_detail"]}
+    assert stats["untouched"] == ["docs/unused.md"]
+
+
+def test_unreadable_claude_file_does_not_break_import_graph(tmp_path, monkeypatch):
+    (tmp_path / "CLAUDE.md").write_text("@docs/a.md")
+    mod = load_script("tt-stats.py", tmp_path)
+
+    def unreadable(*_args, **_kwargs):
+        raise OSError("permission denied")
+
+    monkeypatch.setattr("builtins.open", unreadable)
+    assert mod.claude_import_graph(["CLAUDE.md", "docs/a.md"]) == {"CLAUDE.md"}
+
+
+def test_subagent_reads_count_and_compaction_replay_is_deduplicated(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x")
+    duplicate = {
+        "t": "read",
+        "ts": "2026-07-01T09:00:00Z",
+        "session": "S",
+        "tool": "Read",
+        "tool_use_id": "toolu-1",
+        "path": "docs/a.md",
+        "agent": "Explore",
+        "agent_id": "agent-1",
+    }
+    history_dir = tmp_path / ".trigger-tree"
+    history_dir.mkdir()
+    (history_dir / "history-20260701-090000.jsonl").write_text(json.dumps(duplicate) + "\n")
+    (history_dir / "history.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps({"t": "session", "session": "S", "source": "compact"}),
+                json.dumps(duplicate),
+            ]
+        )
+        + "\n"
+    )
+
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+
+    assert stats["totals"]["reads"] == 1
+    assert stats["files"][0]["reads"] == 1
+    assert stats["files"][0]["agents"] == {"Explore": 1}
+    assert stats["signal_integrity"] == {
+        "subagent_reads": "captured",
+        "subagent_read_events": 1,
+        "compaction_boundaries": 1,
+    }
+
+
 def test_fixture_full_run(monkeypatch):
     mod = load_script("tt-stats.py", FIXTURE)
     s = run_stats(mod, monkeypatch)
