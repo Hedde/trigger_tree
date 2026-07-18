@@ -70,6 +70,7 @@ GREEN, AMBER, RED = 114, 214, 196  # three heat tiers, matching the website demo
 DEAD, DIM, WHITE, FOLDER = 240, 245, 231, 250
 BUCKET_LIMIT = 20       # detailed per-prompt buckets kept for browsing (totals aggregate all)
 EVENTS_PER_BUCKET = 500  # cap against runaway tasks flooding one bucket
+LIVE_FOLDER_LIMIT = 10   # focused live overview; full cold inventory lives in insights
 ESCAPE_BYTE_TIMEOUT = 0.2  # tolerate delayed terminal bytes on loaded machines
 PULSE_SECS = 1.4        # how long a flash takes to fade
 RIPPLE_DELAY = 0.09     # per tree level, leaf → root
@@ -264,13 +265,18 @@ class App:
             return 229, True
         return base, False
 
-    def _folder_sort_key(self, folder, now, browsing):
+    def _folder_sort_key(self, folder, now, browsing, activity=0):
         """Prioritize live activity without making the tree permanently jumpy."""
         if not folder or browsing:
-            return (folder != "", 1, 0, folder)
+            return (folder != "", 1, 0, -activity, folder)
         touched = self.pulses.get(folder, 0)
-        recent = touched and now - touched <= RECENT_SECS
-        return (True, 0 if recent else 1, -touched if recent else 0, folder)
+        recent = self._is_recent(folder, now)
+        return (True, 0 if recent else 1, -touched if recent else 0, -activity, folder)
+
+    def _is_recent(self, node, now):
+        """A scheduled ripple is active immediately, not only after it starts glowing."""
+        touched = self.pulses.get(node, 0)
+        return bool(touched and now - touched <= RECENT_SECS)
 
     def render(self, now, width, height):
         spin = SPINNER[int(now * 10) % len(SPINNER)]
@@ -315,6 +321,30 @@ class App:
             normalized_scans[folder] += count
             folders.setdefault(folder, [])
 
+        focus_summary = ""
+        folder_activity = {
+            folder: sum(counts[f] for f in files) + normalized_scans[folder]
+            for folder, files in folders.items()
+        }
+        if not browsing:
+            active = [folder for folder in folders
+                      if folder_activity[folder] or self._is_recent(folder, now)]
+            active.sort(key=lambda folder: self._folder_sort_key(
+                folder, now, False, folder_activity[folder]))
+            shown_folders = set(active[:LIVE_FOLDER_LIMIT])
+            more_active = max(0, len(active) - len(shown_folders))
+            quiet = [folder for folder in folders if folder not in active]
+            quiet_unread = sum(len(inventory_folders.get(folder, [])) for folder in quiet)
+            folders = {folder: files for folder, files in folders.items()
+                       if folder in shown_folders}
+            summary = []
+            if more_active:
+                summary.append(f"{more_active} more active")
+            if quiet:
+                summary.append(f"{len(quiet)} quiet folders · {quiet_unread} unread")
+            if summary:
+                focus_summary = "   … " + " · ".join(summary) + " hidden"
+
         ticker_lines = min(3, len(self.ticker))
         fixed = len(header) + 2 + ticker_lines + 1  # footer + hint line
         budget = max(4, height - fixed)
@@ -322,9 +352,12 @@ class App:
         hide_quiet = total > budget
 
         body = []
-        for folder in sorted(folders, key=lambda d: self._folder_sort_key(d, now, browsing)):
+        for folder in sorted(folders, key=lambda d: self._folder_sort_key(
+                d, now, browsing, folder_activity.get(d, 0))):
             files = folders[folder]
-            if hide_quiet:
+            if not browsing:
+                shown = [f for f in files if counts[f] or self._glow(f, now) > 0]
+            elif hide_quiet:
                 shown = [f for f in files if counts[f] or self._glow(f, now) > 0]
             else:
                 shown = files
@@ -358,10 +391,13 @@ class App:
                 body.append(c256(244 if folder else DIM, prefix)
                             + c256(color, name, bold) + pad + stat)
 
-        if len(body) > budget:
-            hidden_extra = len(body) - budget
-            body = body[:budget]
+        body_budget = max(1, budget - (1 if focus_summary else 0))
+        if len(body) > body_budget:
+            hidden_extra = len(body) - body_budget
+            body = body[:body_budget]
             body.append(c256(DEAD, f"   … {hidden_extra} files hidden"))
+        if focus_summary:
+            body.append(c256(DEAD, focus_summary))
 
         lines = header + body
         lines.append("")

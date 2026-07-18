@@ -25,6 +25,7 @@ def test_app_feed_pulse_and_glow(tmp_path):
     assert app.total_scans == 1 and app.total_skills == 1
     assert app.pulses.get(".claude/skills/deploy/SKILL.md")  # skill pulses its SKILL.md
     assert app.ticker[0][1] == "⚡"
+    assert "SKILL.md" in "\n".join(app.render(time.time(), width=100, height=30))
 
     before = len(app.ticker)
     app.feed({"t": "read", "path": "docs/a.md", "session": "S"}, live=False)
@@ -59,6 +60,7 @@ def test_render_and_truncation():
 def test_live_folders_prioritize_recent_activity_then_return_to_alpha():
     mod = load_script("tt-watch.py", FIXTURE)
     app = mod.App(["docs/alpha/a.md", "docs/zulu/z.md"])
+    app.feed({"t": "read", "path": "docs/alpha/a.md", "session": "S"}, live=False)
     now = time.time()
     app.feed({"t": "read", "path": "docs/zulu/z.md", "session": "S"})
 
@@ -69,6 +71,19 @@ def test_live_folders_prioritize_recent_activity_then_return_to_alpha():
     settled = "\n".join(app.render(now + mod.RECENT_SECS + 1, width=100, height=30))
     assert settled.index("docs/alpha/") < settled.index("docs/zulu/")
     assert app._folder_sort_key("docs/zulu", now, True)[-1] == "docs/zulu"
+
+
+def test_live_focus_hides_untouched_folders_and_caps_activity_at_ten():
+    mod = load_script("tt-watch.py", FIXTURE)
+    files = [f"docs/f{i:02d}/a.md" for i in range(13)] + ["docs/quiet/a.md"]
+    app = mod.App(files)
+    for i in range(13):
+        for _ in range(i + 1):
+            app.feed({"t": "read", "path": f"docs/f{i:02d}/a.md", "session": "S"}, live=False)
+    frame = "\n".join(app.render(time.time(), width=120, height=80))
+    assert "docs/quiet/" not in frame
+    assert "3 more active · 1 quiet folders · 1 unread hidden" in frame
+    assert "docs/f12/" in frame and "docs/f00/" not in frame  # hottest ten win
 
 
 def test_partial_or_broken_config_never_crashes(tmp_path):
@@ -398,6 +413,9 @@ def test_render_hard_truncation_of_read_files():
         app.feed({"t": "read", "path": f, "session": "S"}, live=False)
     frame = "\n".join(app.render(time.time(), width=100, height=12))
     assert "files hidden" in frame
+    app.select_prev()
+    historic = "\n".join(app.render(time.time(), width=100, height=12))
+    assert "files hidden" in historic  # compact prompt-history uses the same budget
 
 
 def test_demo_event_generator():

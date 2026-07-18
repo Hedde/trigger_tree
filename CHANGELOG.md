@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.4 — 2026-07-18
+
+- The live overview is now focused on at most ten folders with proven activity:
+  recent activity first, then cumulative reads/searches. Untouched folders and
+  files collapse into one quiet/unread summary instead of filling the viewport.
+- Prompt-history remains exact and `/tt insights` retains the complete cold-path
+  inventory, so focus does not discard evidence.
+
 ## 0.7.3 — 2026-07-18
 
 - The live dashboard now brings the currently active and recently touched folders

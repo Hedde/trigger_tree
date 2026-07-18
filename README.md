@@ -153,6 +153,9 @@ historical prompt browsing and aggregate trends.
 Recently active folders temporarily move above quiet folders so live work stays
 inside a small viewport. They settle back into alphabetical order after eight
 seconds; files within folders and prompt-history views remain alphabetically stable.
+The live view shows at most ten folders with proven activity and collapses untouched
+folders/files into one quiet summary. `/tt insights` remains the complete cold-path
+inventory; nothing is removed from the underlying telemetry.
 
 **Browse per prompt**: press ← to move to older prompts and → to move to newer
 ones — the tree filters to exactly what was aggregated for that input (its reads,
