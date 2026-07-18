@@ -1,0 +1,3 @@
+# Latest test tooling that still supports trigger-tree's Python 3.9 runtime floor.
+coverage==7.10.7
+pytest==8.4.2
