@@ -161,8 +161,9 @@ inventory; nothing is removed from the underlying telemetry.
 
 **Browse per prompt**: press ← to move to older prompts and → to move to newer
 ones — the tree filters to exactly what was aggregated for that input (its reads,
-scans and skill uses, with the prompt text in the header). The timeline never wraps
-or changes mode at its ends; `a` returns to the live overview.
+scans and skill uses, with its prompt label in the header: a hash by default, and
+text only after explicitly opting in to `truncate`). The timeline never wraps or
+changes mode at its ends; `a` returns to the live overview.
 
 `--demo` for instant synthetic events, `--replay` to re-run your real history,
 `q` or Ctrl+C to quit.
