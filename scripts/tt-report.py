@@ -219,6 +219,27 @@ def main():
         )
         parts.append("</ul>")
 
+    if s.get("experimental_outcomes"):
+        outcomes = s["experimental_outcomes"]
+        parts.append(
+            "<h2>Experimental outcome correlation</h2>"
+            f"<div class=note><b>{esc(outcomes['label'])}</b><br>"
+            "This local view does not show that reading a document caused an outcome.</div>"
+        )
+        parts.append(
+            "<div class=scroll><table><tr><th>Bucket</th><th>Sessions</th><th>Docs read</th></tr>"
+        )
+        for bucket in ("committed", "abandoned"):
+            value = outcomes[bucket]
+            docs = (
+                ", ".join(
+                    f"<code>{esc(item['path'])}</code> ×{item['reads']}" for item in value["docs"]
+                )
+                or "—"
+            )
+            parts.append(f"<tr><td>{bucket}</td><td>{value['sessions']}</td><td>{docs}</td></tr>")
+        parts.append("</table></div>")
+
     if s["hunting"]:
         parts.append("<h2>Hunting (Glob/Grep inside doc folders)</h2><div class=scroll><table>")
         parts.append("<tr><th>Folder</th><th>Scans</th></tr>")

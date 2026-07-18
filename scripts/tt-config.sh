@@ -24,3 +24,7 @@ TT_LOG_PROMPTS='hash'
 
 # Rotate history.jsonl to history-<timestamp>.jsonl when it exceeds this many bytes.
 TT_ROTATE_BYTES='5242880'
+
+# Experimental, correlational view joining reads with local session outcomes.
+# Values: off (default) or on. This never makes causal claims or sends data anywhere.
+TT_EXPERIMENTAL_OUTCOMES='off'

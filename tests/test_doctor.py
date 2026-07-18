@@ -100,6 +100,7 @@ def test_doctor_validates_config_values(tmp_path):
         ("TT_WATCH_REGEX='([broken'\n", "invalid"),
         ("TT_LOG_PROMPTS='plaintext'\n", "hash, truncate, or off"),
         ("TT_ROTATE_BYTES='0'\n", "positive integer"),
+        ("TT_EXPERIMENTAL_OUTCOMES='maybe'\n", "must be on or off"),
         ("TT_ROTATE_BYTES=nope\n", "unparseable assignment"),
     ):
         config.write_text(value)

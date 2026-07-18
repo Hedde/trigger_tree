@@ -179,6 +179,41 @@ def test_rare_critical_docs_are_protected_review_items(tmp_path, monkeypatch):
     assert "referenced by 3 other docs" in items["docs/widely-linked.md"]["why"]
 
 
+def test_experimental_outcome_view_is_correlational_and_flagged(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("a")
+    (tmp_path / "docs" / "b.md").write_text("b")
+    config = tmp_path / ".trigger-tree"
+    config.mkdir()
+    (config / "config.sh").write_text("TT_EXPERIMENTAL_OUTCOMES='on'\n")
+    write_history(
+        tmp_path,
+        [
+            {"t": "read", "session": "committed", "path": "docs/a.md"},
+            {"t": "outcome", "session": "committed", "git_commit_landed": True},
+            {"t": "read", "session": "abandoned", "path": "docs/b.md"},
+            {"t": "outcome", "session": "abandoned", "git_commit_landed": False},
+            {"t": "read", "session": "open", "path": "docs/a.md"},
+        ],
+    )
+    mod = load_script("tt-stats.py", tmp_path)
+    outcomes = run_stats(mod, monkeypatch)["experimental_outcomes"]
+    assert outcomes["label"] == "experimental correlation — not causal"
+    assert outcomes["committed"] == {
+        "sessions": 1,
+        "docs": [{"path": "docs/a.md", "reads": 1}],
+    }
+    assert outcomes["abandoned"] == {
+        "sessions": 1,
+        "docs": [{"path": "docs/b.md", "reads": 1}],
+    }
+
+
+def test_experimental_outcomes_are_off_by_default(tmp_path, monkeypatch):
+    mod = load_script("tt-stats.py", tmp_path)
+    assert run_stats(mod, monkeypatch)["experimental_outcomes"] is None
+
+
 def test_fixture_full_run(monkeypatch):
     mod = load_script("tt-stats.py", FIXTURE)
     s = run_stats(mod, monkeypatch)

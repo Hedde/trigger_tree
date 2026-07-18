@@ -75,6 +75,7 @@ ALWAYS = _conf_regex("TT_ALWAYS_LOADED_REGEX", r"^(CLAUDE|AGENTS)\.md$")
 CRITICAL_GLOBS = [
     value.strip() for value in _conf_value("TT_CRITICAL_GLOB").split(",") if value.strip()
 ]
+EXPERIMENTAL_OUTCOMES = _conf_value("TT_EXPERIMENTAL_OUTCOMES", "off") == "on"
 
 INVENTORY_BASES = [
     "docs",
@@ -255,6 +256,7 @@ def main():
     reads = [e for e in events if e.get("t") == "read"]
     scans = [e for e in events if e.get("t") == "scan"]
     skill_events = [e for e in events if e.get("t") == "skill"]
+    outcome_events = [e for e in events if e.get("t") == "outcome"]
     notes = [{"ts": e.get("ts"), "text": e.get("text", "")} for e in events if e.get("t") == "note"]
     sessions = sorted({e.get("session", "?") for e in events})
 
@@ -433,6 +435,35 @@ def main():
             }
         )
 
+    experimental_outcomes = None
+    if EXPERIMENTAL_OUTCOMES:
+        latest_outcome = {event.get("session", "?"): event for event in outcome_events}
+        buckets_by_outcome = {
+            "committed": {"sessions": set(), "reads": Counter()},
+            "abandoned": {"sessions": set(), "reads": Counter()},
+        }
+        for event in reads:
+            session = event.get("session", "?")
+            outcome = latest_outcome.get(session)
+            if not outcome:
+                continue
+            bucket = "committed" if outcome.get("git_commit_landed") else "abandoned"
+            buckets_by_outcome[bucket]["sessions"].add(session)
+            buckets_by_outcome[bucket]["reads"][event["path"]] += 1
+        experimental_outcomes = {"label": "experimental correlation — not causal"}
+        experimental_outcomes.update(
+            {
+                key: {
+                    "sessions": len(value["sessions"]),
+                    "docs": [
+                        {"path": path, "reads": count}
+                        for path, count in value["reads"].most_common(10)
+                    ],
+                }
+                for key, value in buckets_by_outcome.items()
+            }
+        )
+
     # Folder heat/cold map: coverage (files touched) and read volume per folder.
     folder_map = defaultdict(lambda: {"files": 0, "touched": 0, "reads": 0})
     touched_paths = read_paths | used_skill_files
@@ -536,6 +567,7 @@ def main():
             ),
         },
         "history_schema": {"current": SCHEMA_VERSION, **history_diagnostics},
+        "experimental_outcomes": experimental_outcomes,
         "unknown_reads": sorted(p for p in read_paths if p not in docs),
         "hunting": [{"path": p, "scans": n} for p, n in scan_targets.most_common(10)],
         "trend": trend,

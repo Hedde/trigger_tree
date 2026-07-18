@@ -69,3 +69,20 @@ def test_report_when_nothing_untouched(tmp_path, monkeypatch, capsys):
     mod = load_script("tt-report.py", tmp_path)
     html = open(run_report(mod, monkeypatch, capsys, tmp_path), encoding="utf-8").read()
     assert "None — every inventoried file has been read" in html
+
+
+def test_experimental_outcome_view_renders_with_causal_warning(tmp_path, monkeypatch, capsys):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x")
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    (telemetry / "config.sh").write_text("TT_EXPERIMENTAL_OUTCOMES='on'\n")
+    (telemetry / "history.jsonl").write_text(
+        '{"t":"read","session":"S","path":"docs/a.md"}\n'
+        '{"t":"outcome","session":"S","git_commit_landed":true}\n'
+    )
+    mod = load_script("tt-report.py", tmp_path)
+    html = open(run_report(mod, monkeypatch, capsys, tmp_path), encoding="utf-8").read()
+    assert "Experimental outcome correlation" in html
+    assert "experimental correlation — not causal" in html
+    assert "does not show that reading a document caused an outcome" in html

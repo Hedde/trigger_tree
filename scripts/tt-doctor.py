@@ -78,9 +78,13 @@ def hooks_health():
     post = hooks.get("PostToolUse", [])
     matchers = {entry.get("matcher", "") for entry in post if isinstance(entry, dict)}
     commands = json.dumps(manifest) if manifest else ""
+    session_end = hooks.get("SessionEnd", [])
+    failure = hooks.get("PostToolUseFailure", [])
     if (
         session
         and prompt
+        and session_end
+        and failure
         and {"Read|Glob|Grep", "Skill", "Bash"}.issubset(matchers)
         and "tt-log.py" in commands
     ):
@@ -113,6 +117,9 @@ def config_health():
     prompt_mode = assignments.get("TT_LOG_PROMPTS")
     if prompt_mode is not None and prompt_mode not in ("hash", "truncate", "off"):
         return "FAIL", "config: TT_LOG_PROMPTS must be hash, truncate, or off"
+    experimental = assignments.get("TT_EXPERIMENTAL_OUTCOMES")
+    if experimental is not None and experimental not in ("on", "off"):
+        return "FAIL", "config: TT_EXPERIMENTAL_OUTCOMES must be on or off"
     rotate = assignments.get("TT_ROTATE_BYTES")
     if rotate is not None:
         try:

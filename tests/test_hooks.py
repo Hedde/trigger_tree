@@ -12,3 +12,7 @@ def test_every_documented_post_tool_use_has_a_logger_route():
     assert routes["Read|Glob|Grep"].count("tt-log.py read") == 2
     assert routes["Skill"].count("tt-log.py skill") == 2
     assert routes["Bash"].count("tt-log.py bash") == 2
+    assert manifest["hooks"]["SessionEnd"][0]["hooks"][0]["command"].count("tt-log.py outcome") == 2
+    failure = manifest["hooks"]["PostToolUseFailure"][0]
+    assert failure["matcher"] == "Bash"
+    assert failure["hooks"][0]["command"].count("tt-log.py bash-failure") == 2

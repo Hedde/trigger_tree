@@ -60,6 +60,7 @@ def test_session_event_and_bad_stdin(tmp_path, monkeypatch):
         "ts": read_history(tmp_path)[0]["ts"],
         "session": "?",
         "source": "unknown",
+        "git_head": None,
     }
 
 
@@ -274,3 +275,57 @@ def test_rotation_never_overwrites_same_second_archive(tmp_path, monkeypatch):
     mod.append({"t": "session"}, 10)
     assert (history / "history-20260719-120000.jsonl").read_text() == "original"
     assert (history / "history-20260719-120000-1.jsonl").read_text() == "x" * 20
+
+
+def test_local_outcome_signals_and_test_command_detection(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    assert mod.looks_like_test_command("pytest -q")
+    assert mod.looks_like_test_command("npm test && echo done")
+    assert mod.looks_like_test_command("cargo test")
+    assert mod.looks_like_test_command("mix test")
+    assert not mod.looks_like_test_command("echo pytest")
+    assert not mod.looks_like_test_command("")
+
+    heads = iter(["before", "after"])
+    monkeypatch.setattr(mod, "git_head", lambda: next(heads))
+    run_main(mod, monkeypatch, ["session"], json.dumps({"session_id": "S", "source": "startup"}))
+    run_main(
+        mod,
+        monkeypatch,
+        ["bash"],
+        json.dumps({"session_id": "S", "tool_input": {"command": "pytest -q"}}),
+    )
+    run_main(
+        mod,
+        monkeypatch,
+        ["outcome"],
+        json.dumps({"session_id": "S", "reason": "prompt_input_exit"}),
+    )
+    events = read_history(tmp_path)
+    assert events[-2]["t"] == "test" and events[-2]["status"] == "pass"
+    assert events[-1]["t"] == "outcome"
+    assert events[-1]["git_commit_landed"] is True
+    assert events[-1]["test_status"] == "pass"
+    assert events[-1]["source"] == "prompt_input_exit"
+
+
+def test_failed_test_signal_and_git_head_failure(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    monkeypatch.setattr(
+        mod.subprocess, "run", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError())
+    )
+    assert mod.git_head() is None
+    run_main(
+        mod,
+        monkeypatch,
+        ["bash-failure"],
+        json.dumps({"session_id": "S", "tool_input": {"command": "go test ./..."}}),
+    )
+    assert read_history(tmp_path)[-1]["status"] == "fail"
+    assert mod.session_signals("missing") == (None, None)
+    monkeypatch.setattr(mod.glob, "glob", lambda _pattern: [str(tmp_path / "missing.jsonl")])
+    assert mod.session_signals("missing") == (None, None)
+    corrupt = tmp_path / "corrupt.jsonl"
+    corrupt.write_text("{torn\n")
+    monkeypatch.setattr(mod.glob, "glob", lambda _pattern: [str(corrupt)])
+    assert mod.session_signals("missing") == (None, None)

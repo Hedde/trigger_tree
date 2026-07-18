@@ -15,6 +15,9 @@
 - Expands `/tt doctor` with exact hook-route, config, supported-Python, rotated-log,
   corrupt-line, legacy-migration, and future-schema diagnostics. Rotation now keeps
   every archive even when multiple rotations happen in the same second.
+- Adds an opt-in `TT_EXPERIMENTAL_OUTCOMES='on'` view joining documentation reads
+  with local commit and test-command signals. It is labeled correlational—not causal—
+  and remains disabled by default.
 
 ## 0.8.0 — 2026-07-18
 

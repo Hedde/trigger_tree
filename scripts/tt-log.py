@@ -18,12 +18,14 @@ the file to history-<utc-timestamp>.jsonl when it exceeds TT_ROTATE_BYTES.
 Hooks must never disturb the session: every failure exits 0 silently.
 """
 
+import glob
 import hashlib
 import json
 import os
 import posixpath
 import re
 import shlex
+import subprocess
 import sys
 import time
 
@@ -36,6 +38,7 @@ DEFAULTS = {
     "TT_SCAN_REGEX": r"^docs(/|$)",
     "TT_LOG_PROMPTS": "hash",
     "TT_ROTATE_BYTES": "5242880",
+    "TT_EXPERIMENTAL_OUTCOMES": "off",
 }
 
 
@@ -141,6 +144,66 @@ def bash_scan_paths(command, scan_regex):
     return found
 
 
+def git_head():
+    try:
+        return (
+            subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=True,
+            ).stdout.strip()
+            or None
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def looks_like_test_command(command):
+    for segment in shell_segments(command):
+        words = [os.path.basename(word).lower() for word in segment]
+        if words[0] in ("pytest", "py.test") or words[:2] in (["cargo", "test"], ["go", "test"]):
+            return True
+        if (
+            len(words) >= 2
+            and words[0] in ("npm", "pnpm", "yarn", "bun")
+            and words[1]
+            in (
+                "test",
+                "run",
+            )
+        ):
+            return True
+        if words[:2] in (["mix", "test"], ["swift", "test"], ["dotnet", "test"]):
+            return True
+    return False
+
+
+def session_signals(session):
+    baseline = test_status = None
+    paths = sorted(glob.glob(os.path.join(ROOT, ".trigger-tree", "history*.jsonl")))
+    for path in paths:
+        try:
+            lines = open(path, encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        with lines:
+            for line in lines:
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(event, dict) or event.get("session") != session:
+                    continue
+                if event.get("t") == "session" and event.get("git_head") and baseline is None:
+                    baseline = event["git_head"]
+                elif event.get("t") == "test":
+                    test_status = event.get("status")
+    return baseline, test_status
+
+
 def main():
     event = sys.argv[1] if len(sys.argv) > 1 else ""
     cfg = conf()
@@ -152,7 +215,16 @@ def main():
             obj = json.loads(sys.argv[2])
         except (IndexError, json.JSONDecodeError):
             return
-        if obj.get("t") not in ("read", "scan", "skill", "note", "prompt", "session"):
+        if obj.get("t") not in (
+            "read",
+            "scan",
+            "skill",
+            "note",
+            "prompt",
+            "session",
+            "test",
+            "outcome",
+        ):
             return
         if obj["t"] in ("read", "scan"):
             if not obj.get("path"):
@@ -193,6 +265,7 @@ def main():
                 "ts": ts,
                 "session": session,
                 "source": data.get("source", "unknown"),
+                "git_head": git_head(),
             },
             rotate,
         )
@@ -229,6 +302,8 @@ def main():
 
     elif event == "bash":
         command = (data.get("tool_input") or {}).get("command", "")
+        if looks_like_test_command(command):
+            append({"t": "test", "ts": ts, "session": session, "status": "pass"}, rotate)
         for path in bash_scan_paths(command, cfg["TT_SCAN_REGEX"]):
             append(
                 hook_identity(
@@ -243,6 +318,26 @@ def main():
                 ),
                 rotate,
             )
+
+    elif event == "bash-failure":
+        command = (data.get("tool_input") or {}).get("command", "")
+        if looks_like_test_command(command):
+            append({"t": "test", "ts": ts, "session": session, "status": "fail"}, rotate)
+
+    elif event == "outcome":
+        baseline, test_status = session_signals(session)
+        current = git_head()
+        append(
+            {
+                "t": "outcome",
+                "ts": ts,
+                "session": session,
+                "git_commit_landed": bool(baseline and current and baseline != current),
+                "test_status": test_status or "unknown",
+                "source": data.get("reason", "unknown"),
+            },
+            rotate,
+        )
 
     elif event == "skill":
         name = (data.get("tool_input") or {}).get("skill", "")

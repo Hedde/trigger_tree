@@ -217,6 +217,12 @@ Optional per-project override: `.trigger-tree/config.sh` (create it with
 | `TT_CRITICAL_GLOB` | empty | comma-separated globs protected as rare-but-critical review items |
 | `TT_LOG_PROMPTS` | `hash` | `hash` (sha1 only) · `truncate` (opt-in, 200 chars) · `off` (marker only) |
 | `TT_ROTATE_BYTES` | 5 MB | rotate history.jsonl to a timestamped archive beyond this size |
+| `TT_EXPERIMENTAL_OUTCOMES` | `off` | `on` enables a local, correlational committed-vs-abandoned session view |
+
+The experimental outcome view records whether the repository HEAD changed during a
+session and the latest locally observed test-command result. It compares documents
+read in committed versus abandoned sessions. This is correlation only: it does not
+claim that reading a document caused an outcome.
 
 Team auto-install — in your project's `.claude/settings.json`:
 
