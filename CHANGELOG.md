@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.2 — 2026-07-18
+
+- Updated the CI toolchain to the current Node 24-based GitHub Actions majors:
+  `actions/checkout@v7`, `actions/setup-python@v6`, and `actions/setup-node@v7`.
+  This removes the Node 20 deprecation warnings from every CI job.
+
 ## 0.7.1 — 2026-07-18
 
 - **Deleted docs no longer haunt the live tree.** Historical Read events retain
