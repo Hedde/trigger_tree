@@ -150,6 +150,9 @@ The same counters are scoped to the selected prompt when browsing with ←/→.
 The live tree refreshes its inventory every second: deleted files and folders
 disappear from the current overview while their evidence remains available in
 historical prompt browsing and aggregate trends.
+Recently active folders temporarily move above quiet folders so live work stays
+inside a small viewport. They settle back into alphabetical order after eight
+seconds; files within folders and prompt-history views remain alphabetically stable.
 
 **Browse per prompt**: press ← to move to older prompts and → to move to newer
 ones — the tree filters to exactly what was aggregated for that input (its reads,

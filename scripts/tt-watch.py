@@ -73,6 +73,7 @@ EVENTS_PER_BUCKET = 500  # cap against runaway tasks flooding one bucket
 ESCAPE_BYTE_TIMEOUT = 0.2  # tolerate delayed terminal bytes on loaded machines
 PULSE_SECS = 1.4        # how long a flash takes to fade
 RIPPLE_DELAY = 0.09     # per tree level, leaf → root
+RECENT_SECS = 8.0       # keep recently active folders visible before alpha fallback
 
 
 def c256(n, text, bold=False):
@@ -263,6 +264,14 @@ class App:
             return 229, True
         return base, False
 
+    def _folder_sort_key(self, folder, now, browsing):
+        """Prioritize live activity without making the tree permanently jumpy."""
+        if not folder or browsing:
+            return (folder != "", 1, 0, folder)
+        touched = self.pulses.get(folder, 0)
+        recent = touched and now - touched <= RECENT_SECS
+        return (True, 0 if recent else 1, -touched if recent else 0, folder)
+
     def render(self, now, width, height):
         spin = SPINNER[int(now * 10) % len(SPINNER)]
         header = [
@@ -313,7 +322,7 @@ class App:
         hide_quiet = total > budget
 
         body = []
-        for folder in sorted(folders, key=lambda d: (d != "", d)):
+        for folder in sorted(folders, key=lambda d: self._folder_sort_key(d, now, browsing)):
             files = folders[folder]
             if hide_quiet:
                 shown = [f for f in files if counts[f] or self._glow(f, now) > 0]

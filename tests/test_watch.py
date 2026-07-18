@@ -56,6 +56,21 @@ def test_render_and_truncation():
     assert "1 reads" in plain and "q quit" in plain and "last event just now" in plain
 
 
+def test_live_folders_prioritize_recent_activity_then_return_to_alpha():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/alpha/a.md", "docs/zulu/z.md"])
+    now = time.time()
+    app.feed({"t": "read", "path": "docs/zulu/z.md", "session": "S"})
+
+    recent = "\n".join(app.render(now, width=100, height=30))
+    assert recent.index("docs/zulu/") < recent.index("docs/alpha/")
+    assert app._folder_sort_key("", now, False) < app._folder_sort_key("docs/zulu", now, False)
+
+    settled = "\n".join(app.render(now + mod.RECENT_SECS + 1, width=100, height=30))
+    assert settled.index("docs/alpha/") < settled.index("docs/zulu/")
+    assert app._folder_sort_key("docs/zulu", now, True)[-1] == "docs/zulu"
+
+
 def test_partial_or_broken_config_never_crashes(tmp_path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "a.md").write_text("x")

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.3 — 2026-07-18
+
+- The live dashboard now brings the currently active and recently touched folders
+  to the top of the viewport. After eight seconds they return to deterministic
+  alphabetical order; files inside each folder never jump around.
+- Prompt-history views remain strictly alphabetical for predictable comparison.
+
 ## 0.7.2 — 2026-07-18
 
 - Updated the CI toolchain to the current Node 24-based GitHub Actions majors:
