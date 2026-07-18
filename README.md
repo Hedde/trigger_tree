@@ -4,11 +4,11 @@
 
 [![CI](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fcoverage.json)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/Hedde/trigger_tree?label=release)](https://github.com/Hedde/trigger_tree/releases/latest)
 [![python](https://img.shields.io/badge/python-3.10–3.13-blue.svg)](https://www.python.org/)
 [![platforms](https://img.shields.io/badge/platforms-macOS%20·%20Linux%20·%20Windows-lightgrey.svg)](#platform-support)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://code.claude.com/docs)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 AI coding assistants read your project documentation to decide how to work.
 trigger-tree shows which docs they discover and use — and which ones they never
@@ -308,15 +308,20 @@ to `truncate` (first 200 characters) in `.trigger-tree/config.sh`.
 Always use a virtual environment (never your system python):
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install pytest coverage
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-test.txt -r requirements-dev.txt
+.venv/bin/black --check scripts tests .github/scripts
+.venv/bin/ruff check scripts tests .github/scripts
 .venv/bin/python -m coverage run -m pytest tests -q
 .venv/bin/python -m coverage report --fail-under=100
 claude plugin validate .
 python3 scripts/tt-watch.py --demo
 ```
 
-CI: pytest + a 100% coverage gate on ubuntu/macos/windows, shellcheck, plugin validation,
-and a live coverage badge. See [CONTRIBUTING.md](CONTRIBUTING.md).
+CI: Black + Ruff, pytest with a 100% coverage gate on Ubuntu/macOS/Windows, Python
+3.10–3.13 compatibility, shellcheck, actionlint + zizmor workflow auditing, plugin
+validation, and an isolated marketplace-install smoke test. Release tags must agree
+with the manifest and changelog. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

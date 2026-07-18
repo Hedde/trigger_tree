@@ -3,6 +3,7 @@ name: ci
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
 
 permissions:
@@ -41,8 +42,8 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements-dev.txt
-      - run: black --check scripts tests
-      - run: ruff check scripts tests
+      - run: black --check scripts tests .github/scripts
+      - run: ruff check scripts tests .github/scripts
 
   test:
     strategy:
@@ -133,7 +134,24 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
       - run: npm ci
+      - run: npm ls --all
       - run: npx claude plugin validate .
+      - name: Prove isolated marketplace installation
+        run: python3 .github/scripts/plugin_install_smoke.py
+
+  release-integrity:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - run: python .github/scripts/release_integrity.py "${{ github.ref_name }}"

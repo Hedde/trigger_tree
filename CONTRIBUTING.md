@@ -12,7 +12,7 @@ Always use a virtual environment — never install into your system python:
 git clone https://github.com/Hedde/trigger_tree.git
 cd trigger_tree
 python3 -m venv .venv
-.venv/bin/pip install pytest coverage
+.venv/bin/pip install -r requirements-test.txt -r requirements-dev.txt
 ```
 
 Run the plugin against a real project:
@@ -24,12 +24,18 @@ claude --plugin-dir /path/to/trigger_tree
 ## Tests
 
 ```bash
+.venv/bin/black --check scripts tests .github/scripts
+.venv/bin/ruff check scripts tests .github/scripts
 .venv/bin/python -m coverage run -m pytest tests -q
 .venv/bin/python -m coverage report --fail-under=100
 ```
 
 `tests/smoke.py` is the end-to-end pass over the fixture project; `tests/test_*.py`
-are unit tests. New code needs tests — the CI coverage gate is a hard fail under 80%.
+are unit tests. New runtime code needs tests — the CI coverage gate is a hard fail
+under 100%.
+
+The supported runtime range is Python 3.10–3.13. Hook scripts remain stdlib-only;
+pytest, coverage, Black, and Ruff are development tools installed only in the venv.
 
 ## Guidelines
 
@@ -45,6 +51,7 @@ are unit tests. New code needs tests — the CI coverage gate is a hard fail und
 ## Pull requests
 
 1. Fork, branch from `main`.
-2. Add tests, run the suite locally (all three CI jobs: pytest+coverage, shellcheck
-   on `scripts/tt-open.sh`, `claude plugin validate .`).
+2. Add tests and run the local gates above. CI additionally proves all three operating
+   systems, every supported Python version, shellcheck, workflow security, Claude
+   plugin validation, and a clean marketplace installation.
 3. Open a PR with a short description of the behavior change and why.

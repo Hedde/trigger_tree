@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0 — 2026-07-18
+
+- **Trustworthy compatibility contract:** supported end-user runtimes are now the
+  security-supported Python 3.10–3.13 range, verified independently in CI alongside
+  the Ubuntu, macOS, and Windows test matrix and a strict 100% coverage gate.
+- Added Black and Ruff gates, pinned development/test dependencies, and documented a
+  venv-only contributor workflow. Runtime hooks remain dependency-free stdlib Python.
+- Added actionlint and zizmor workflow audits, immutable action pins, least-privilege
+  job permissions, and Dependabot coverage for Actions, Python, and npm dependencies.
+- Claude plugin validation now uses a locked CLI on Node 22, rejects incomplete npm
+  installs, and proves a real marketplace install inside an isolated Claude config.
+- Release tags now fail CI unless the tag, plugin manifest, marketplace, and changelog
+  agree. README and website trust claims now describe the gates that actually run.
+
 ## 0.7.5 — 2026-07-18
 
 - **Privacy-hardened prompt markers:** the default is now `hash`, so prompt text is
