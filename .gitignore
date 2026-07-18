@@ -6,6 +6,7 @@ __pycache__/
 .DS_Store
 .venv/
 .venv-*/
+node_modules/
 .coverage
 htmlcov/
 .pytest_cache/
