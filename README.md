@@ -1,5 +1,7 @@
 # 🌳 trigger-tree
 
+> **See which docs your AI actually discovers.**
+
 [![CI](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fcoverage.json)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
@@ -8,9 +10,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-> **AI coding assistants read your project documentation to decide how to work.
-> trigger-tree shows you which docs they actually use — and which ones they never
-> find.** 100% local. Zero model tokens. No cloud, no analytics vendors.
+AI coding assistants read your project documentation to decide how to work.
+trigger-tree shows which docs they discover and use — and which ones they never
+find. 100% local. Zero model tokens. No cloud, no analytics vendors.
 
 ✓ heat & cold maps of your documentation &nbsp;·&nbsp; ✓ live pulse dashboard &nbsp;·&nbsp; ✓ evidence-backed router fixes
 
