@@ -55,6 +55,7 @@ def test_session_event_and_bad_stdin(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
     run_main(mod, monkeypatch, ["session"], "not-json")
     assert read_history(tmp_path)[0] == {
+        "schema_version": 1,
         "t": "session",
         "ts": read_history(tmp_path)[0]["ts"],
         "session": "?",
@@ -214,7 +215,13 @@ def test_note_uses_session_env(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["tt-log.py", "note", "router", "tweak"])
     mod.main()
     entry = read_history(tmp_path)[0]
-    assert entry == {"t": "note", "ts": entry["ts"], "session": "sess-env", "text": "router tweak"}
+    assert entry == {
+        "schema_version": 1,
+        "t": "note",
+        "ts": entry["ts"],
+        "session": "sess-env",
+        "text": "router tweak",
+    }
     # empty note text writes nothing
     monkeypatch.setattr(sys, "argv", ["tt-log.py", "note"])
     mod.main()
@@ -255,3 +262,15 @@ def test_rotation(tmp_path, monkeypatch):
     files = os.listdir(tmp_path / ".trigger-tree")
     assert any(f.startswith("history-") for f in files), files
     assert "history.jsonl" in files
+
+
+def test_rotation_never_overwrites_same_second_archive(tmp_path, monkeypatch):
+    history = tmp_path / ".trigger-tree"
+    history.mkdir()
+    (history / "history.jsonl").write_text("x" * 20)
+    (history / "history-20260719-120000.jsonl").write_text("original")
+    mod = load_script("tt-log.py", tmp_path)
+    monkeypatch.setattr(mod.time, "strftime", lambda *_args, **_kwargs: "20260719-120000")
+    mod.append({"t": "session"}, 10)
+    assert (history / "history-20260719-120000.jsonl").read_text() == "original"
+    assert (history / "history-20260719-120000-1.jsonl").read_text() == "x" * 20

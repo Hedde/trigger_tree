@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased — 1.0.0 release candidate
+
+- Recursively resolves the `CLAUDE.md` `@import` graph and classifies injected files
+  as always-loaded instead of cold. Subagent reads retain `agent_id`/`agent_type`,
+  while stable tool-call IDs prevent replayed events around compaction from inflating
+  counts.
+- Reframes untouched documentation as review candidates. Always-loaded files,
+  safety paths, high-in-link documents, configured critical globs, critical tags,
+  and templates are protected with an explicit likely-keep explanation and a
+  rare-but-critical caveat.
+- Adds history schema version 1. Legacy schema-less events migrate explicitly in
+  memory; unknown future versions are rejected and surfaced rather than misread.
+- Expands `/tt doctor` with exact hook-route, config, supported-Python, rotated-log,
+  corrupt-line, legacy-migration, and future-schema diagnostics. Rotation now keeps
+  every archive even when multiple rotations happen in the same second.
+
 ## 0.8.0 — 2026-07-18
 
 - **Trustworthy compatibility contract:** supported end-user runtimes are now the

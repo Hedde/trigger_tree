@@ -48,6 +48,28 @@ def test_load_events_skips_torn_lines(tmp_path):
     p.write_text('{"t":"read","path":"docs/a.md"}\n{{{torn\n\n{"t":"scan","path":"docs"}\n')
     events = mod.load_events([str(p), str(tmp_path / "missing.jsonl")])
     assert [e["t"] for e in events] == ["read", "scan"]
+    assert all(event["schema_version"] == 1 and event["migrated_from"] == 0 for event in events)
+
+
+def test_history_schema_migrates_legacy_and_rejects_future(tmp_path):
+    mod = load_script("tt-stats.py", tmp_path)
+    path = tmp_path / "history.jsonl"
+    path.write_text(
+        "\n".join(
+            [
+                json.dumps({"t": "session", "session": "legacy"}),
+                json.dumps({"schema_version": 1, "t": "session", "session": "current"}),
+                json.dumps({"schema_version": 99, "t": "read", "path": "docs/future.md"}),
+                "[]",
+                "{torn",
+            ]
+        )
+        + "\n"
+    )
+    events, diagnostics = mod.load_events_with_diagnostics([str(path)])
+    assert [event["session"] for event in events] == ["legacy", "current"]
+    assert events[0]["migrated_from"] == 0
+    assert diagnostics == {"legacy_migrated": 1, "future_rejected": 1, "corrupt_lines": 2}
 
 
 def test_recursive_claude_imports_are_always_loaded_not_cold(tmp_path, monkeypatch):

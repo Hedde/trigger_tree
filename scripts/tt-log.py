@@ -29,6 +29,7 @@ import time
 
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SCHEMA_VERSION = 1
 
 DEFAULTS = {
     "TT_WATCH_REGEX": r"^docs/.*\.md$",
@@ -61,13 +62,19 @@ def now_ts():
 
 
 def append(obj, rotate_bytes):
+    obj.setdefault("schema_version", SCHEMA_VERSION)
     hist_dir = os.path.join(ROOT, ".trigger-tree")
     os.makedirs(hist_dir, exist_ok=True)
     hist = os.path.join(hist_dir, "history.jsonl")
     try:
         if os.path.getsize(hist) > rotate_bytes:
             stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
-            os.rename(hist, os.path.join(hist_dir, f"history-{stamp}.jsonl"))
+            archive = os.path.join(hist_dir, f"history-{stamp}.jsonl")
+            suffix = 1
+            while os.path.exists(archive):
+                archive = os.path.join(hist_dir, f"history-{stamp}-{suffix}.jsonl")
+                suffix += 1
+            os.rename(hist, archive)
     except OSError:
         pass
     with open(hist, "a", encoding="utf-8") as fh:

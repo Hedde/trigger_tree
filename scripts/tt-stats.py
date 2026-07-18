@@ -34,6 +34,7 @@ MATURE_MIN_DAYS = 7
 TREND_DAILY_MAX_DAYS = 14  # daily buckets up to here, weekly beyond
 CLUSTER_JACCARD = 0.6  # min similarity to join an existing task cluster
 HIGH_IN_LINK_COUNT = 3
+SCHEMA_VERSION = 1
 
 
 def _conf_texts():
@@ -108,9 +109,10 @@ def history_files(explicit=None):
     return sorted(glob.glob(os.path.join(ROOT, ".trigger-tree", "history*.jsonl")))
 
 
-def load_events(paths):
+def load_events_with_diagnostics(paths):
     events = []
     seen_tool_calls = set()
+    diagnostics = {"legacy_migrated": 0, "future_rejected": 0, "corrupt_lines": 0}
     for path in paths:
         if not os.path.isfile(path):
             continue
@@ -122,7 +124,18 @@ def load_events(paths):
                 try:
                     event = json.loads(line)
                 except json.JSONDecodeError:
+                    diagnostics["corrupt_lines"] += 1
                     continue  # a torn write should not kill the whole report
+                if not isinstance(event, dict):
+                    diagnostics["corrupt_lines"] += 1
+                    continue
+                version = event.get("schema_version", 0)
+                if version == 0:
+                    event = {**event, "schema_version": SCHEMA_VERSION, "migrated_from": 0}
+                    diagnostics["legacy_migrated"] += 1
+                elif version != SCHEMA_VERSION:
+                    diagnostics["future_rejected"] += 1
+                    continue
                 # Session resume/compaction can replay hook delivery around a boundary.
                 # Claude's tool_use_id is stable for that call, so count it once even
                 # when the duplicate straddles a rotated archive.
@@ -133,7 +146,11 @@ def load_events(paths):
                         continue
                     seen_tool_calls.add(identity)
                 events.append(event)
-    return events
+    return events, diagnostics
+
+
+def load_events(paths):
+    return load_events_with_diagnostics(paths)[0]
 
 
 IMPORT_RE = re.compile(r"(?<![\w`])@([^\s`]+)")
@@ -232,7 +249,7 @@ def jaccard(a, b):
 
 def main():
     explicit = sys.argv[1] if len(sys.argv) > 1 else None
-    events = load_events(history_files(explicit))
+    events, history_diagnostics = load_events_with_diagnostics(history_files(explicit))
     docs = inventory()
 
     reads = [e for e in events if e.get("t") == "read"]
@@ -518,6 +535,7 @@ def main():
                 1 for e in events if e.get("t") == "session" and e.get("source") == "compact"
             ),
         },
+        "history_schema": {"current": SCHEMA_VERSION, **history_diagnostics},
         "unknown_reads": sorted(p for p in read_paths if p not in docs),
         "hunting": [{"path": p, "scans": n} for p, n in scan_targets.most_common(10)],
         "trend": trend,
