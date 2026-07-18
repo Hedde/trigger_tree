@@ -84,7 +84,7 @@ One plugin, one command, eight subcommands:
 | **`/tt watch`** | Live ASCII pulse dashboard (tmux split or a new terminal window) |
 | **`/tt watch demo`** | Dashboard with synthetic events — see it without waiting |
 | **`/tt insights`** | Heat/cold map analysis: untouched paths, hunting, trend, task clusters + HTML report |
-| **`/tt suggestions`** | Max 5 prioritized, evidence-backed router fixes — applied only after you confirm |
+| **`/tt suggestions`** | Concise scope + max 5 evidence-backed fixes; full stats stay off stdout |
 | **`/tt note <text>`** | Annotate the timeline ("sharpened UX router") — visible in the trend |
 | **`/tt doctor`** | Verify hooks, privacy, statusline, and live telemetry with actionable fixes |
 | **`/tt setup`** | Wire trigger-tree into a project: gitignore, statusline, optional config override |
@@ -131,17 +131,22 @@ ripples up through its parent folders, then fades back to its heat color:
 ```
  ⠹ trigger-tree  myproject · live doc-discovery
 
- docs/design/
+ docs/design/  · 1 unread
    ├─ principles.md        ▆  12
    ├─ ui-patterns.md       █  17
    └─ accessibility.md     ·   0
- docs/database/  ·2 untouched
+ docs/database/  · 🔍 2 searches · 1 unread
    └─ migrations.md        ▃   4
 
  33 reads · 2 scans (hunting) · 1 skill uses · 3 sessions
    ● docs/design/ui-patterns.md · 2s ago
    🔍 docs/database [Explore] · 31s ago
 ```
+
+Folder labels keep two signals separate: `🔍 N searches` proves the folder was
+explicitly searched, while `N unread` counts files without a Read event. Searching
+a folder never pretends its files were consulted; reading one lowers only `unread`.
+The same counters are scoped to the selected prompt when browsing with ←/→.
 
 **Browse per prompt**: press ← to move to older prompts and → to move to newer
 ones — the tree filters to exactly what was aggregated for that input (its reads,

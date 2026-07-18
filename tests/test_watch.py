@@ -50,7 +50,7 @@ def test_render_and_truncation():
     app.feed({"t": "read", "path": "docs/f00.md", "session": "S"})
     frame = "\n".join(app.render(time.time(), width=100, height=14))
     assert "trigger-tree" in frame
-    assert "untouched" in frame  # quiet files collapse into a folder counter
+    assert "29 unread" in frame  # unread coverage stays visible when quiet files collapse
     import re
     plain = re.sub(r"\x1b\[[0-9;]*m", "", frame)
     assert "1 reads" in plain and "q quit" in plain and "last event just now" in plain
@@ -138,6 +138,7 @@ def test_prompt_buckets_and_browsing():
     assert app.selected == 0
     frame = "\n".join(app.render(time.time(), width=110, height=30))
     assert "style the buttons" in frame and "a.md" in frame and "b.md" not in frame
+    assert "🔍 1 search" in frame and "2 unread" in frame
     app.select_prev()
     assert app.selected == 0             # clamped at the oldest prompt
 
@@ -148,6 +149,30 @@ def test_prompt_buckets_and_browsing():
     assert app.selected is None
     frame = "\n".join(app.render(time.time(), width=110, height=30))
     assert "open newest prompt" in frame  # live hint restored
+
+
+def test_scan_only_prompt_shows_folder_search_without_faking_a_read():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/ui/a.md", "docs/ui/b.md"])
+    app.feed({"t": "prompt", "prompt": "find empty states", "session": "S"}, live=False)
+    app.feed({"t": "scan", "path": "docs/ui", "session": "S", "agent": "Explore"}, live=False)
+    app.select_prev()
+    import re
+    frame = re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(app.render(time.time(), 100, 30)))
+    assert "docs/ui/  · 🔍 1 search · 2 unread" in frame
+    assert "0 reads · 1 scans" in frame
+    assert "a.md" not in frame and "b.md" not in frame
+
+
+def test_folder_counters_keep_searches_separate_from_unread_files():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/ui/a.md", "docs/ui/b.md"])
+    app.feed({"t": "scan", "path": "docs/ui/", "session": "S"}, live=False)
+    app.feed({"t": "scan", "path": "docs/ui/a.md", "session": "S"}, live=False)
+    app.feed({"t": "read", "path": "docs/ui/a.md", "session": "S"}, live=False)
+    import re
+    frame = re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(app.render(time.time(), 100, 30)))
+    assert "docs/ui/  · 🔍 2 searches · 1 unread" in frame
 
 
 def test_reads_before_any_prompt_get_a_session_start_bucket():

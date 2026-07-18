@@ -109,26 +109,11 @@ SKILL.md counts as touched.
 
 ## `$1` = "suggestions"
 
-1. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-stats.py"` and read the JSON.
-2. If `maturity` is `cold-start`: answer in one line —
-   `🌳 Not enough data yet (<reads> reads, <sessions> sessions) — suggestions need a few working sessions first.` Stop.
-3. Produce **at most 5** prioritized suggestions, each exactly one numbered line:
-   *what to change, in which file, and the evidence* (counts from the stats). Draw them
-   from, in priority order:
-   - `untouched_detail` entries with empty `referenced_from` and `template: false` →
-     "Add a link to <path> in <its folder's index or docs/README.md> — untouched and
-     no doc references it (router gap)." Entries with `template: true` are intentional
-     archive — never suggest deleting or linking them.
-   - `folders` with `has_index: false` and low coverage → "Add an index.md router file
-     to <folder>/ — the folder has no entry point, so discovery depends on luck."
-   - `folders` with coverage 0 → "Folder <x>/ was never entered (<n> files) — route to it or archive it."
-   - `hunting` folders with high scan counts → "Sharpen the index instructions of <folder> —
-     <n> searches instead of routed reads."
-   - `clusters` missing an obvious sibling doc → "Tasks like '<example prompt>' never read
-     <sibling file> — link it from <index>."
-   - `unknown_reads` → "Router references a deleted/renamed file: <path>."
-4. End with exactly: `Apply any of these? Reply with the numbers.` Apply only what the
-   user confirms, then suggest recording it with `/tt note`.
+Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-suggestions.py"` (fall back to
+`python` if needed) and show its concise output verbatim. The script keeps full stats
+off stdout, explains its evidence scope, prints at most five deterministic router
+edits, and changes nothing. Apply only numbers the user explicitly confirms, then
+suggest recording the change with `/tt note`.
 
 ## `$1` = "note"
 

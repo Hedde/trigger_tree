@@ -1,8 +1,8 @@
 {
   "name": "trigger-tree",
   "displayName": "trigger-tree",
-  "version": "0.6.2",
-  "description": "Documentation-discovery telemetry: real-time repo-bound dashboard (/tt watch), installation health (/tt doctor), heat/cold maps, router-gap detection, and evidence-backed fixes. macOS/Linux/Windows.",
+  "version": "0.7.0",
+  "description": "Documentation-discovery telemetry: per-folder search/unread counters, real-time repo-bound dashboard, concise evidence-backed suggestions, health diagnostics, and router-gap detection. macOS/Linux/Windows.",
   "author": {
     "name": "Hedde van der Heide"
   },

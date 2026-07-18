@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0 — 2026-07-18
+
+- **Folders no longer look untouched while being searched.** Every folder row now
+  keeps `🔍 N searches` separate from `N unread`: scans increase the first counter;
+  only actual Read events lower the second. Scan-only prompts get a visible folder
+  row, and ←/→ browsing recalculates both signals for the selected prompt.
+- **Concise `/tt suggestions`.** A deterministic formatter captures full stats
+  internally and writes only its evidence scope plus at most five prioritized
+  router edits to stdout. It explicitly says nothing changes until confirmation;
+  cold-start and no-finding states stay one or two lines.
+- The interactive website demo mirrors the new folder counters.
+
 ## 0.6.2 — 2026-07-18
 
 - **End-to-end proof for Bash discovery telemetry.** A cross-process regression

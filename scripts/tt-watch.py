@@ -271,7 +271,8 @@ class App:
         if browsing:
             b = self.buckets[self.selected]
             counts = Counter(e["path"] for e in b["events"] if e["t"] == "read")
-            b_scans = sum(1 for e in b["events"] if e["t"] == "scan")
+            scan_counts = Counter(e["path"].rstrip("/") for e in b["events"] if e["t"] == "scan")
+            b_scans = sum(scan_counts.values())
             prompt_txt = b["prompt"][:56] + ("…" if len(b["prompt"]) > 56 else "")
             header.insert(1, c256(AMBER, f" ▸ prompt {self.selected + 1}/{len(self.buckets)} ", bold=True)
                           + c256(WHITE, f'"{prompt_txt}"')
@@ -279,6 +280,7 @@ class App:
             files_src = sorted(counts)
         else:
             counts = self.counts
+            scan_counts = Counter({path.rstrip("/"): count for path, count in self.scans.items()})
             files_src = self.files
         max_count = max(counts.values(), default=0)
 
@@ -286,6 +288,16 @@ class App:
         folders = {}
         for f in sorted(files_src):
             folders.setdefault(os.path.dirname(f), []).append(f)
+        inventory_folders = {}
+        for f in self.files:
+            inventory_folders.setdefault(os.path.dirname(f), []).append(f)
+        # A scan-only prompt still needs a visible folder row. Search targets are
+        # directories in normal telemetry; a markdown target is filed by parent.
+        normalized_scans = Counter()
+        for target, count in scan_counts.items():
+            folder = os.path.dirname(target) if target.lower().endswith(".md") else target
+            normalized_scans[folder] += count
+            folders.setdefault(folder, [])
 
         ticker_lines = min(3, len(self.ticker))
         fixed = len(header) + 2 + ticker_lines + 1  # footer + hint line
@@ -300,10 +312,16 @@ class App:
                 shown = [f for f in files if counts[f] or self._glow(f, now) > 0]
             else:
                 shown = files
-            hidden = len(files) - len(shown)
             if folder:
                 color, bold = self._node_color(FOLDER, self._glow(folder, now))
-                suffix = c256(DEAD, f"  ·{hidden} untouched") if hidden else ""
+                searches = normalized_scans[folder]
+                unread = sum(1 for f in inventory_folders.get(folder, []) if not counts[f])
+                status = []
+                if searches:
+                    status.append(f"🔍 {searches} search{'es' if searches != 1 else ''}")
+                if unread:
+                    status.append(f"{unread} unread")
+                suffix = c256(DEAD, "  · " + " · ".join(status)) if status else ""
                 body.append(c256(color, f" {folder}/", bold) + suffix)
             for i, f in enumerate(shown):
                 count = counts[f]

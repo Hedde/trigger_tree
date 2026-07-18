@@ -141,6 +141,7 @@
       { name: "old-api.md", n: 0, dead: true }]},
   ];
   let reads = 44, scans = 3, ticker = [], spin = 0, mode = "live", hunted = false, revived = false, currentPulse = null;
+  const folderSearches = {};
   let buckets = [], browseIdx = null;
   const PROMPTS = ["style the buttons on the settings page", "add a tenant_id migration", "why is the deploy failing?", "summarize our ADRs"];
   const screen = document.getElementById("screen"), bubble = document.getElementById("bubble");
@@ -154,9 +155,12 @@
     if (b) out += ` <span class="hotter">▸ prompt ${browseIdx + 1}/${buckets.length}</span> "${b.text}" <span class="f">· ${b.reads} reads</span>\n\n`;
     else out += `\n`;
     for (const g of tree) {
-      if (b && !g.files.some(f => b.files[g.folder + f.name])) continue;
+      const searchCount = b ? (b.searches[g.folder] || 0) : (folderSearches[g.folder] || 0);
+      if (b && !searchCount && !g.files.some(f => b.files[g.folder + f.name])) continue;
       const folderPulse = pulsePath && pulsePath.startsWith(g.folder) ? "pulse" : "fade";
-      out += ` <span class="folder ${folderPulse}">${g.folder}</span>\n`;
+      const unread = g.files.filter(f => !(b ? b.files[g.folder + f.name] : f.n)).length;
+      const status = `${searchCount ? ` · 🔍 ${searchCount} search${searchCount === 1 ? "" : "es"}` : ""}${unread ? ` · ${unread} unread` : ""}`;
+      out += ` <span class="folder ${folderPulse}">${g.folder}</span><span class="f">${status}</span>\n`;
       const shown = b ? g.files.filter(f => b.files[g.folder + f.name]) : g.files;
       shown.forEach((f, i) => {
         const n = b ? b.files[g.folder + f.name] : f.n;
@@ -177,7 +181,7 @@
   function pulseRandom() {
     if (mode !== "live") return;
     if (reads % 4 === 0 || buckets.length === 0) {
-      const b = { text: PROMPTS[Math.floor(Math.random() * PROMPTS.length)], files: {}, reads: 0 };
+      const b = { text: PROMPTS[Math.floor(Math.random() * PROMPTS.length)], files: {}, searches: {}, reads: 0 };
       buckets.push(b);
       if (buckets.length > 10) { buckets.shift(); if (browseIdx !== null) browseIdx = Math.max(0, browseIdx - 1); }
       ticker.unshift(`▸ "${b.text}" · just now`);
@@ -217,7 +221,12 @@
     let i = 0;
     const iv = setInterval(() => {
       const g = tree[Math.floor(Math.random() * tree.length)];
-      scans++; ticker.unshift(`🔍 ${g.folder.replace(/\/$/, "")} · grep "where is it??" · just now`);
+      scans++; folderSearches[g.folder] = (folderSearches[g.folder] || 0) + 1;
+      if (buckets.length) {
+        const b = buckets[buckets.length - 1];
+        b.searches[g.folder] = (b.searches[g.folder] || 0) + 1;
+      }
+      ticker.unshift(`🔍 ${g.folder.replace(/\/$/, "")} · grep "where is it??" · just now`);
       currentPulse = reduced ? null : g.folder;
       render();
       setTimeout(() => { currentPulse = null; render(); }, 300);

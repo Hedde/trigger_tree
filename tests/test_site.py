@@ -8,3 +8,4 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "← older" in html and "→ newer" in html and "a live overview" in html
     assert "Math.min(buckets.length - 1, browseIdx + 1)" in html
     assert "browseIdx + 1 >= buckets.length ? null" not in html
+    assert "folderSearches" in html and "unread" in html
