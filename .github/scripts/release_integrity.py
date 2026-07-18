@@ -15,8 +15,8 @@ def fail(message: str) -> None:
 
 
 def main(tag: str) -> None:
-    if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
-        fail(f"tag {tag!r} is not vMAJOR.MINOR.PATCH")
+    if not re.fullmatch(r"v\d+\.\d+\.\d+(?:-rc\.\d+)?", tag):
+        fail(f"tag {tag!r} is not vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N")
 
     manifest = json.loads((ROOT / ".claude-plugin/plugin.json").read_text())
     marketplace = json.loads((ROOT / ".claude-plugin/marketplace.json").read_text())
@@ -28,6 +28,9 @@ def main(tag: str) -> None:
         fail("marketplace and plugin names disagree")
     if not any(plugin["name"] == manifest["name"] for plugin in marketplace["plugins"]):
         fail("marketplace does not expose the plugin manifest name")
+    entry = next(plugin for plugin in marketplace["plugins"] if plugin["name"] == manifest["name"])
+    if entry.get("version") != version:
+        fail(f"marketplace plugin version {entry.get('version')} does not match {version}")
 
     changelog = (ROOT / "CHANGELOG.md").read_text()
     if not re.search(rf"^## (?:\[)?{re.escape(version)}(?:\])?(?:\s|$)", changelog, re.M):

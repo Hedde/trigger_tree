@@ -1,0 +1,59 @@
+import importlib.util
+import json
+from pathlib import Path
+
+import pytest
+from conftest import REPO
+
+
+def load_release_integrity():
+    path = Path(REPO) / ".github" / "scripts" / "release_integrity.py"
+    spec = importlib.util.spec_from_file_location("release_integrity_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def write_release(root, version="1.0.0-rc.1"):
+    plugin_dir = root / ".claude-plugin"
+    plugin_dir.mkdir()
+    (plugin_dir / "plugin.json").write_text(
+        json.dumps({"name": "trigger-tree", "version": version})
+    )
+    (plugin_dir / "marketplace.json").write_text(
+        json.dumps(
+            {
+                "name": "trigger-tree",
+                "plugins": [{"name": "trigger-tree", "version": version}],
+            }
+        )
+    )
+    (root / "CHANGELOG.md").write_text(f"## {version} — 2026-07-19\n")
+
+
+def test_release_integrity_accepts_semver_release_candidate(tmp_path, monkeypatch, capsys):
+    mod = load_release_integrity()
+    write_release(tmp_path)
+    monkeypatch.setattr(mod, "ROOT", tmp_path)
+    mod.main("v1.0.0-rc.1")
+    assert "consistently describes v1.0.0-rc.1" in capsys.readouterr().out
+
+
+def test_release_integrity_rejects_bad_or_inconsistent_metadata(tmp_path, monkeypatch):
+    mod = load_release_integrity()
+    write_release(tmp_path)
+    monkeypatch.setattr(mod, "ROOT", tmp_path)
+    with pytest.raises(SystemExit, match="not vMAJOR"):
+        mod.main("release-candidate")
+
+    marketplace = tmp_path / ".claude-plugin" / "marketplace.json"
+    marketplace.write_text(
+        json.dumps(
+            {
+                "name": "trigger-tree",
+                "plugins": [{"name": "trigger-tree", "version": "0.8.0"}],
+            }
+        )
+    )
+    with pytest.raises(SystemExit, match="marketplace plugin version"):
+        mod.main("v1.0.0-rc.1")

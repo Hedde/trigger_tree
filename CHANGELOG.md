@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 1.0.0 release candidate
+## 1.0.0-rc.1 — 2026-07-19
 
 - Recursively resolves the `CLAUDE.md` `@import` graph and classifies injected files
   as always-loaded instead of cold. Subagent reads retain `agent_id`/`agent_type`,
