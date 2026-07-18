@@ -12,6 +12,7 @@ def base_stats(maturity="mature"):
         "sessions": 8,
         "totals": {"reads": 120, "scans": 14},
         "untouched_detail": [],
+        "review_candidates": [],
         "folders": [],
         "hunting": [],
         "unknown_reads": [],
@@ -43,9 +44,23 @@ def test_cold_start_is_one_concise_line(monkeypatch):
 def test_prioritized_suggestions_are_bounded_and_actionable(monkeypatch):
     mod = load_script("tt-suggestions.py", ".")
     stats = base_stats()
-    stats["untouched_detail"] = [
-        {"path": "docs/ui/empty.md", "referenced_from": [], "template": False},
-        {"path": "docs/_template.md", "referenced_from": [], "template": True},
+    stats["review_candidates"] = [
+        {
+            "path": "docs/ui/empty.md",
+            "referenced_from": [],
+            "template": False,
+            "classification": "review_candidate",
+            "why": ["no reads"],
+            "caveat": "Low reads can mean rare-but-critical; verify before archiving.",
+        },
+        {
+            "path": "docs/_template.md",
+            "referenced_from": [],
+            "template": True,
+            "classification": "protected",
+            "why": ["template or intentional archive"],
+            "caveat": "Low reads can mean rare-but-critical; verify before archiving.",
+        },
     ]
     stats["folders"] = [
         {"folder": "(root)", "files": 2, "touched": 0, "coverage": 0, "has_index": True},
@@ -57,13 +72,43 @@ def test_prioritized_suggestions_are_bounded_and_actionable(monkeypatch):
     stats["unknown_reads"] = ["docs/gone.md"]
     out = run_main(mod, monkeypatch, stats)
     assert "changes nothing until you confirm" in out
-    assert "1. Add a link to docs/ui/empty.md" in out
-    assert "2. Add docs/ui/index.md" in out
-    assert "Route to or archive docs/ops/" in out
+    assert "1. Review candidate: add a link to docs/ui/empty.md" in out
+    assert "Review, likely keep — rare-but-critical: docs/_template.md" in out
+    assert "Review routing for docs/ops/" in out
     assert "Sharpen the index instructions" in out
-    assert "Fix the router reference" in out
-    assert "_template" not in out and ".claude/rules" not in out
+    assert ".claude/rules" not in out
     assert out.count("\n") == 7  # heading + five suggestions + confirmation
+
+
+def test_safety_rule_is_never_a_prune_candidate(monkeypatch):
+    mod = load_script("tt-suggestions.py", ".")
+    stats = base_stats()
+    stats["review_candidates"] = [
+        {
+            "path": ".claude/rules/security.md",
+            "classification": "protected",
+            "why": ["safety path"],
+            "caveat": "Low reads can mean rare-but-critical; verify purpose and owners before archiving.",
+        }
+    ]
+    out = run_main(mod, monkeypatch, stats)
+    assert "Review, likely keep — rare-but-critical" in out
+    assert "safety path" in out
+    assert "prune" not in out.lower() and "safe to remove" not in out.lower()
+
+
+def test_pre_1_0_stats_payload_gets_safe_review_language():
+    mod = load_script("tt-suggestions.py", ".")
+    stats = base_stats()
+    stats.pop("review_candidates")
+    stats["untouched_detail"] = [
+        {"path": "docs/legacy.md", "referenced_from": [], "template": False},
+        {"path": "docs/referenced.md", "referenced_from": ["docs/index.md"], "template": False},
+    ]
+    suggestions = mod.build_suggestions(stats)
+    assert len(suggestions) == 1
+    assert suggestions[0].startswith("Review candidate:")
+    assert "rare-but-critical" in suggestions[0]
 
 
 def test_no_suggestions_has_no_confirmation_prompt(monkeypatch):

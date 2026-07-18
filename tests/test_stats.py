@@ -29,6 +29,7 @@ def test_pure_helpers():
     assert mod.jaccard(["a", "b"], ["a", "c"]) == 1 / 3
     assert mod.fingerprint(["b", "a"]) == mod.fingerprint(["a", "b"])
     assert mod._conf_regex("TT_MISSING", r"^fallback$").pattern == "^fallback$"
+    assert mod._conf_value("TT_MISSING", "fallback") == "fallback"
     assert [mod.grade_for(x) for x in (95, 80, 65, 50, 10)] == ["A", "B", "C", "D", "F"]
 
 
@@ -124,6 +125,36 @@ def test_subagent_reads_count_and_compaction_replay_is_deduplicated(tmp_path, mo
         "subagent_read_events": 1,
         "compaction_boundaries": 1,
     }
+
+
+def test_rare_critical_docs_are_protected_review_items(tmp_path, monkeypatch):
+    (tmp_path / ".claude" / "rules").mkdir(parents=True)
+    (tmp_path / "docs" / "security").mkdir(parents=True)
+    (tmp_path / "docs" / "decisions").mkdir(parents=True)
+    (tmp_path / "docs" / "refs").mkdir(parents=True)
+    (tmp_path / ".trigger-tree").mkdir()
+    (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_CRITICAL_GLOB='docs/decisions/**'\n")
+    (tmp_path / ".claude" / "rules" / "production.md").write_text("Never deploy without review.")
+    (tmp_path / "docs" / "security" / "incident.md").write_text("Escalation policy.")
+    (tmp_path / "docs" / "decisions" / "adr.md").write_text("critical: true\n")
+    (tmp_path / "docs" / "widely-linked.md").write_text("Stable contract.")
+    for index in range(3):
+        (tmp_path / "docs" / "refs" / f"{index}.md").write_text("See ../widely-linked.md")
+    write_history(tmp_path, [{"t": "session", "session": "S"}])
+
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+    items = {item["path"]: item for item in stats["review_candidates"]}
+
+    rule = items[".claude/rules/production.md"]
+    assert rule["classification"] == "protected"
+    assert rule["recommendation"] == "review, likely keep — rare-but-critical"
+    assert "safety path" in rule["why"]
+    assert "Low reads can mean rare-but-critical" in rule["caveat"]
+    assert "safety path" in items["docs/security/incident.md"]["why"]
+    assert "critical glob docs/decisions/**" in items["docs/decisions/adr.md"]["why"]
+    assert "tagged critical" in items["docs/decisions/adr.md"]["why"]
+    assert "referenced by 3 other docs" in items["docs/widely-linked.md"]["why"]
 
 
 def test_fixture_full_run(monkeypatch):

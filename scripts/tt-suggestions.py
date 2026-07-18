@@ -23,12 +23,25 @@ def build_suggestions(stats):
             seen.add(key)
             suggestions.append(text)
 
-    for item in stats.get("untouched_detail", []):
+    for item in stats.get("review_candidates", []):
+        if item.get("classification") == "protected":
+            add(
+                ("protected", item["path"]),
+                f"Review, likely keep — rare-but-critical: {item['path']} — {'; '.join(item['why'])}. {item['caveat']}",
+            )
+        elif not item.get("referenced_from") and not item.get("template", False):
+            add(
+                ("gap", item["path"]),
+                f"Review candidate: add a link to {item['path']} in {router_for(item['path'])} — no reads and no doc references it. {item['caveat']}",
+            )
+
+    # Backward-compatible fallback for pre-1.0 stats payloads.
+    for item in stats.get("untouched_detail", []) if not stats.get("review_candidates") else []:
         if not item.get("referenced_from") and not item.get("template", False):
             path = item["path"]
             add(
                 ("gap", path),
-                f"Add a link to {path} in {router_for(path)} — unread and no doc references it (router gap).",
+                f"Review candidate: add a link to {path} in {router_for(path)} — unread and no doc references it (router gap). Low reads can mean rare-but-critical; verify before archiving.",
             )
 
     for folder in stats.get("folders", []):
@@ -51,7 +64,7 @@ def build_suggestions(stats):
         ):
             add(
                 ("cold", name),
-                f"Route to or archive {name}/ — none of its {folder['files']} files were read.",
+                f"Review routing for {name}/ — none of its {folder['files']} files were read. Low reads can mean rare-but-critical; verify before archiving.",
             )
 
     for hunt in stats.get("hunting", []):

@@ -19,9 +19,9 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 HEAT = ["#9aa0a6", "#7cb342", "#9ccc65", "#c0ca33", "#fdd835", "#ffb300", "#fb8c00", "#e53935"]
 
 MATURITY_NOTE = {
-    "cold-start": "Measurement just started — untouched files cannot be called dead yet.",
-    "warming": "Early signal — untouched files need more sessions before judging.",
-    "mature": "Measurement is mature — untouched files are dead-path candidates.",
+    "cold-start": "Measurement just started — review candidates are provisional.",
+    "warming": "Early signal — review candidates need more sessions before judging.",
+    "mature": "Measurement is mature, but low reads can still mean rare-but-critical.",
 }
 
 CSS = """
@@ -130,7 +130,7 @@ def main():
         parts.append("<h2>Folder heat &amp; cold map</h2>")
         parts.append(
             "<p class=muted>Coverage = share of files touched. Green is hot, gray is cold "
-            "— a cold folder either deserves pruning or a router that points there.</p>"
+            "— cold means review the purpose and routing; it never proves removal is safe.</p>"
         )
         parts.append("<div class=scroll><table>")
         parts.append(
@@ -150,12 +150,12 @@ def main():
             )
         parts.append("</table></div>")
 
-    parts.append("<h2>Untouched paths (cold map)</h2>")
+    parts.append("<h2>Review candidates (untouched paths)</h2>")
     parts.append(f"<div class=note>{esc(MATURITY_NOTE[maturity])}</div>")
     if s["untouched"]:
         parts.append(
-            "<p class=muted>Never read during the measurement period. A signal, not a "
-            "verdict: could be removable, could be a router that never points there.</p><ul>"
+            "<p class=muted>Never read during the measurement period. This is a review queue, "
+            "not a removal recommendation. Low reads can mean rare-but-critical.</p><ul>"
         )
         detail = {d["path"]: d["referenced_from"] for d in s.get("untouched_detail", [])}
         for p in s["untouched"]:
@@ -174,6 +174,17 @@ def main():
         parts.append("</ul>")
     else:
         parts.append("<p>None — every inventoried file has been read at least once.</p>")
+    protected = [
+        item for item in s.get("review_candidates", []) if item.get("classification") == "protected"
+    ]
+    if protected:
+        parts.append("<h3>Protected — review, likely keep</h3><ul>")
+        for item in protected:
+            parts.append(
+                f"<li><code>{esc(item['path'])}</code> · {esc('; '.join(item['why']))}"
+                f"<br><small>{esc(item['caveat'])}</small></li>"
+            )
+        parts.append("</ul>")
     if s.get("always_loaded"):
         parts.append(
             "<p class=muted><small>Out of scope (always loaded via system prompt / Skill tool): "

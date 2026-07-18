@@ -50,13 +50,13 @@ and becomes monitored infrastructure — with a health grade to track sprint ove
 
 **This measurement doesn't exist anywhere else.** Anthropic's own
 [best-practices guide](https://code.claude.com/docs/en/best-practices) warns that a
-bloated CLAUDE.md causes instructions to be ignored — so high-performing teams prune
-ruthlessly. But nothing tells them whether the pruning was *right*. Agent
+bloated CLAUDE.md causes instructions to be ignored — so high-performing teams review
+context ruthlessly. But nothing tells them whether those changes were *right*. Agent
 observability platforms (Langfuse, Arize, W&B Weave) measure tokens and traces;
 none measure which project docs were read per task. And just as
-[Fallow](https://github.com/fallow-rs/fallow) gave teams the confidence to delete
-code nobody dared touch, trigger-tree gives you the evidence to prune, reroute, or
-rescue docs nobody dared judge.
+[Fallow](https://github.com/fallow-rs/fallow) made unused-code review evidence-based;
+trigger-tree gives you evidence to review, protect, reroute, or rescue docs nobody
+dared judge.
 
 | You are | Your question | trigger-tree answers with |
 |---------|---------------|---------------------------|
@@ -112,14 +112,15 @@ trigger-tree registers three lightweight hooks — full transparency:
    `tt-stats.py`; the model only interprets, never computes.
 3. **Discovery stays model-driven** — your CLAUDE.md remains the router. trigger-tree *measures* it; it never injects context or overrides routing. Bash searches count only when `rg`, `grep`, or `find` explicitly targets an existing documentation path; search output is never treated as a read.
 
-Subagent reads are attributed (`Explore`, `Plan`, …). Auto-loaded context
-(CLAUDE.md, `.claude/rules`) is invisible to Read-telemetry by design and excluded
-from cold-path analysis; invoked skills *are* measured.
+Subagent reads are attributed (`Explore`, `Plan`, …). Auto-loaded context—including
+the recursive `CLAUDE.md` `@import` graph—is invisible to Read telemetry by design
+and classified as **always loaded**; invoked skills *are* measured.
 
 ## The improvement loop
 
-Files with zero reads are **untouched** — never called "dead" until the measurement
-is mature (enough reads, sessions, and days). Then the loop closes:
+Files with zero reads are **review candidates**, never removal recommendations.
+Protected context (always-loaded files, safety paths, critical tags/globs, and docs
+with many in-links) is called out as likely-keep. Then the loop closes:
 
 1. `/tt insights` shows the **folder heat & cold map** and flags **router gaps**:
    untouched files that no other doc even links to.
@@ -212,7 +213,8 @@ Optional per-project override: `.trigger-tree/config.sh` (create it with
 |----------|---------|---------|
 | `TT_WATCH_REGEX` | docs/agents/skills/agent-briefs + CLAUDE/AGENTS.md | which reads count as documentation |
 | `TT_SCAN_REGEX` | doc folders | which Glob/Grep and explicit Bash-search targets count as hunting |
-| `TT_ALWAYS_LOADED_REGEX` | CLAUDE/AGENTS.md, .claude/rules\|skills | auto-loaded files, excluded from cold analysis |
+| `TT_ALWAYS_LOADED_REGEX` | CLAUDE/AGENTS.md, .claude/skills | auto-loaded files, augmented by recursive `@imports` and excluded from review candidates |
+| `TT_CRITICAL_GLOB` | empty | comma-separated globs protected as rare-but-critical review items |
 | `TT_LOG_PROMPTS` | `hash` | `hash` (sha1 only) · `truncate` (opt-in, 200 chars) · `off` (marker only) |
 | `TT_ROTATE_BYTES` | 5 MB | rotate history.jsonl to a timestamped archive beyond this size |
 
@@ -270,9 +272,9 @@ Honesty over marketing — know what the measurement can and cannot see:
   *always loaded* rather than guessing. Only tool-driven reads are measurable.
 - **Read ≠ understood.** A read count proves discovery, not that the content was
   good or followed. Pair the telemetry with your own judgment.
-- **Signals, not verdicts.** Untouched files are only called *dead-path candidates*
-  once the measurement is mature; new files, templates, and runbooks are recognized
-  and treated accordingly.
+- **Signals, not verdicts.** Untouched files are *review candidates*, never removal
+  recommendations. Always-loaded, widely referenced, safety-path, configured-critical,
+  and critical-tagged files are protected; low reads can mean rare-but-critical.
 - **Claude Code hooks only fire in Claude Code.** Other tools can participate via
   the `ingest` adapter entry point (see External tools) — but only if you wire them up.
 

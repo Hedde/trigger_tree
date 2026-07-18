@@ -10,9 +10,13 @@ TT_WATCH_REGEX='^(docs|agents|skills|agent-briefs)/.*\.md$|^\.claude/(rules|skil
 TT_SCAN_REGEX='^(docs|agents|skills|agent-briefs)(/|$)'
 
 # Files matching this regex are loaded automatically (system-prompt injection, nested
-# CLAUDE.md on-demand loading, Skill tool) and can therefore never be "dead" —
-# excluded from untouched/dead-path analysis.
-TT_ALWAYS_LOADED_REGEX='(^|/)(CLAUDE|AGENTS)\.md$|(^|/)CLAUDE\.local\.md$|^\.claude/(rules|skills)/'
+# CLAUDE.md on-demand loading, Skill tool) and therefore cannot be judged through
+# Read telemetry — excluded from untouched review-candidate analysis.
+TT_ALWAYS_LOADED_REGEX='(^|/)(CLAUDE|AGENTS)\.md$|(^|/)CLAUDE\.local\.md$|^\.claude/skills/'
+
+# Comma-separated globs for rare-but-critical documentation that must be reviewed,
+# never treated as an archive candidate. Safety paths are protected regardless.
+TT_CRITICAL_GLOB=''
 
 # How prompt markers are recorded: hash (default, no prompt text), truncate (opt-in,
 # first 200 chars), off (marker only). Task fingerprints work in all three modes.

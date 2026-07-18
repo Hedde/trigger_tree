@@ -5,9 +5,9 @@ Combines $PROJECT/.trigger-tree/history*.jsonl (current file + rotated archives)
 an inventory of the documentation tree and prints a stats JSON to stdout.
 Deterministic: all counting happens here so /tt only interprets, never computes.
 
-Maturity model: files with zero reads are "untouched". Whether untouched may be
-interpreted as "dead" depends on the `maturity` field: cold-start → too early to
-judge; warming → early signal; mature → untouched files are dead-path candidates.
+Maturity model: files with zero reads are "untouched". They remain review signals,
+never removal verdicts: cold-start → too early to judge; warming → early signal;
+mature → enough history to review purpose, protection, and routing.
 
 Config: $PROJECT/.trigger-tree/config.sh overrides the plugin default tt-config.sh.
 Usage: python3 tt-stats.py [path/to/history.jsonl]
@@ -21,6 +21,7 @@ import re
 import sys
 from collections import Counter, defaultdict
 from datetime import datetime
+from fnmatch import fnmatch
 from itertools import combinations
 
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
@@ -32,6 +33,7 @@ MATURE_MIN_READS = 100  # below this (or MATURE_MIN_DAYS): warming
 MATURE_MIN_DAYS = 7
 TREND_DAILY_MAX_DAYS = 14  # daily buckets up to here, weekly beyond
 CLUSTER_JACCARD = 0.6  # min similarity to join an existing task cluster
+HIGH_IN_LINK_COUNT = 3
 
 
 def _conf_texts():
@@ -59,8 +61,19 @@ def _conf_regex(name, fallback):
     return re.compile(fallback)
 
 
+def _conf_value(name, fallback=""):
+    for text in _conf_texts():
+        match = re.search(name + r"='([^']*)'", text)
+        if match:
+            return match.group(1)
+    return fallback
+
+
 WATCH = _conf_regex("TT_WATCH_REGEX", r"^docs/.*\.md$")
 ALWAYS = _conf_regex("TT_ALWAYS_LOADED_REGEX", r"^(CLAUDE|AGENTS)\.md$")
+CRITICAL_GLOBS = [
+    value.strip() for value in _conf_value("TT_CRITICAL_GLOB").split(",") if value.strip()
+]
 
 INVENTORY_BASES = [
     "docs",
@@ -158,6 +171,32 @@ def claude_import_graph(docs):
 
 def posix_dirname(path):
     return path.rsplit("/", 1)[0] if "/" in path else ""
+
+
+def is_safety_path(path):
+    return path.startswith(".claude/rules/") or path.startswith("security/") or "/security/" in path
+
+
+def is_critical_tagged(text):
+    return bool(
+        re.search(r"(?im)^\s*(?:critical\s*:\s*true|trigger-tree\s*:\s*critical)\s*$", text)
+    )
+
+
+def protection_reasons(path, referenced_from, text, always_loaded):
+    reasons = []
+    if always_loaded:
+        reasons.append("always loaded into context")
+    if len(referenced_from) >= HIGH_IN_LINK_COUNT:
+        reasons.append(f"referenced by {len(referenced_from)} other docs")
+    if is_safety_path(path):
+        reasons.append("safety path")
+    matching_globs = [pattern for pattern in CRITICAL_GLOBS if fnmatch(path, pattern)]
+    if matching_globs:
+        reasons.append("critical glob " + ", ".join(matching_globs))
+    if is_critical_tagged(text):
+        reasons.append("tagged critical")
+    return reasons
 
 
 def fingerprint(paths):
@@ -337,6 +376,46 @@ def main():
             {"path": p, "referenced_from": sorted(refs)[:5], "template": base.startswith("_")}
         )
 
+    review_candidates = []
+    for detail in untouched_detail:
+        p = detail["path"]
+        all_refs = [
+            q for q, text in texts.items() if q != p and (p in text or p.rsplit("/", 1)[-1] in text)
+        ]
+        reasons = protection_reasons(p, all_refs, texts.get(p, ""), False)
+        if detail["template"]:
+            reasons.append("template or intentional archive")
+        protected = bool(reasons)
+        why = (
+            reasons
+            if protected
+            else ["no reads in the measurement period", "not protected by critical-context rules"]
+        )
+        review_candidates.append(
+            {
+                **detail,
+                "classification": "protected" if protected else "review_candidate",
+                "why": why,
+                "recommendation": (
+                    "review, likely keep — rare-but-critical"
+                    if protected
+                    else "review context and routing"
+                ),
+                "caveat": "Low reads can mean rare-but-critical; verify purpose and owners before archiving.",
+            }
+        )
+
+    protected_docs = []
+    for p in always_loaded:
+        protected_docs.append(
+            {
+                "path": p,
+                "classification": "protected",
+                "why": protection_reasons(p, [], texts.get(p, ""), True),
+                "recommendation": "keep — always loaded",
+            }
+        )
+
     # Folder heat/cold map: coverage (files touched) and read volume per folder.
     folder_map = defaultdict(lambda: {"files": 0, "touched": 0, "reads": 0})
     touched_paths = read_paths | used_skill_files
@@ -427,6 +506,8 @@ def main():
         ],
         "untouched": untouched,
         "untouched_detail": untouched_detail,
+        "review_candidates": review_candidates,
+        "protected_docs": protected_docs,
         "folders": folders,
         "always_loaded": always_loaded,
         "always_loaded_imports": sorted(imported_files),

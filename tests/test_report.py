@@ -29,7 +29,7 @@ def test_full_report_on_fixture(monkeypatch, capsys):
         "<title>trigger-tree Report</title>",
         "Most consulted",
         "Skill usage",
-        "Untouched paths (cold map)",
+        "Review candidates (untouched paths)",
         "Folder heat",
         "router gap",
         "referenced from",
@@ -55,6 +55,7 @@ def test_report_on_empty_project(tmp_path, monkeypatch, capsys):
     html = open(out_path, encoding="utf-8").read()
     assert "Measurement just started" in html
     assert "docs/a.md" in html  # untouched listing
+    assert "not a removal recommendation" in html
 
 
 def test_report_when_nothing_untouched(tmp_path, monkeypatch, capsys):

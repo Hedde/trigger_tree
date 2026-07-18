@@ -95,8 +95,8 @@
   proves whether your fixes worked. Documentation becomes monitored infrastructure instead of a hopeful artifact.</p>
   <p style="color:var(--muted);max-width:720px">And this metric exists nowhere else: agent observability platforms measure
   tokens and traces — <b style="color:var(--fg)">none measure which of your docs the assistant actually read</b>.
-  Anthropic's own guidance says to keep CLAUDE.md lean; trigger-tree is the evidence that tells you what to prune,
-  what to reroute, and what to rescue.</p>
+  Anthropic's own guidance says to keep CLAUDE.md lean; trigger-tree provides evidence for what to review,
+  what to protect or reroute, and what to rescue.</p>
 
   <h2>Install</h2>
   <pre class="block">/plugin marketplace add Hedde/trigger_tree
@@ -205,7 +205,7 @@
     bubble.style.top = (e.clientY - 60) + "px";
     bubble.innerHTML = revived
       ? "thank you for reading me 🌱"
-      : "…nobody has read me in 247 days.<br>Am I… dead? <b>Link me from an index?</b> 🥺";
+      : "…nobody has read me in 247 days.<br>I need review—not a verdict. <b>Link me from an index?</b> 🥺";
     bubble.style.opacity = 1;
     setTimeout(() => (bubble.style.opacity = 0), 2600);
     if (!revived) { revived = true; dead.dead = false; dead.n = 1; reads++;
