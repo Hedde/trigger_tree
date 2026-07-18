@@ -6,6 +6,20 @@ on:
   pull_request:
 
 jobs:
+  lint-python:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: black --check scripts tests
+      - run: ruff check scripts tests
+
   test:
     strategy:
       fail-fast: false

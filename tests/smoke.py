@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """trigger-tree smoke test — exercises stats, report, logger and statusline
 against the fixture project. Exits non-zero on any failed assertion."""
+
 import json
 import os
 import subprocess
@@ -17,7 +18,11 @@ def run(script, args=None, project=None, stdin=None, env_extra=None):
     env.update(env_extra or {})
     return subprocess.run(
         [sys.executable, os.path.join(SCRIPTS, script)] + (args or []),
-        input=stdin, capture_output=True, text=True, env=env, check=True,
+        input=stdin,
+        capture_output=True,
+        text=True,
+        env=env,
+        check=True,
     ).stdout
 
 
@@ -48,21 +53,37 @@ def test_report():
 
 def test_logger_and_statusline():
     with tempfile.TemporaryDirectory() as tmp:
-        read_event = json.dumps({
-            "session_id": "S", "tool_name": "Read",
-            "tool_input": {"file_path": os.path.join(tmp, "docs", "x.md")},
-        })
+        read_event = json.dumps(
+            {
+                "session_id": "S",
+                "tool_name": "Read",
+                "tool_input": {"file_path": os.path.join(tmp, "docs", "x.md")},
+            }
+        )
         run("tt-log.py", ["read"], project=tmp, stdin=read_event)
         hist = os.path.join(tmp, ".trigger-tree", "history.jsonl")
         line = json.loads(open(hist, encoding="utf-8").read().splitlines()[0])
         assert line["t"] == "read" and line["path"] == "docs/x.md"
 
-        run("tt-log.py", ["skill"], project=tmp, stdin=json.dumps(
-            {"session_id": "S", "tool_name": "Skill", "tool_input": {"skill": "deploy"}}))
-        assert '"skill": "deploy"' in open(hist, encoding="utf-8").read() or '"skill":"deploy"' in open(hist, encoding="utf-8").read()
+        run(
+            "tt-log.py",
+            ["skill"],
+            project=tmp,
+            stdin=json.dumps(
+                {"session_id": "S", "tool_name": "Skill", "tool_input": {"skill": "deploy"}}
+            ),
+        )
+        assert (
+            '"skill": "deploy"' in open(hist, encoding="utf-8").read()
+            or '"skill":"deploy"' in open(hist, encoding="utf-8").read()
+        )
 
-        run("tt-log.py", ["note", "router", "tweak"], project=tmp,
-            env_extra={"CLAUDE_SESSION_ID": "S"})
+        run(
+            "tt-log.py",
+            ["note", "router", "tweak"],
+            project=tmp,
+            env_extra={"CLAUDE_SESSION_ID": "S"},
+        )
         assert "router tweak" in open(hist, encoding="utf-8").read()
 
         out = run("tt-statusline.py", project=tmp, stdin=json.dumps({"session_id": "S"}))
@@ -74,14 +95,22 @@ def test_logger_and_statusline():
         os.makedirs(os.path.join(tmp, ".trigger-tree"))
         with open(os.path.join(tmp, ".trigger-tree", "config.sh"), "w") as fh:
             fh.write("TT_LOG_PROMPTS='hash'\nTT_ROTATE_BYTES='10'\n")
-        run("tt-log.py", ["prompt"], project=tmp,
-            stdin=json.dumps({"session_id": "S", "prompt": "secret plans"}))
+        run(
+            "tt-log.py",
+            ["prompt"],
+            project=tmp,
+            stdin=json.dumps({"session_id": "S", "prompt": "secret plans"}),
+        )
         content = open(os.path.join(tmp, ".trigger-tree", "history.jsonl"), encoding="utf-8").read()
         assert "prompt_hash" in content and "secret plans" not in content
 
         # rotation: tiny TT_ROTATE_BYTES forces an archive on the next append
-        run("tt-log.py", ["prompt"], project=tmp,
-            stdin=json.dumps({"session_id": "S", "prompt": "another prompt"}))
+        run(
+            "tt-log.py",
+            ["prompt"],
+            project=tmp,
+            stdin=json.dumps({"session_id": "S", "prompt": "another prompt"}),
+        )
         files = os.listdir(os.path.join(tmp, ".trigger-tree"))
         archives = [f for f in files if f.startswith("history-")]
         assert archives, files
@@ -90,7 +119,7 @@ def test_logger_and_statusline():
 
 def test_setup():
     with tempfile.TemporaryDirectory() as tmp:
-        out = run("tt-setup.py", ["--with-config"], project=tmp)
+        run("tt-setup.py", ["--with-config"], project=tmp)
         assert os.path.isfile(os.path.join(tmp, ".claude", "tt-statusline.py"))
         assert os.path.isfile(os.path.join(tmp, ".trigger-tree", "config.sh"))
         settings = json.load(open(os.path.join(tmp, ".claude", "settings.json")))

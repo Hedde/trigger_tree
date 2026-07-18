@@ -4,7 +4,6 @@ import os
 import sys
 
 import pytest
-
 from conftest import load_script
 
 
@@ -16,7 +15,9 @@ def run_main(mod, monkeypatch, argv, stdin_text="{}"):
 
 def read_history(project):
     path = os.path.join(project, ".trigger-tree", "history.jsonl")
-    return [json.loads(l) for l in open(path, encoding="utf-8")] if os.path.isfile(path) else []
+    return (
+        [json.loads(line) for line in open(path, encoding="utf-8")] if os.path.isfile(path) else []
+    )
 
 
 def test_rel_path(tmp_path):
@@ -35,7 +36,7 @@ def test_conf_unreadable_falls_back_to_defaults(tmp_path):
         mod = load_script("tt-log.py", tmp_path)
         cfg_out = mod.conf()
         assert cfg_out["TT_LOG_PROMPTS"] == "hash"  # unreadable override → safe default
-        assert "agents" in cfg_out["TT_WATCH_REGEX"]    # plugin default file wins over DEFAULTS
+        assert "agents" in cfg_out["TT_WATCH_REGEX"]  # plugin default file wins over DEFAULTS
     finally:
         cfg.chmod(0o644)
 
@@ -54,17 +55,31 @@ def test_session_event_and_bad_stdin(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
     run_main(mod, monkeypatch, ["session"], "not-json")
     assert read_history(tmp_path)[0] == {
-        "t": "session", "ts": read_history(tmp_path)[0]["ts"], "session": "?"}
+        "t": "session",
+        "ts": read_history(tmp_path)[0]["ts"],
+        "session": "?",
+    }
 
 
 def test_read_scan_and_filtering(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
-    watched = json.dumps({"session_id": "S", "tool_name": "Read",
-                          "tool_input": {"file_path": str(tmp_path / "docs" / "a.md")}})
-    unwatched = json.dumps({"session_id": "S", "tool_name": "Read",
-                            "tool_input": {"file_path": str(tmp_path / "src" / "a.py")}})
-    scan = json.dumps({"session_id": "S", "tool_name": "Grep",
-                       "tool_input": {"path": str(tmp_path / "docs")}})
+    watched = json.dumps(
+        {
+            "session_id": "S",
+            "tool_name": "Read",
+            "tool_input": {"file_path": str(tmp_path / "docs" / "a.md")},
+        }
+    )
+    unwatched = json.dumps(
+        {
+            "session_id": "S",
+            "tool_name": "Read",
+            "tool_input": {"file_path": str(tmp_path / "src" / "a.py")},
+        }
+    )
+    scan = json.dumps(
+        {"session_id": "S", "tool_name": "Grep", "tool_input": {"path": str(tmp_path / "docs")}}
+    )
     no_target = json.dumps({"session_id": "S", "tool_name": "Read", "tool_input": {}})
     for payload in (watched, unwatched, scan, no_target):
         run_main(mod, monkeypatch, ["read"], payload)
@@ -90,13 +105,19 @@ def test_bash_doc_searches_are_scans_without_becoming_reads(tmp_path, monkeypatc
         f"rg -in empty_state '{empty_arg}' '{tables_arg}' | head -40",
         f"grep -R empty {docs_arg} && find {docs_arg} -name '*.md'",
         f"rg pattern {(tmp_path / 'src').as_posix()}",  # not a watched doc path
-        "echo 'rg docs/ui'",                    # text is not an executed search command
-        "rg pattern nowhere/docs",              # nonexistent target: do not guess
-        "rg 'unterminated",                     # malformed shell: ignored safely
+        "echo 'rg docs/ui'",  # text is not an executed search command
+        "rg pattern nowhere/docs",  # nonexistent target: do not guess
+        "rg 'unterminated",  # malformed shell: ignored safely
     ]
     for command in commands:
-        payload = json.dumps({"session_id": "S", "agent_type": "Explore",
-                              "tool_name": "Bash", "tool_input": {"command": command}})
+        payload = json.dumps(
+            {
+                "session_id": "S",
+                "agent_type": "Explore",
+                "tool_name": "Bash",
+                "tool_input": {"command": command},
+            }
+        )
         run_main(mod, monkeypatch, ["bash"], payload)
 
     events = read_history(tmp_path)
@@ -108,7 +129,11 @@ def test_bash_doc_searches_are_scans_without_becoming_reads(tmp_path, monkeypatc
 def test_shell_parser_and_bash_without_command(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
     assert mod.shell_segments("cd docs && rg x . | sort; echo done") == [
-        ["cd", "docs"], ["rg", "x", "."], ["sort"], ["echo", "done"]]
+        ["cd", "docs"],
+        ["rg", "x", "."],
+        ["sort"],
+        ["echo", "done"],
+    ]
     assert mod.shell_segments("echo 'unterminated") == []
     run_main(mod, monkeypatch, ["bash"], json.dumps({"tool_name": "Bash", "tool_input": {}}))
     assert read_history(tmp_path) == []
@@ -136,10 +161,18 @@ def test_prompt_modes(tmp_path, monkeypatch):
 
 def test_skill_event(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
-    run_main(mod, monkeypatch, ["skill"], json.dumps(
-        {"session_id": "S", "tool_name": "Skill", "tool_input": {"skill": "deploy"}}))
-    run_main(mod, monkeypatch, ["skill"], json.dumps(
-        {"session_id": "S", "tool_name": "Skill", "tool_input": {}}))  # nameless: ignored
+    run_main(
+        mod,
+        monkeypatch,
+        ["skill"],
+        json.dumps({"session_id": "S", "tool_name": "Skill", "tool_input": {"skill": "deploy"}}),
+    )
+    run_main(
+        mod,
+        monkeypatch,
+        ["skill"],
+        json.dumps({"session_id": "S", "tool_name": "Skill", "tool_input": {}}),
+    )  # nameless: ignored
     events = read_history(tmp_path)
     assert len(events) == 1 and events[0]["skill"] == "deploy"
 
@@ -170,11 +203,11 @@ def test_ingest_external_events(tmp_path, monkeypatch):
     assert entry["t"] == "read" and entry["path"] == "docs/a.md"
     assert entry["session"] == "codex-1" and entry["agent"] == "external" and entry["ts"]
 
-    ingest('{"t":"scan"}')            # scan without path: dropped
-    ingest('{"t":"bogus","x":1}')     # unknown type: dropped
-    ingest('not-json')                # invalid json: dropped
+    ingest('{"t":"scan"}')  # scan without path: dropped
+    ingest('{"t":"bogus","x":1}')  # unknown type: dropped
+    ingest("not-json")  # invalid json: dropped
     monkeypatch.setattr(sys, "argv", ["tt-log.py", "ingest"])
-    mod.main()                        # missing payload: dropped
+    mod.main()  # missing payload: dropped
     assert len(read_history(tmp_path)) == 1
 
     ingest('{"t":"note","text":"from codex","ts":"2026-07-01T00:00:00Z"}')

@@ -6,9 +6,9 @@ from conftest import load_script
 def wire_project(project, events=True):
     (project / ".claude").mkdir()
     (project / ".claude" / "tt-statusline.py").write_text("# installed\n")
-    (project / ".claude" / "settings.json").write_text(json.dumps({
-        "statusLine": {"command": "python3 .claude/tt-statusline.py"}
-    }))
+    (project / ".claude" / "settings.json").write_text(
+        json.dumps({"statusLine": {"command": "python3 .claude/tt-statusline.py"}})
+    )
     (project / ".gitignore").write_text(".trigger-tree/\n")
     if events:
         (project / ".trigger-tree").mkdir()

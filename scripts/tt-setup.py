@@ -11,6 +11,7 @@ Steps (each reported as created/updated/skipped):
 
 Usage: python3 tt-setup.py [--with-config]
 """
+
 import json
 import os
 import shutil
@@ -21,8 +22,10 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 GITIGNORE_LINES = [".trigger-tree/*", "!.trigger-tree/config.sh"]
 # python3-with-fallback so the same registration works on macOS/Linux/Windows(Git Bash)
-STATUSLINE_CMD = ('python3 "$CLAUDE_PROJECT_DIR"/.claude/tt-statusline.py 2>/dev/null'
-                  ' || python "$CLAUDE_PROJECT_DIR"/.claude/tt-statusline.py')
+STATUSLINE_CMD = (
+    'python3 "$CLAUDE_PROJECT_DIR"/.claude/tt-statusline.py 2>/dev/null'
+    ' || python "$CLAUDE_PROJECT_DIR"/.claude/tt-statusline.py'
+)
 
 
 def report(action, target):
@@ -67,7 +70,9 @@ def register_statusline():
         if settings["statusLine"].get("command", "").endswith("tt-statusline.py"):
             report("skipped", ".claude/settings.json (statusLine already registered)")
         else:
-            report("skipped", ".claude/settings.json (different statusLine present — left untouched)")
+            report(
+                "skipped", ".claude/settings.json (different statusLine present — left untouched)"
+            )
         return
     settings["statusLine"] = {
         "type": "command",

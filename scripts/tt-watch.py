@@ -11,6 +11,7 @@ A read makes its file flash white and ripples a pulse up through its parent
 folders, then fades back to the file's heat color (read frequency). Untouched
 paths stay dim gray. Quit with q or Ctrl+C. 256-color ANSI, stdlib only.
 """
+
 import argparse
 import glob as globmod
 import json
@@ -41,8 +42,10 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def _conf_texts():
     texts = []
-    for path in (os.path.join(ROOT, ".trigger-tree", "config.sh"),
-                 os.path.join(SCRIPT_DIR, "tt-config.sh")):
+    for path in (
+        os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        os.path.join(SCRIPT_DIR, "tt-config.sh"),
+    ):
         try:
             texts.append(open(path, encoding="utf-8").read())
         except OSError:
@@ -68,13 +71,13 @@ SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 SPARK = " ▁▂▃▄▅▆▇█"
 GREEN, AMBER, RED = 114, 214, 196  # three heat tiers, matching the website demo
 DEAD, DIM, WHITE, FOLDER = 240, 245, 231, 250
-BUCKET_LIMIT = 20       # detailed per-prompt buckets kept for browsing (totals aggregate all)
+BUCKET_LIMIT = 20  # detailed per-prompt buckets kept for browsing (totals aggregate all)
 EVENTS_PER_BUCKET = 500  # cap against runaway tasks flooding one bucket
-LIVE_FOLDER_LIMIT = 10   # focused live overview; full cold inventory lives in insights
+LIVE_FOLDER_LIMIT = 10  # focused live overview; full cold inventory lives in insights
 ESCAPE_BYTE_TIMEOUT = 0.2  # tolerate delayed terminal bytes on loaded machines
-PULSE_SECS = 1.4        # how long a flash takes to fade
-RIPPLE_DELAY = 0.09     # per tree level, leaf → root
-RECENT_SECS = 8.0       # keep recently active folders visible before alpha fallback
+PULSE_SECS = 1.4  # how long a flash takes to fade
+RIPPLE_DELAY = 0.09  # per tree level, leaf → root
+RECENT_SECS = 8.0  # keep recently active folders visible before alpha fallback
 
 
 def c256(n, text, bold=False):
@@ -142,7 +145,7 @@ class App:
         self.files = list(files)
         self.counts = Counter()
         self.scans = Counter()
-        self.pulses = {}          # node path -> pulse start time (may lie in the future)
+        self.pulses = {}  # node path -> pulse start time (may lie in the future)
         self.ticker = deque(maxlen=4)
         self.total_reads = 0
         self.total_scans = 0
@@ -150,9 +153,9 @@ class App:
         self.total_prompts = 0
         self.sessions = set()
         self.last_event = None  # wall-clock of the last live-fed event
-        self.buckets = []         # one bucket per typed prompt: its aggregated events
-        self._current = {}        # session -> active bucket
-        self.selected = None      # bucket index while browsing, None = live view
+        self.buckets = []  # one bucket per typed prompt: its aggregated events
+        self._current = {}  # session -> active bucket
+        self.selected = None  # bucket index while browsing, None = live view
 
     def sync_inventory(self, files):
         """Make the live tree reflect disk; historical counters remain intact."""
@@ -165,8 +168,12 @@ class App:
         s_id = ev.get("session", "?")
         self.sessions.add(s_id)
         if t == "prompt":
-            bucket = {"session": s_id, "ts": ev.get("ts", ""),
-                      "prompt": (ev.get("prompt") or "").strip() or "(prompt)", "events": []}
+            bucket = {
+                "session": s_id,
+                "ts": ev.get("ts", ""),
+                "prompt": (ev.get("prompt") or "").strip() or "(prompt)",
+                "events": [],
+            }
             self.buckets.append(bucket)
             self._current[s_id] = bucket
             self.total_prompts += 1
@@ -181,15 +188,24 @@ class App:
         elif t in ("read", "scan", "skill"):
             bucket = self._current.get(s_id)
             if bucket is None:
-                bucket = {"session": s_id, "ts": ev.get("ts", ""),
-                          "prompt": "(session start)", "events": []}
+                bucket = {
+                    "session": s_id,
+                    "ts": ev.get("ts", ""),
+                    "prompt": "(session start)",
+                    "events": [],
+                }
                 self.buckets.append(bucket)
                 self._current[s_id] = bucket
-            bucket["events"].append({"t": t, "ts": ev.get("ts", ""),
-                                     "path": ev.get("path") or f"skill:{ev.get('skill', '?')}",
-                                     "agent": ev.get("agent", "main")})
+            bucket["events"].append(
+                {
+                    "t": t,
+                    "ts": ev.get("ts", ""),
+                    "path": ev.get("path") or f"skill:{ev.get('skill', '?')}",
+                    "agent": ev.get("agent", "main"),
+                }
+            )
             if len(bucket["events"]) > EVENTS_PER_BUCKET:
-                del bucket["events"][:len(bucket["events"]) - EVENTS_PER_BUCKET]
+                del bucket["events"][: len(bucket["events"]) - EVENTS_PER_BUCKET]
         if t == "read":
             path = ev["path"]
             self.counts[path] += 1
@@ -211,8 +227,9 @@ class App:
                 skill_file = f".claude/skills/{ev.get('skill', '')}/SKILL.md"
                 if skill_file in self.files:
                     self._pulse(skill_file)
-                self.ticker.appendleft((time.time(), "⚡", f"skill:{ev.get('skill', '?')}",
-                                        ev.get("agent", "main")))
+                self.ticker.appendleft(
+                    (time.time(), "⚡", f"skill:{ev.get('skill', '?')}", ev.get("agent", "main"))
+                )
 
     def _pulse(self, path):
         now = time.time()
@@ -226,7 +243,9 @@ class App:
     def select_prev(self):
         if not self.buckets:
             return
-        self.selected = len(self.buckets) - 1 if self.selected is None else max(0, self.selected - 1)
+        self.selected = (
+            len(self.buckets) - 1 if self.selected is None else max(0, self.selected - 1)
+        )
 
     def select_next(self):
         if not self.buckets:
@@ -293,13 +312,17 @@ class App:
             scan_counts = Counter(e["path"].rstrip("/") for e in b["events"] if e["t"] == "scan")
             b_scans = sum(scan_counts.values())
             prompt_txt = b["prompt"][:56] + ("…" if len(b["prompt"]) > 56 else "")
-            header.insert(1, c256(AMBER, f" ▸ prompt {self.selected + 1}/{len(self.buckets)} ", bold=True)
-                          + c256(WHITE, f'"{prompt_txt}"')
-                          + c256(DIM, f" · {sum(counts.values())} reads · {b_scans} scans"))
+            header.insert(
+                1,
+                c256(AMBER, f" ▸ prompt {self.selected + 1}/{len(self.buckets)} ", bold=True)
+                + c256(WHITE, f'"{prompt_txt}"')
+                + c256(DIM, f" · {sum(counts.values())} reads · {b_scans} scans"),
+            )
             files_src = sorted(counts)
         else:
-            counts = Counter({path: count for path, count in self.counts.items()
-                              if path in self.files})
+            counts = Counter(
+                {path: count for path, count in self.counts.items() if path in self.files}
+            )
             scan_counts = Counter({path.rstrip("/"): count for path, count in self.scans.items()})
             files_src = self.files
         max_count = max(counts.values(), default=0)
@@ -327,16 +350,23 @@ class App:
             for folder, files in folders.items()
         }
         if not browsing:
-            active = [folder for folder in folders
-                      if folder_activity[folder] or self._is_recent(folder, now)]
-            active.sort(key=lambda folder: self._folder_sort_key(
-                folder, now, False, folder_activity[folder]))
+            active = [
+                folder
+                for folder in folders
+                if folder_activity[folder] or self._is_recent(folder, now)
+            ]
+            active.sort(
+                key=lambda folder: self._folder_sort_key(
+                    folder, now, False, folder_activity[folder]
+                )
+            )
             shown_folders = set(active[:LIVE_FOLDER_LIMIT])
             more_active = max(0, len(active) - len(shown_folders))
             quiet = [folder for folder in folders if folder not in active]
             quiet_unread = sum(len(inventory_folders.get(folder, [])) for folder in quiet)
-            folders = {folder: files for folder, files in folders.items()
-                       if folder in shown_folders}
+            folders = {
+                folder: files for folder, files in folders.items() if folder in shown_folders
+            }
             summary = []
             if more_active:
                 summary.append(f"{more_active} more active")
@@ -352,8 +382,10 @@ class App:
         hide_quiet = total > budget
 
         body = []
-        for folder in sorted(folders, key=lambda d: self._folder_sort_key(
-                d, now, browsing, folder_activity.get(d, 0))):
+        for folder in sorted(
+            folders,
+            key=lambda d: self._folder_sort_key(d, now, browsing, folder_activity.get(d, 0)),
+        ):
             files = folders[folder]
             if not browsing:
                 shown = [f for f in files if counts[f] or self._glow(f, now) > 0]
@@ -388,8 +420,9 @@ class App:
                 else:
                     stat = c256(DEAD, f"· {0:>3}")
                 prefix = f"   {branch} " if folder else " "
-                body.append(c256(244 if folder else DIM, prefix)
-                            + c256(color, name, bold) + pad + stat)
+                body.append(
+                    c256(244 if folder else DIM, prefix) + c256(color, name, bold) + pad + stat
+                )
 
         body_budget = max(1, budget - (1 if focus_summary else 0))
         if len(body) > body_budget:
@@ -403,11 +436,16 @@ class App:
         lines.append("")
         lines.append(
             c256(DIM, " ")
-            + c256(WHITE, f"{self.total_prompts}", bold=True) + c256(DIM, " prompts · ")
-            + c256(WHITE, f"{self.total_reads}", bold=True) + c256(DIM, " reads · ")
-            + c256(WHITE, f"{self.total_scans}", bold=True) + c256(DIM, " scans (hunting) · ")
-            + c256(WHITE, f"{self.total_skills}", bold=True) + c256(DIM, " skill uses · ")
-            + c256(WHITE, f"{len(self.sessions)}", bold=True) + c256(DIM, " sessions")
+            + c256(WHITE, f"{self.total_prompts}", bold=True)
+            + c256(DIM, " prompts · ")
+            + c256(WHITE, f"{self.total_reads}", bold=True)
+            + c256(DIM, " reads · ")
+            + c256(WHITE, f"{self.total_scans}", bold=True)
+            + c256(DIM, " scans (hunting) · ")
+            + c256(WHITE, f"{self.total_skills}", bold=True)
+            + c256(DIM, " skill uses · ")
+            + c256(WHITE, f"{len(self.sessions)}", bold=True)
+            + c256(DIM, " sessions")
         )
         if browsing:
             icons = {"read": "●", "scan": "🔍", "skill": "⚡"}
@@ -418,19 +456,32 @@ class App:
         else:
             for ts, icon, path, agent in list(self.ticker)[:3]:
                 age = now - ts
-                agestr = "just now" if age < 3 else (f"{age:.0f}s ago" if age < 60 else f"{age/60:.0f}m ago")
+                agestr = (
+                    "just now"
+                    if age < 3
+                    else (f"{age:.0f}s ago" if age < 60 else f"{age/60:.0f}m ago")
+                )
                 who = "" if agent in ("main", "prompt") else f" [{agent}]"
                 fade = DIM if age < 8 else DEAD
                 lines.append(c256(fade, f"   {icon} {path}{who} · {agestr}"))
         if browsing:
-            lines.append(c256(DEAD, "   ← older prompt · → newer prompt · a live overview · q quit"))
+            lines.append(
+                c256(DEAD, "   ← older prompt · → newer prompt · a live overview · q quit")
+            )
         else:
             if self.last_event is None:
                 beat = "listening for doc reads (injected context never shows here)"
             else:
                 age = now - self.last_event
-                beat = "last event just now" if age < 3 else (
-                    f"last event {age:.0f}s ago" if age < 60 else f"last event {age/60:.0f}m ago")
+                beat = (
+                    "last event just now"
+                    if age < 3
+                    else (
+                        f"last event {age:.0f}s ago"
+                        if age < 60
+                        else f"last event {age/60:.0f}m ago"
+                    )
+                )
             lines.append(c256(DEAD, f"   ←/→ open newest prompt · q quit · live · {beat}"))
         return [ln[: width * 4] for ln in lines[:height]]  # *4: ANSI codes don't count
 
@@ -491,19 +542,29 @@ def handle_key(app, ch):
 
 def demo_event(files, rng):
     hot = rng.sample(files, min(6, len(files)))  # a "task" keeps favoring a few files
+
     def gen():
         while True:
             roll = rng.random()
             if roll < 0.12:
-                yield {"t": "scan", "path": rng.choice(["docs", "docs/development", "agents"]),
-                       "session": "demo", "agent": "main"}
+                yield {
+                    "t": "scan",
+                    "path": rng.choice(["docs", "docs/development", "agents"]),
+                    "session": "demo",
+                    "agent": "main",
+                }
             elif roll < 0.2:
-                yield {"t": "skill", "skill": rng.choice(["doc-update", "insights", "tt"]),
-                       "session": "demo", "agent": "main"}
+                yield {
+                    "t": "skill",
+                    "skill": rng.choice(["doc-update", "insights", "tt"]),
+                    "session": "demo",
+                    "agent": "main",
+                }
             else:
                 pool = hot if rng.random() < 0.7 else files
                 agent = rng.choice(["main", "main", "main", "Explore", "Plan"])
                 yield {"t": "read", "path": rng.choice(pool), "session": "demo", "agent": agent}
+
     return gen()
 
 
@@ -534,7 +595,9 @@ def main():
     if is_tty:
         sys.stdout.write("\x1b[?1049h\x1b[?25l")
     if use_termios:  # pragma: no cover — needs a real tty
-        import termios, tty
+        import termios
+        import tty
+
         old_term = termios.tcgetattr(sys.stdin)
         tty.setcbreak(sys.stdin.fileno())
 
@@ -546,6 +609,7 @@ def main():
                 break
             if os.name == "nt" and stdin_tty:  # pragma: no cover — Windows console keys
                 import msvcrt
+
                 if msvcrt.kbhit():
                     wch = msvcrt.getwch()
                     if wch in ("\x00", "\xe0"):
@@ -582,6 +646,7 @@ def main():
     finally:
         if use_termios and old_term is not None:  # pragma: no cover — needs a real tty
             import termios
+
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_term)
         if is_tty:
             sys.stdout.write("\x1b[?25h\x1b[?1049l")

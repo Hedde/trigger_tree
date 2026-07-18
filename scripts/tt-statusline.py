@@ -5,6 +5,7 @@ Portable (macOS/Linux), stdlib only. The dot pulses with the age of the last rea
 ● bright green < 90s, ◐ amber < 10min, ○ dim otherwise.
 Register in project or user settings under "statusLine" with a refreshInterval.
 """
+
 import json
 import os
 import sys
@@ -15,9 +16,9 @@ ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 HIST = os.path.join(ROOT, ".trigger-tree", "history.jsonl")
 
 RESET = "\033[0m"
-FRESH = "\033[1;38;5;114m"   # bright green
-WARM = "\033[38;5;178m"      # amber
-COLD = "\033[38;5;245m"      # dim
+FRESH = "\033[1;38;5;114m"  # bright green
+WARM = "\033[38;5;178m"  # amber
+COLD = "\033[38;5;245m"  # dim
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")  # emoji-safe on Windows consoles

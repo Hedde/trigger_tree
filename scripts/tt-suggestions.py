@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Print concise, deterministic router suggestions; keep full stats off stdout."""
+
 import json
 import os
 import subprocess
@@ -25,38 +26,65 @@ def build_suggestions(stats):
     for item in stats.get("untouched_detail", []):
         if not item.get("referenced_from") and not item.get("template", False):
             path = item["path"]
-            add(("gap", path), f"Add a link to {path} in {router_for(path)} — unread and no doc references it (router gap).")
+            add(
+                ("gap", path),
+                f"Add a link to {path} in {router_for(path)} — unread and no doc references it (router gap).",
+            )
 
     for folder in stats.get("folders", []):
         name = folder["folder"]
         if name.startswith(".claude/") or name == "(root)":
             continue
         if not folder.get("has_index") and folder.get("coverage", 0) < 0.5:
-            add(("folder", name), f"Add {name}/index.md — {folder['touched']}/{folder['files']} files read and the folder has no entry point.")
+            add(
+                ("folder", name),
+                f"Add {name}/index.md — {folder['touched']}/{folder['files']} files read and the folder has no entry point.",
+            )
 
     for folder in stats.get("folders", []):
         name = folder["folder"]
-        if (folder.get("coverage") == 0 and name != "(root)"
-                and not name.startswith(".claude/") and ("folder", name) not in seen):
-            add(("cold", name), f"Route to or archive {name}/ — none of its {folder['files']} files were read.")
+        if (
+            folder.get("coverage") == 0
+            and name != "(root)"
+            and not name.startswith(".claude/")
+            and ("folder", name) not in seen
+        ):
+            add(
+                ("cold", name),
+                f"Route to or archive {name}/ — none of its {folder['files']} files were read.",
+            )
 
     for hunt in stats.get("hunting", []):
-        add(("hunt", hunt["path"]), f"Sharpen the index instructions for {hunt['path']} — {hunt['scans']} searches indicate hunting instead of routed reads.")
+        add(
+            ("hunt", hunt["path"]),
+            f"Sharpen the index instructions for {hunt['path']} — {hunt['scans']} searches indicate hunting instead of routed reads.",
+        )
 
     for path in stats.get("unknown_reads", []):
-        add(("unknown", path), f"Fix the router reference to {path} — telemetry saw a read for a missing or renamed file.")
+        add(
+            ("unknown", path),
+            f"Fix the router reference to {path} — telemetry saw a read for a missing or renamed file.",
+        )
     return suggestions
 
 
 def main():
-    result = subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "tt-stats.py")],
-                            capture_output=True, text=True, check=True)
+    result = subprocess.run(
+        [sys.executable, os.path.join(SCRIPT_DIR, "tt-stats.py")],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
     stats = json.loads(result.stdout)
     totals = stats["totals"]
     if stats["maturity"] == "cold-start":
-        print(f"🌳 Not enough data yet ({totals['reads']} reads, {stats['sessions']} sessions) — suggestions need a few working sessions first.")
+        print(
+            f"🌳 Not enough data yet ({totals['reads']} reads, {stats['sessions']} sessions) — suggestions need a few working sessions first."
+        )
         return
-    print(f"🌳 Suggestions — based on {totals['reads']} reads, {totals['scans']} searches, {stats['sessions']} sessions; proposes router edits only and changes nothing until you confirm.")
+    print(
+        f"🌳 Suggestions — based on {totals['reads']} reads, {totals['scans']} searches, {stats['sessions']} sessions; proposes router edits only and changes nothing until you confirm."
+    )
     suggestions = build_suggestions(stats)
     if not suggestions:
         print("No evidence-backed router changes found yet.")

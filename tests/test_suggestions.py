@@ -8,9 +8,13 @@ from conftest import load_script
 
 def base_stats(maturity="mature"):
     return {
-        "maturity": maturity, "sessions": 8,
+        "maturity": maturity,
+        "sessions": 8,
         "totals": {"reads": 120, "scans": 14},
-        "untouched_detail": [], "folders": [], "hunting": [], "unknown_reads": [],
+        "untouched_detail": [],
+        "folders": [],
+        "hunting": [],
+        "unknown_reads": [],
     }
 
 

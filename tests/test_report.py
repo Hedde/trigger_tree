@@ -25,12 +25,24 @@ def test_full_report_on_fixture(monkeypatch, capsys):
     mod = load_script("tt-report.py", FIXTURE)
     out_path = run_report(mod, monkeypatch, capsys, FIXTURE)
     html = open(out_path, encoding="utf-8").read()
-    for expected in ("<title>trigger-tree Report</title>", "Most consulted", "Skill usage",
-                     "Untouched paths (cold map)", "Folder heat", "router gap",
-                     "referenced from", "Trend", "sharpened UX router", "Task clusters",
-                     "Most often read together", "cold-start",
-                     "Documentation health", "provisional",
-                     "no index file", "template — intentional archive"):
+    for expected in (
+        "<title>trigger-tree Report</title>",
+        "Most consulted",
+        "Skill usage",
+        "Untouched paths (cold map)",
+        "Folder heat",
+        "router gap",
+        "referenced from",
+        "Trend",
+        "sharpened UX router",
+        "Task clusters",
+        "Most often read together",
+        "cold-start",
+        "Documentation health",
+        "provisional",
+        "no index file",
+        "template — intentional archive",
+    ):
         assert expected in html, expected
     os.remove(out_path)  # keep the fixture clean for other tests
 
@@ -51,7 +63,8 @@ def test_report_when_nothing_untouched(tmp_path, monkeypatch, capsys):
     (tmp_path / ".trigger-tree").mkdir()
     (tmp_path / ".trigger-tree" / "history.jsonl").write_text(
         '{"t":"read","ts":"2026-07-01T09:00:00Z","session":"A","tool":"Read",'
-        '"path":"docs/a.md","agent":"main"}\n')
+        '"path":"docs/a.md","agent":"main"}\n'
+    )
     mod = load_script("tt-report.py", tmp_path)
     html = open(run_report(mod, monkeypatch, capsys, tmp_path), encoding="utf-8").read()
     assert "None — every inventoried file has been read" in html

@@ -16,7 +16,7 @@ def run_stats(mod, monkeypatch, argv=None):
 def write_history(project, lines):
     d = project / ".trigger-tree"
     d.mkdir(exist_ok=True)
-    (d / "history.jsonl").write_text("\n".join(json.dumps(l) for l in lines) + "\n")
+    (d / "history.jsonl").write_text("\n".join(json.dumps(line) for line in lines) + "\n")
 
 
 def test_pure_helpers():
@@ -53,31 +53,49 @@ def test_fixture_full_run(monkeypatch):
     mod = load_script("tt-stats.py", FIXTURE)
     s = run_stats(mod, monkeypatch)
     assert s["maturity"] == "cold-start"
-    assert s["totals"]["reads"] == 17 and s["totals"]["scans"] == 2 and s["totals"]["skill_uses"] == 1
+    assert (
+        s["totals"]["reads"] == 17 and s["totals"]["scans"] == 2 and s["totals"]["skill_uses"] == 1
+    )
     assert s["totals"]["inventory_files"] == 34
     assert s["sessions"] == 4
     assert len(s["untouched"]) == 19, s["untouched"]
-    for p in ("docs/architecture/decisions/001-event-sourcing.md",
-              "docs/development/testing.md", "docs/security/threat-model.md",
-              "docs/operations/runbooks/incident-response.md",
-              "agents/security-engineer.md", "skills/doc-update.md"):
+    for p in (
+        "docs/architecture/decisions/001-event-sourcing.md",
+        "docs/development/testing.md",
+        "docs/security/threat-model.md",
+        "docs/operations/runbooks/incident-response.md",
+        "agents/security-engineer.md",
+        "skills/doc-update.md",
+    ):
         assert p in s["untouched"], p
     assert s["always_loaded"] == ["AGENTS.md", "CLAUDE.md"]  # invoked skill's SKILL.md excluded
     assert s["files"][0]["path"] == "docs/README.md" and s["files"][0]["reads"] == 3
-    assert s["skills"][0] == {"name": "deploy", "uses": 1, "sessions": 1,
-                              "last_used": "2026-07-01T09:05:00Z"}
+    assert s["skills"][0] == {
+        "name": "deploy",
+        "uses": 1,
+        "sessions": 1,
+        "last_used": "2026-07-01T09:05:00Z",
+    }
     assert len(s["trend"]) == 4 and s["trend"][0]["hunting_ratio"] == 0.2
     assert s["notes"] == [{"ts": "2026-07-01T10:00:00Z", "text": "sharpened UX router"}]
     # three task clusters: UX (2 similar sessions merged via Jaccard), database, incident
     assert len(s["clusters"]) == 3, s["clusters"]
     assert s["clusters"][0]["count"] == 2 and s["clusters"][0]["variants"] == 2
     assert "docs/design/ui-patterns.md" in s["clusters"][0]["paths"]
-    assert {"pair": ["docs/README.md", "docs/design/ui-patterns.md"], "count": 2} in s["co_read_top"]
+    assert {"pair": ["docs/README.md", "docs/design/ui-patterns.md"], "count": 2} in s[
+        "co_read_top"
+    ]
 
-    assert s["health"] == {"score": 50, "grade": "D", "coverage": 0.41,
-                           "drivers": ["19 of 34 docs untouched",
-                                       "12 router gaps (untouched and unreferenced)",
-                                       "hunting ratio 0.12"]}
+    assert s["health"] == {
+        "score": 50,
+        "grade": "D",
+        "coverage": 0.41,
+        "drivers": [
+            "19 of 34 docs untouched",
+            "12 router gaps (untouched and unreferenced)",
+            "hunting ratio 0.12",
+        ],
+    }
 
     # router-gap detection: accessibility.md is untouched AND unreferenced;
     # workflow.md is untouched but development/index.md mentions it
@@ -102,8 +120,16 @@ def _bulk_events(reads, sessions, days):
     for i in range(reads):
         day = 1 + (i * days) // reads
         session = f"S{i % sessions}"
-        events.append({"t": "read", "ts": f"2026-07-{day:02d}T09:{i % 60:02d}:00Z",
-                       "session": session, "tool": "Read", "path": "docs/a.md", "agent": "main"})
+        events.append(
+            {
+                "t": "read",
+                "ts": f"2026-07-{day:02d}T09:{i % 60:02d}:00Z",
+                "session": session,
+                "tool": "Read",
+                "path": "docs/a.md",
+                "agent": "main",
+            }
+        )
     return events
 
 
@@ -128,8 +154,19 @@ def test_maturity_mature_and_weekly_trend(tmp_path, monkeypatch):
 def test_unknown_reads_and_explicit_history(tmp_path, monkeypatch):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "a.md").write_text("x")
-    write_history(tmp_path, [{"t": "read", "ts": "2026-07-01T09:00:00Z", "session": "A",
-                              "tool": "Read", "path": "docs/ghost.md", "agent": "main"}])
+    write_history(
+        tmp_path,
+        [
+            {
+                "t": "read",
+                "ts": "2026-07-01T09:00:00Z",
+                "session": "A",
+                "tool": "Read",
+                "path": "docs/ghost.md",
+                "agent": "main",
+            }
+        ],
+    )
     mod = load_script("tt-stats.py", tmp_path)
     explicit = str(tmp_path / ".trigger-tree" / "history.jsonl")
     s = run_stats(mod, monkeypatch, [explicit])
@@ -141,14 +178,29 @@ def test_two_prompts_in_one_session_make_two_buckets(tmp_path, monkeypatch):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "a.md").write_text("x")
     (tmp_path / "docs" / "b.md").write_text("x")
-    write_history(tmp_path, [
-        {"t": "prompt", "ts": "2026-07-01T09:00:00Z", "session": "A", "prompt": "task one"},
-        {"t": "read", "ts": "2026-07-01T09:00:10Z", "session": "A", "tool": "Read",
-         "path": "docs/a.md", "agent": "main"},
-        {"t": "prompt", "ts": "2026-07-01T09:05:00Z", "session": "A", "prompt": "task two"},
-        {"t": "read", "ts": "2026-07-01T09:05:10Z", "session": "A", "tool": "Read",
-         "path": "docs/b.md", "agent": "main"},
-    ])
+    write_history(
+        tmp_path,
+        [
+            {"t": "prompt", "ts": "2026-07-01T09:00:00Z", "session": "A", "prompt": "task one"},
+            {
+                "t": "read",
+                "ts": "2026-07-01T09:00:10Z",
+                "session": "A",
+                "tool": "Read",
+                "path": "docs/a.md",
+                "agent": "main",
+            },
+            {"t": "prompt", "ts": "2026-07-01T09:05:00Z", "session": "A", "prompt": "task two"},
+            {
+                "t": "read",
+                "ts": "2026-07-01T09:05:10Z",
+                "session": "A",
+                "tool": "Read",
+                "path": "docs/b.md",
+                "agent": "main",
+            },
+        ],
+    )
     mod = load_script("tt-stats.py", tmp_path)
     s = run_stats(mod, monkeypatch)
     assert s["totals"]["prompts_with_doc_reads"] == 2
@@ -160,8 +212,19 @@ def test_unreadable_doc_does_not_break_crossref(tmp_path, monkeypatch):
     (tmp_path / "docs" / "a.md").write_text("x")
     locked = tmp_path / "docs" / "locked.md"
     locked.write_text("secret")
-    write_history(tmp_path, [{"t": "read", "ts": "2026-07-01T09:00:00Z", "session": "A",
-                              "tool": "Read", "path": "docs/a.md", "agent": "main"}])
+    write_history(
+        tmp_path,
+        [
+            {
+                "t": "read",
+                "ts": "2026-07-01T09:00:00Z",
+                "session": "A",
+                "tool": "Read",
+                "path": "docs/a.md",
+                "agent": "main",
+            }
+        ],
+    )
     mod = load_script("tt-stats.py", tmp_path)
     real_open = open
 
@@ -178,12 +241,27 @@ def test_unreadable_doc_does_not_break_crossref(tmp_path, monkeypatch):
 def test_trend_skips_unparseable_timestamps(tmp_path, monkeypatch):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "a.md").write_text("x")
-    write_history(tmp_path, [
-        {"t": "read", "ts": "not-a-ts", "session": "A", "tool": "Read",
-         "path": "docs/a.md", "agent": "main"},
-        {"t": "read", "ts": "2026-07-01T09:00:00Z", "session": "A", "tool": "Read",
-         "path": "docs/a.md", "agent": "main"},
-    ])
+    write_history(
+        tmp_path,
+        [
+            {
+                "t": "read",
+                "ts": "not-a-ts",
+                "session": "A",
+                "tool": "Read",
+                "path": "docs/a.md",
+                "agent": "main",
+            },
+            {
+                "t": "read",
+                "ts": "2026-07-01T09:00:00Z",
+                "session": "A",
+                "tool": "Read",
+                "path": "docs/a.md",
+                "agent": "main",
+            },
+        ],
+    )
     mod = load_script("tt-stats.py", tmp_path)
     s = run_stats(mod, monkeypatch)
     assert len(s["trend"]) == 1 and s["trend"][0]["reads"] == 1

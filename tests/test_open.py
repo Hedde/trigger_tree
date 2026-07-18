@@ -25,8 +25,9 @@ def test_launcher_binds_split_to_exact_repo_even_with_shell_characters(tmp_path)
     prefix = result.stdout.strip().split(" && CLAUDE_PROJECT_DIR=", 1)[0]
     pwd_cmd = "pwd -W" if os.name == "nt" else "pwd"
     bash = shutil.which("bash") or "bash"
-    pwd = subprocess.run([bash, "-lc", prefix + f" && {pwd_cmd}"], capture_output=True,
-                         text=True, check=True).stdout.strip()
+    pwd = subprocess.run(
+        [bash, "-lc", prefix + f" && {pwd_cmd}"], capture_output=True, text=True, check=True
+    ).stdout.strip()
     assert pathlib.Path(pwd).resolve() == project.resolve()
     assert "CLAUDE_PROJECT_DIR=" in result.stdout and "tt-watch.py" in result.stdout
 

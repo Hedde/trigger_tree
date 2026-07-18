@@ -32,11 +32,14 @@ def test_no_reads_for_session(tmp_path, monkeypatch, capsys):
 
 def test_fresh_read_green_dot(tmp_path, monkeypatch, capsys):
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    write_history(tmp_path, [
-        json.dumps({"t": "read", "ts": now, "session": "S", "path": "docs/ui/a.md"}),
-        json.dumps({"t": "read", "ts": now, "session": "S", "path": "docs/b.md"}),
-        '{"session":"S","torn',  # passes the session prefilter, fails JSON parse
-    ])
+    write_history(
+        tmp_path,
+        [
+            json.dumps({"t": "read", "ts": now, "session": "S", "path": "docs/ui/a.md"}),
+            json.dumps({"t": "read", "ts": now, "session": "S", "path": "docs/b.md"}),
+            '{"session":"S","torn',  # passes the session prefilter, fails JSON parse
+        ],
+    )
     mod = load_script("tt-statusline.py", tmp_path)
     out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
     assert "2 files · 2 folders · depth 2" in out
@@ -44,9 +47,14 @@ def test_fresh_read_green_dot(tmp_path, monkeypatch, capsys):
 
 
 def test_old_read_dim_dot(tmp_path, monkeypatch, capsys):
-    write_history(tmp_path, [
-        json.dumps({"t": "read", "ts": "2020-01-01T00:00:00Z", "session": "S", "path": "docs/a.md"}),
-    ])
+    write_history(
+        tmp_path,
+        [
+            json.dumps(
+                {"t": "read", "ts": "2020-01-01T00:00:00Z", "session": "S", "path": "docs/a.md"}
+            ),
+        ],
+    )
     mod = load_script("tt-statusline.py", tmp_path)
     out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
     assert "○" in out and mod.COLD in out
@@ -54,18 +62,24 @@ def test_old_read_dim_dot(tmp_path, monkeypatch, capsys):
 
 def test_recent_read_amber_dot(tmp_path, monkeypatch, capsys):
     five_min_ago = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 300))
-    write_history(tmp_path, [
-        json.dumps({"t": "read", "ts": five_min_ago, "session": "S", "path": "docs/a.md"}),
-    ])
+    write_history(
+        tmp_path,
+        [
+            json.dumps({"t": "read", "ts": five_min_ago, "session": "S", "path": "docs/a.md"}),
+        ],
+    )
     mod = load_script("tt-statusline.py", tmp_path)
     out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
     assert "◐" in out and mod.WARM in out
 
 
 def test_unparseable_timestamp_falls_back_to_cold(tmp_path, monkeypatch, capsys):
-    write_history(tmp_path, [
-        json.dumps({"t": "read", "ts": "not-a-ts", "session": "S", "path": "docs/a.md"}),
-    ])
+    write_history(
+        tmp_path,
+        [
+            json.dumps({"t": "read", "ts": "not-a-ts", "session": "S", "path": "docs/a.md"}),
+        ],
+    )
     mod = load_script("tt-statusline.py", tmp_path)
     out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
     assert "○" in out and "docs/a.md" in out

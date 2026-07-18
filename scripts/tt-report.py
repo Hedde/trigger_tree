@@ -5,6 +5,7 @@ Runs tt-stats.py, renders a self-contained HTML page (inline CSS, no external
 resources, light+dark) and writes it to $PROJECT/.trigger-tree/report.html.
 Prints the absolute path of the written file.
 """
+
 import html
 import json
 import math
@@ -62,7 +63,9 @@ def esc(s):
 def main():
     stats_raw = subprocess.run(
         [sys.executable, os.path.join(SCRIPT_DIR, "tt-stats.py")] + sys.argv[1:],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     s = json.loads(stats_raw)
     t = s["totals"]
@@ -82,7 +85,9 @@ def main():
             "<div class=note style='display:flex;gap:1.1rem;align-items:center'>"
             f"<span style='font-size:2.4rem;font-weight:700'>{esc(h['grade'])}</span>"
             f"<span><b>Documentation health — {h['score']}/100</b>{esc(provisional)}<br>"
-            "<small class=muted>" + " · ".join(esc(d) for d in h["drivers"]) + "</small></span></div>"
+            "<small class=muted>"
+            + " · ".join(esc(d) for d in h["drivers"])
+            + "</small></span></div>"
         )
     parts.append(
         "<div class=kpi>"
@@ -96,7 +101,9 @@ def main():
     )
 
     parts.append("<h2>Most consulted</h2><div class=scroll><table>")
-    parts.append("<tr><th>Path</th><th>Reads</th><th></th><th>Sessions</th><th>Last read</th><th>Agents</th></tr>")
+    parts.append(
+        "<tr><th>Path</th><th>Reads</th><th></th><th>Sessions</th><th>Last read</th><th>Agents</th></tr>"
+    )
     for f in s["files"][:20]:
         w = max(6, int(120 * f["reads"] / max_reads))
         col = heat_color(f["reads"], max_reads)
@@ -121,10 +128,14 @@ def main():
 
     if s.get("folders"):
         parts.append("<h2>Folder heat &amp; cold map</h2>")
-        parts.append("<p class=muted>Coverage = share of files touched. Green is hot, gray is cold "
-                     "— a cold folder either deserves pruning or a router that points there.</p>")
+        parts.append(
+            "<p class=muted>Coverage = share of files touched. Green is hot, gray is cold "
+            "— a cold folder either deserves pruning or a router that points there.</p>"
+        )
         parts.append("<div class=scroll><table>")
-        parts.append("<tr><th>Folder</th><th>Touched</th><th></th><th>Coverage</th><th>Reads</th></tr>")
+        parts.append(
+            "<tr><th>Folder</th><th>Touched</th><th></th><th>Coverage</th><th>Reads</th></tr>"
+        )
         for fo in sorted(s["folders"], key=lambda f: (-f["coverage"], f["folder"])):
             w = max(4, int(120 * fo["coverage"]))
             col = heat_color(fo["touched"], max(f["files"] for f in s["folders"]))
@@ -142,8 +153,10 @@ def main():
     parts.append("<h2>Untouched paths (cold map)</h2>")
     parts.append(f"<div class=note>{esc(MATURITY_NOTE[maturity])}</div>")
     if s["untouched"]:
-        parts.append("<p class=muted>Never read during the measurement period. A signal, not a "
-                     "verdict: could be removable, could be a router that never points there.</p><ul>")
+        parts.append(
+            "<p class=muted>Never read during the measurement period. A signal, not a "
+            "verdict: could be removable, could be a router that never points there.</p><ul>"
+        )
         detail = {d["path"]: d["referenced_from"] for d in s.get("untouched_detail", [])}
         for p in s["untouched"]:
             refs = detail.get(p, [])
@@ -154,22 +167,29 @@ def main():
                 info = "referenced from " + ", ".join(f"<code>{esc(r)}</code>" for r in refs)
             else:
                 info = "<b>not referenced by any doc — router gap</b>"
-            parts.append(f"<li class=untouched><code>{esc(p)}</code>"
-                         f" <small class=muted>· {info}</small></li>")
+            parts.append(
+                f"<li class=untouched><code>{esc(p)}</code>"
+                f" <small class=muted>· {info}</small></li>"
+            )
         parts.append("</ul>")
     else:
         parts.append("<p>None — every inventoried file has been read at least once.</p>")
     if s.get("always_loaded"):
         parts.append(
             "<p class=muted><small>Out of scope (always loaded via system prompt / Skill tool): "
-            + ", ".join(f"<code>{esc(p)}</code>" for p in s["always_loaded"]) + "</small></p>"
+            + ", ".join(f"<code>{esc(p)}</code>" for p in s["always_loaded"])
+            + "</small></p>"
         )
 
     if s.get("trend") and len(s["trend"]) > 1:
         max_bucket = max(b["reads"] + b["scans"] for b in s["trend"]) or 1
-        parts.append("<h2>Trend</h2><p class=muted>Hunting ratio per period — falling after a "
-                     "router change (see notes) means the change worked.</p><div class=scroll><table>")
-        parts.append("<tr><th>Period</th><th>Reads</th><th>Scans</th><th></th><th>Hunting ratio</th></tr>")
+        parts.append(
+            "<h2>Trend</h2><p class=muted>Hunting ratio per period — falling after a "
+            "router change (see notes) means the change worked.</p><div class=scroll><table>"
+        )
+        parts.append(
+            "<tr><th>Period</th><th>Reads</th><th>Scans</th><th></th><th>Hunting ratio</th></tr>"
+        )
         for b in s["trend"]:
             w = max(4, int(120 * (b["reads"] + b["scans"]) / max_bucket))
             ratio = "—" if b["hunting_ratio"] is None else b["hunting_ratio"]
@@ -191,18 +211,27 @@ def main():
     if s["hunting"]:
         parts.append("<h2>Hunting (Glob/Grep inside doc folders)</h2><div class=scroll><table>")
         parts.append("<tr><th>Folder</th><th>Scans</th></tr>")
-        parts.extend(f"<tr><td><code>{esc(h['path'])}</code></td><td>{h['scans']}</td></tr>" for h in s["hunting"])
-        parts.append("</table></div><p class=muted>Heavy hunting = the model is searching instead "
-                     "of being routed. A candidate for sharper index instructions.</p>")
+        parts.extend(
+            f"<tr><td><code>{esc(h['path'])}</code></td><td>{h['scans']}</td></tr>"
+            for h in s["hunting"]
+        )
+        parts.append(
+            "</table></div><p class=muted>Heavy hunting = the model is searching instead "
+            "of being routed. A candidate for sharper index instructions.</p>"
+        )
 
     if s.get("clusters"):
-        parts.append("<h2>Task clusters</h2><p class=muted>Doc-and-skill sets per prompt, grouped "
-                     "by similarity (Jaccard ≥ 0.6) across sessions.</p><div class=scroll><table>")
+        parts.append(
+            "<h2>Task clusters</h2><p class=muted>Doc-and-skill sets per prompt, grouped "
+            "by similarity (Jaccard ≥ 0.6) across sessions.</p><div class=scroll><table>"
+        )
         parts.append("<tr><th>×</th><th>Variants</th><th>Example prompt</th><th>Paths</th></tr>")
         for c in s["clusters"]:
             prompt = esc(c["prompts"][0]) if c["prompts"] else "—"
             paths = "<br>".join(f"<code>{esc(p)}</code>" for p in c["paths"])
-            parts.append(f"<tr><td>{c['count']}</td><td>{c['variants']}</td><td>{prompt}</td><td>{paths}</td></tr>")
+            parts.append(
+                f"<tr><td>{c['count']}</td><td>{c['variants']}</td><td>{prompt}</td><td>{paths}</td></tr>"
+            )
         parts.append("</table></div>")
 
     if s["co_read_top"]:

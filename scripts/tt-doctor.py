@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Explain whether trigger-tree is installed and receiving usable telemetry."""
+
 import json
 import os
 import sys

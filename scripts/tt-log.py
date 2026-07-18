@@ -17,6 +17,7 @@ Appends one JSON line per event to $PROJECT/.trigger-tree/history.jsonl and rota
 the file to history-<utc-timestamp>.jsonl when it exceeds TT_ROTATE_BYTES.
 Hooks must never disturb the session: every failure exits 0 silently.
 """
+
 import hashlib
 import json
 import os
@@ -40,8 +41,10 @@ DEFAULTS = {
 def conf():
     # Layered per key: plugin default first, project override wins where present.
     out = dict(DEFAULTS)
-    for path in (os.path.join(SCRIPT_DIR, "tt-config.sh"),
-                 os.path.join(ROOT, ".trigger-tree", "config.sh")):
+    for path in (
+        os.path.join(SCRIPT_DIR, "tt-config.sh"),
+        os.path.join(ROOT, ".trigger-tree", "config.sh"),
+    ):
         try:
             text = open(path, encoding="utf-8").read()
         except OSError:
@@ -75,7 +78,7 @@ def rel_path(target):
     # Normalize to forward slashes so logged paths are identical on all platforms.
     t = target.replace("\\", "/")
     root = ROOT.replace("\\", "/").rstrip("/") + "/"
-    return t[len(root):] if t.startswith(root) else t
+    return t[len(root) :] if t.startswith(root) else t
 
 
 def shell_segments(command):
@@ -117,7 +120,7 @@ def bash_scan_paths(command, scan_regex):
         if tool_i is None:
             continue
         targets = []
-        for token in segment[tool_i + 1:]:
+        for token in segment[tool_i + 1 :]:
             candidate = token if os.path.isabs(token) else os.path.join(ROOT, token)
             if os.path.exists(candidate):
                 rel = rel_path(os.path.abspath(candidate)).rstrip("/") or "."
@@ -194,20 +197,32 @@ def main():
         rel = rel_path(target)
         if not re.search(regex, rel):
             return
-        append({"t": typ, "ts": ts, "session": session, "tool": tool,
-                "path": rel, "agent": agent}, rotate)
+        append(
+            {"t": typ, "ts": ts, "session": session, "tool": tool, "path": rel, "agent": agent},
+            rotate,
+        )
 
     elif event == "bash":
         command = (data.get("tool_input") or {}).get("command", "")
         for path in bash_scan_paths(command, cfg["TT_SCAN_REGEX"]):
-            append({"t": "scan", "ts": ts, "session": session, "tool": "Bash",
-                    "path": path, "agent": agent}, rotate)
+            append(
+                {
+                    "t": "scan",
+                    "ts": ts,
+                    "session": session,
+                    "tool": "Bash",
+                    "path": path,
+                    "agent": agent,
+                },
+                rotate,
+            )
 
     elif event == "skill":
         name = (data.get("tool_input") or {}).get("skill", "")
         if name:
-            append({"t": "skill", "ts": ts, "session": session,
-                    "skill": name, "agent": agent}, rotate)
+            append(
+                {"t": "skill", "ts": ts, "session": session, "skill": name, "agent": agent}, rotate
+            )
 
 
 if __name__ == "__main__":

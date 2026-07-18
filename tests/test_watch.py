@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 import time
@@ -53,6 +52,7 @@ def test_render_and_truncation():
     assert "trigger-tree" in frame
     assert "29 unread" in frame  # unread coverage stays visible when quiet files collapse
     import re
+
     plain = re.sub(r"\x1b\[[0-9;]*m", "", frame)
     assert "1 reads" in plain and "q quit" in plain and "last event just now" in plain
 
@@ -145,6 +145,7 @@ def test_inventory_sync_prunes_deleted_files_without_erasing_history(tmp_path):
     (tmp_path / "docs" / "adr").rmdir()
     app.sync_inventory(mod.inventory())
     import re
+
     frame = re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(app.render(time.time(), 100, 30)))
     assert "docs/adr" not in frame
     assert app.total_reads == 1 and app.total_scans == 1
@@ -155,10 +156,14 @@ def test_inventory_sync_prunes_deleted_files_without_erasing_history(tmp_path):
 
 def _browse_app(mod):
     app = mod.App(["docs/a.md", "docs/b.md", "docs/c.md"])
-    app.feed({"t": "prompt", "prompt": "style the buttons", "session": "S", "ts": "2026-07-01T09:00:00Z"})
+    app.feed(
+        {"t": "prompt", "prompt": "style the buttons", "session": "S", "ts": "2026-07-01T09:00:00Z"}
+    )
     app.feed({"t": "read", "path": "docs/a.md", "session": "S", "ts": "2026-07-01T09:00:05Z"})
     app.feed({"t": "scan", "path": "docs", "session": "S", "ts": "2026-07-01T09:00:06Z"})
-    app.feed({"t": "prompt", "prompt": "fix the migration", "session": "S", "ts": "2026-07-01T09:05:00Z"})
+    app.feed(
+        {"t": "prompt", "prompt": "fix the migration", "session": "S", "ts": "2026-07-01T09:05:00Z"}
+    )
     app.feed({"t": "read", "path": "docs/b.md", "session": "S", "ts": "2026-07-01T09:05:05Z"})
     app.feed({"t": "skill", "skill": "deploy", "session": "S", "ts": "2026-07-01T09:05:09Z"})
     return app
@@ -167,10 +172,17 @@ def _browse_app(mod):
 def test_prompt_events_are_visible_live():
     mod = load_script("tt-watch.py", FIXTURE)
     app = mod.App(["docs/a.md"])
-    app.feed({"t": "prompt", "prompt": "why is the build red and what do our docs say about it", "session": "S"})
+    app.feed(
+        {
+            "t": "prompt",
+            "prompt": "why is the build red and what do our docs say about it",
+            "session": "S",
+        }
+    )
     assert app.total_prompts == 1
     assert app.ticker[0][1] == "▸"  # typed prompt lands in the ticker immediately
     import re
+
     frame = re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(app.render(time.time(), width=110, height=30)))
     assert "1 prompts" in frame
     assert '"why is the build red and what do our docs sa…"' in frame  # 44-char ticker cut
@@ -183,11 +195,11 @@ def test_prompt_buckets_and_browsing():
     assert len(app.buckets) == 2
     assert [b["prompt"] for b in app.buckets] == ["style the buttons", "fix the migration"]
 
-    app.select_prev()                    # from live → newest prompt
+    app.select_prev()  # from live → newest prompt
     assert app.selected == 1
     frame = "\n".join(app.render(time.time(), width=110, height=30))
     assert "fix the migration" in frame and "▸ prompt 2/2" in frame
-    assert "b.md" in frame and "a.md" not in frame          # filtered to this bucket
+    assert "b.md" in frame and "a.md" not in frame  # filtered to this bucket
     assert "skill:deploy" in frame and "09:05:09" in frame  # bucket ticker with timestamps
     assert "→ newer prompt" in frame
 
@@ -197,10 +209,10 @@ def test_prompt_buckets_and_browsing():
     assert "style the buttons" in frame and "a.md" in frame and "b.md" not in frame
     assert "🔍 1 search" in frame and "2 unread" in frame
     app.select_prev()
-    assert app.selected == 0             # clamped at the oldest prompt
+    assert app.selected == 0  # clamped at the oldest prompt
 
     app.select_next()
-    app.select_next()                    # newest is a stable boundary
+    app.select_next()  # newest is a stable boundary
     assert app.selected == 1
     app.select_live()
     assert app.selected is None
@@ -215,6 +227,7 @@ def test_scan_only_prompt_shows_folder_search_without_faking_a_read():
     app.feed({"t": "scan", "path": "docs/ui", "session": "S", "agent": "Explore"}, live=False)
     app.select_prev()
     import re
+
     frame = re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(app.render(time.time(), 100, 30)))
     assert "docs/ui/  · 🔍 1 search · 2 unread" in frame
     assert "0 reads · 1 scans" in frame
@@ -231,6 +244,7 @@ def test_folder_counters_keep_searches_separate_from_unread_files(tmp_path):
     app.feed({"t": "scan", "path": "docs/ui/a.md", "session": "S"}, live=False)
     app.feed({"t": "read", "path": "docs/ui/a.md", "session": "S"}, live=False)
     import re
+
     frame = re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(app.render(time.time(), 100, 30)))
     assert "docs/ui/  · 🔍 2 searches · 1 unread" in frame
 
@@ -250,13 +264,13 @@ def test_bucket_retention_keeps_last_20_but_totals_aggregate_all():
     for i in range(23):
         app.feed({"t": "prompt", "prompt": f"task {i}", "session": "S"})
         app.feed({"t": "read", "path": "docs/a.md", "session": "S"})
-    assert len(app.buckets) == mod.BUCKET_LIMIT == 20        # detail: last 20 only
-    assert app.buckets[0]["prompt"] == "task 3"              # oldest evicted
+    assert len(app.buckets) == mod.BUCKET_LIMIT == 20  # detail: last 20 only
+    assert app.buckets[0]["prompt"] == "task 3"  # oldest evicted
     assert app.total_prompts == 23 and app.total_reads == 23  # totals aggregate everything
     app.select_prev()
-    app.selected = 0                                          # browse the oldest kept bucket
+    app.selected = 0  # browse the oldest kept bucket
     app.feed({"t": "prompt", "prompt": "task 23", "session": "S"})
-    assert app.selected == 0 and len(app.buckets) == 20       # selection clamps on eviction
+    assert app.selected == 0 and len(app.buckets) == 20  # selection clamps on eviction
 
     b = app.buckets[-1]
     b["events"] = [{"t": "read", "ts": "", "path": "docs/a.md", "agent": "main"}] * 600
@@ -267,7 +281,7 @@ def test_bucket_retention_keeps_last_20_but_totals_aggregate_all():
 def test_arrow_key_normalizers():
     mod = load_script("tt-watch.py", FIXTURE)
     assert mod.normalize_escape("[D") == "[" and mod.normalize_escape("[C") == "]"
-    assert mod.normalize_escape("[A") is None       # up/down: ignored
+    assert mod.normalize_escape("[A") is None  # up/down: ignored
     assert mod.normalize_escape("OC") == "]" and mod.normalize_escape("OD") == "["
     assert mod.normalize_escape("[1;5C") == "]" and mod.normalize_escape("[1;5D") == "["
     assert mod.normalize_windows("K") == "[" and mod.normalize_windows("M") == "]"
@@ -323,8 +337,9 @@ def test_read_key_posix_decoder_branches_under_windows(monkeypatch):
         chunks = iter(reads)
         ready = iter(readiness)
         monkeypatch.setattr(mod.os, "read", lambda _fd, _size: next(chunks))
-        monkeypatch.setattr(mod.select, "select",
-                            lambda *_args: ([1], [], []) if next(ready) else ([], [], []))
+        monkeypatch.setattr(
+            mod.select, "select", lambda *_args: ([1], [], []) if next(ready) else ([], [], [])
+        )
         return mod.read_key(1)
 
     assert decode([b"q"], []) == "q"
@@ -337,6 +352,7 @@ def test_read_key_handles_fragmented_arrows_and_navigation_is_reversible():
     if os.name == "nt":
         pytest.skip("read_key is POSIX-only (select on a pipe fd)")
     import threading
+
     mod = load_script("tt-watch.py", FIXTURE)
     app = _browse_app(mod)
     r, w = os.pipe()
@@ -349,15 +365,15 @@ def test_read_key_handles_fragmented_arrows_and_navigation_is_reversible():
     try:
         os.write(w, b"\x1b[D")
         assert mod.handle_key(app, mod.read_key(r)) is False
-        assert app.selected == 1                 # live -> newest (2/2)
+        assert app.selected == 1  # live -> newest (2/2)
         os.write(w, b"\x1b[D")
         assert mod.handle_key(app, mod.read_key(r)) is False
-        assert app.selected == 0                 # left -> older (1/2)
+        assert app.selected == 0  # left -> older (1/2)
         writer = threading.Thread(target=fragmented_right)
         writer.start()
         assert mod.handle_key(app, mod.read_key(r)) is False
         writer.join()
-        assert app.selected == 1                 # right reverses to newest (2/2)
+        assert app.selected == 1  # right reverses to newest (2/2)
     finally:
         os.close(r)
         os.close(w)
@@ -372,9 +388,9 @@ def test_handle_key_dispatch():
     assert mod.handle_key(app, "a") is False and app.selected is None
     assert mod.handle_key(app, "x") is False  # unknown keys are ignored
     empty = mod.App([])
-    mod.handle_key(empty, "[")               # no buckets: stays live
+    mod.handle_key(empty, "[")  # no buckets: stays live
     assert empty.selected is None
-    mod.handle_key(empty, "]")               # no buckets: stays live
+    mod.handle_key(empty, "]")  # no buckets: stays live
     assert empty.selected is None
 
 
@@ -382,16 +398,16 @@ def test_prompt_timeline_is_bounded_directional_and_reversible():
     mod = load_script("tt-watch.py", FIXTURE)
     app = _browse_app(mod)
     app.select_next()
-    assert app.selected == 1                  # either arrow opens newest from live
+    assert app.selected == 1  # either arrow opens newest from live
     app.select_prev()
-    assert app.selected == 0                  # left: 2/2 -> 1/2 (older)
+    assert app.selected == 0  # left: 2/2 -> 1/2 (older)
     app.select_next()
-    assert app.selected == 1                  # right reverses: 1/2 -> 2/2
+    assert app.selected == 1  # right reverses: 1/2 -> 2/2
     app.select_next()
-    assert app.selected == 1                  # newest boundary stays put
+    assert app.selected == 1  # newest boundary stays put
     for _ in range(5):
         app.select_prev()
-    assert app.selected == 0                  # oldest boundary stays put
+    assert app.selected == 0  # oldest boundary stays put
 
 
 def test_heartbeat_when_no_live_events():
@@ -421,6 +437,7 @@ def test_render_hard_truncation_of_read_files():
 def test_demo_event_generator():
     mod = load_script("tt-watch.py", FIXTURE)
     import random
+
     gen = mod.demo_event(["docs/a.md", "docs/b.md"], random.Random(42))
     kinds = {next(gen)["t"] for _ in range(50)}
     assert kinds <= {"read", "scan", "skill"} and "read" in kinds
@@ -452,6 +469,7 @@ def test_main_demo_and_replay(monkeypatch, capsys):
 def test_main_live_mode_picks_up_appended_events(tmp_path, monkeypatch, capsys):
     import re
     import threading
+
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "a.md").write_text("x")
     (tmp_path / ".trigger-tree").mkdir()

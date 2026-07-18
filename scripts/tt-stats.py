@@ -12,6 +12,7 @@ judge; warming → early signal; mature → untouched files are dead-path candid
 Config: $PROJECT/.trigger-tree/config.sh overrides the plugin default tt-config.sh.
 Usage: python3 tt-stats.py [path/to/history.jsonl]
 """
+
 import glob
 import hashlib
 import json
@@ -25,19 +26,21 @@ from itertools import combinations
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MATURITY_MIN_READS = 30      # below this (or MIN_SESSIONS): cold-start
+MATURITY_MIN_READS = 30  # below this (or MIN_SESSIONS): cold-start
 MATURITY_MIN_SESSIONS = 3
-MATURE_MIN_READS = 100       # below this (or MATURE_MIN_DAYS): warming
+MATURE_MIN_READS = 100  # below this (or MATURE_MIN_DAYS): warming
 MATURE_MIN_DAYS = 7
-TREND_DAILY_MAX_DAYS = 14    # daily buckets up to here, weekly beyond
-CLUSTER_JACCARD = 0.6        # min similarity to join an existing task cluster
+TREND_DAILY_MAX_DAYS = 14  # daily buckets up to here, weekly beyond
+CLUSTER_JACCARD = 0.6  # min similarity to join an existing task cluster
 
 
 def _conf_texts():
     # Layered: project override → plugin default. Broken entries never crash.
     texts = []
-    for path in (os.path.join(ROOT, ".trigger-tree", "config.sh"),
-                 os.path.join(SCRIPT_DIR, "tt-config.sh")):
+    for path in (
+        os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        os.path.join(SCRIPT_DIR, "tt-config.sh"),
+    ):
         try:
             texts.append(open(path, encoding="utf-8").read())
         except OSError:
@@ -59,7 +62,15 @@ def _conf_regex(name, fallback):
 WATCH = _conf_regex("TT_WATCH_REGEX", r"^docs/.*\.md$")
 ALWAYS = _conf_regex("TT_ALWAYS_LOADED_REGEX", r"^(CLAUDE|AGENTS)\.md$")
 
-INVENTORY_BASES = ["docs", "agents", "skills", "agent-briefs", ".claude/rules", ".claude/skills", "."]
+INVENTORY_BASES = [
+    "docs",
+    "agents",
+    "skills",
+    "agent-briefs",
+    ".claude/rules",
+    ".claude/skills",
+    ".",
+]
 
 
 def inventory():
@@ -120,8 +131,11 @@ def observed_days(timestamps):
 
 
 def grade_for(score):
-    return ("A" if score >= 90 else "B" if score >= 75 else
-            "C" if score >= 60 else "D" if score >= 45 else "F")
+    return (
+        "A"
+        if score >= 90
+        else "B" if score >= 75 else "C" if score >= 60 else "D" if score >= 45 else "F"
+    )
 
 
 def jaccard(a, b):
@@ -137,11 +151,12 @@ def main():
     reads = [e for e in events if e.get("t") == "read"]
     scans = [e for e in events if e.get("t") == "scan"]
     skill_events = [e for e in events if e.get("t") == "skill"]
-    notes = [{"ts": e.get("ts"), "text": e.get("text", "")}
-             for e in events if e.get("t") == "note"]
+    notes = [{"ts": e.get("ts"), "text": e.get("text", "")} for e in events if e.get("t") == "note"]
     sessions = sorted({e.get("session", "?") for e in events})
 
-    per_file = defaultdict(lambda: {"reads": 0, "last_read": None, "sessions": set(), "agents": Counter()})
+    per_file = defaultdict(
+        lambda: {"reads": 0, "last_read": None, "sessions": set(), "agents": Counter()}
+    )
     for e in reads:
         f = per_file[e["path"]]
         f["reads"] += 1
@@ -195,8 +210,14 @@ def main():
                 c["prompts"] = (c["prompts"] + g["prompts"])[:3]
                 break
         else:
-            clusters.append({"paths": g["paths"], "count": g["count"],
-                             "variants": 1, "prompts": list(g["prompts"])})
+            clusters.append(
+                {
+                    "paths": g["paths"],
+                    "count": g["count"],
+                    "variants": 1,
+                    "prompts": list(g["prompts"]),
+                }
+            )
     clusters.sort(key=lambda c: -c["count"])
 
     co_read = Counter()
@@ -230,8 +251,11 @@ def main():
             key = f"{iso[0]}-W{iso[1]:02d}"
         trend_buckets[key][e["t"] + "s"] += 1
     trend = [
-        {"period": k, **v,
-         "hunting_ratio": round(v["scans"] / v["reads"], 2) if v["reads"] else None}
+        {
+            "period": k,
+            **v,
+            "hunting_ratio": round(v["scans"] / v["reads"], 2) if v["reads"] else None,
+        }
         for k, v in sorted(trend_buckets.items())
     ]
 
@@ -239,7 +263,8 @@ def main():
     # their usage is invisible to Read-tool telemetry by design. A SKILL.md whose skill
     # was actually invoked counts as touched via the Skill-tool events.
     used_skill_files = {
-        f".claude/skills/{name}/SKILL.md" for name in per_skill
+        f".claude/skills/{name}/SKILL.md"
+        for name in per_skill
         if f".claude/skills/{name}/SKILL.md" in set(docs)
     }
     unread = [p for p in docs if p not in read_paths and p not in used_skill_files]
@@ -258,8 +283,9 @@ def main():
     for p in untouched:
         base = p.rsplit("/", 1)[-1]
         refs = [q for q, t in texts.items() if q != p and (p in t or base in t)]
-        untouched_detail.append({"path": p, "referenced_from": sorted(refs)[:5],
-                                 "template": base.startswith("_")})
+        untouched_detail.append(
+            {"path": p, "referenced_from": sorted(refs)[:5], "template": base.startswith("_")}
+        )
 
     # Folder heat/cold map: coverage (files touched) and read volume per folder.
     folder_map = defaultdict(lambda: {"files": 0, "touched": 0, "reads": 0})
@@ -272,11 +298,18 @@ def main():
             fm["touched"] += 1
         fm["reads"] += per_file[p]["reads"] if p in per_file else 0
     index_names = {"index.md", "_index.md", "README.md", "CLAUDE.md"}
-    folders_with_index = {p.rsplit("/", 1)[0] if "/" in p else "(root)"
-                          for p in docs if p.rsplit("/", 1)[-1] in index_names}
+    folders_with_index = {
+        p.rsplit("/", 1)[0] if "/" in p else "(root)"
+        for p in docs
+        if p.rsplit("/", 1)[-1] in index_names
+    }
     folders = [
-        {"folder": k, **v, "coverage": round(v["touched"] / v["files"], 2),
-         "has_index": k in folders_with_index}
+        {
+            "folder": k,
+            **v,
+            "coverage": round(v["touched"] / v["files"], 2),
+            "has_index": k in folders_with_index,
+        }
         for k, v in sorted(folder_map.items())
     ]
 
@@ -285,8 +318,18 @@ def main():
     denom = max(1, len(docs) - len(always_loaded))
     coverage_overall = round(len(touched_paths & set(docs)) / denom, 2)
     hunting_ratio = round(len(scans) / len(reads), 2) if reads else 0.0
-    score = max(0, min(100, round(
-        100 - (1 - coverage_overall) * 40 - min(20, router_gaps * 4) - min(20, hunting_ratio * 50))))
+    score = max(
+        0,
+        min(
+            100,
+            round(
+                100
+                - (1 - coverage_overall) * 40
+                - min(20, router_gaps * 4)
+                - min(20, hunting_ratio * 50)
+            ),
+        ),
+    )
     health = {
         "score": score,
         "grade": grade_for(score),
@@ -324,7 +367,12 @@ def main():
             for p, d in sorted(per_file.items(), key=lambda kv: -kv[1]["reads"])
         ],
         "skills": [
-            {"name": n, "uses": d["uses"], "sessions": len(d["sessions"]), "last_used": d["last_used"]}
+            {
+                "name": n,
+                "uses": d["uses"],
+                "sessions": len(d["sessions"]),
+                "last_used": d["last_used"],
+            }
             for n, d in sorted(per_skill.items(), key=lambda kv: -kv[1]["uses"])
         ],
         "untouched": untouched,
@@ -336,9 +384,7 @@ def main():
         "trend": trend,
         "notes": notes,
         "clusters": clusters[:12],
-        "co_read_top": [
-            {"pair": list(pair), "count": n} for pair, n in co_read.most_common(15)
-        ],
+        "co_read_top": [{"pair": list(pair), "count": n} for pair, n in co_read.most_common(15)],
     }
     json.dump(out, sys.stdout, indent=1)
     print()

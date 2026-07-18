@@ -1,6 +1,7 @@
 """Shared helpers: load the hyphen-named scripts as modules with a controlled
 CLAUDE_PROJECT_DIR. Each load executes the module fresh, so per-test project
 roots work and coverage accumulates across loads."""
+
 import importlib.util
 import os
 import sys

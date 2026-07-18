@@ -5,6 +5,7 @@ tests/fixture-project/.trigger-tree/report.html
 __pycache__/
 .DS_Store
 .venv/
+.venv-*/
 .coverage
 htmlcov/
 .pytest_cache/
