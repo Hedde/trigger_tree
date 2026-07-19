@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.3 — 2026-07-19
+
+- Captures the expanded runtime arguments of successful Bash `cat`, `head`, `tail`,
+  non-mutating `sed`, and `awk` calls. Documentation reads through variables,
+  command substitutions, loops, and shell globs now produce exact file-level read
+  events without storing commands, output, patterns, or contents.
+- Installs the capture functions through Claude Code's session-scoped environment
+  preamble without rewriting commands or changing permissions. Environments without
+  Bash retain the conservative literal-path parser, and PostToolUse suppresses
+  duplicate reads when runtime capture is active.
+- Updates the README, privacy contract, and website copy. The website remains six
+  USP cards in a fixed three-column desktop grid with responsive two/one-column
+  fallbacks.
+
 ## 1.0.2 — 2026-07-19
 
 - Keeps the statusline live for scan-only discovery: scan events now participate in

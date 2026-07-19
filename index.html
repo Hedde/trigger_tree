@@ -33,7 +33,7 @@
   .fade { transition:color 1.2s ease, text-shadow 1.2s ease; }
   .spin { color:var(--green); } .tick { color:var(--muted); }
   .hint { color:var(--dim); font-size:.75rem; padding:0 1.2rem 1rem; font-family:ui-monospace,monospace; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1rem; margin:3rem 0; }
+  .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin:3rem 0; }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1.25rem; }
   .card h3 { margin-bottom:.4rem; font-size:1.05rem; }
   .card p { color:var(--muted); font-size:.95rem; }
@@ -48,6 +48,8 @@
             border-radius:10px; padding:.6rem .9rem; font-size:.85rem; max-width:260px; z-index:9;
             box-shadow:0 8px 30px rgba(0,0,0,.6); pointer-events:none; opacity:0; transition:opacity .3s; }
   footer { text-align:center; color:var(--muted); margin-top:4rem; font-size:.9rem; }
+  @media (max-width:850px) { .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width:580px) { .grid { grid-template-columns:1fr; } }
   @media (prefers-reduced-motion: reduce) { .pulse { text-shadow:none; } }
 </style>
 </head>
@@ -74,7 +76,7 @@
 
   <div class="grid">
     <div class="card"><h3>🔥 Heat &amp; cold maps</h3>
-      <p>A focused top 10 live; complete coverage and untouched paths in insights — including explicit <code>rg</code>/<code>grep</code>/<code>find</code> hunting.</p></div>
+      <p>A focused top 10 live; complete coverage and untouched paths in insights — including <code>rg</code>/<code>grep</code>/<code>find</code> searches and Bash reads resolved through variables and loops.</p></div>
     <div class="card"><h3>📈 Proof, not vibes</h3>
       <p><code>/tt suggestions</code> proposes fixes with evidence. <code>/tt note</code> marks the change; the trend shows whether it worked.</p></div>
     <div class="card"><h3>🔒 Local by design</h3>

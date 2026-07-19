@@ -158,20 +158,49 @@ def bash_read_paths(command, watch_regex):
         if tool_i is None:
             continue
         tool = os.path.basename(segment[tool_i]).lower()
-        arguments = segment[tool_i + 1 :]
-        if tool == "sed" and any(
-            token == "--in-place" or token.startswith("--in-place=") or re.match(r"^-i", token)
-            for token in arguments
-        ):
-            continue
-        for token in arguments:
-            candidate = token if os.path.isabs(token) else os.path.join(ROOT, token)
-            if not os.path.isfile(candidate):
-                continue
-            rel = rel_path(os.path.abspath(candidate))
-            if re.search(watch_regex, rel) and rel not in found:
+        for rel in reader_arg_paths(tool, segment[tool_i + 1 :], watch_regex):
+            if rel not in found:
                 found.append(rel)
     return found
+
+
+def reader_arg_paths(tool, arguments, watch_regex):
+    """Filter expanded reader argv down to existing watched file paths."""
+    if tool == "sed" and any(
+        token == "--in-place" or token.startswith("--in-place=") or re.match(r"^-i", token)
+        for token in arguments
+    ):
+        return []
+    found = []
+    for token in arguments:
+        candidate = token if os.path.isabs(token) else os.path.join(ROOT, token)
+        if not os.path.isfile(candidate):
+            continue
+        rel = rel_path(os.path.abspath(candidate))
+        if re.search(watch_regex, rel) and rel not in found:
+            found.append(rel)
+    return found
+
+
+def configure_shell_capture(session):
+    """Persist runtime reader wrappers into Claude Code's Bash preamble."""
+    env_file = os.environ.get("CLAUDE_ENV_FILE")
+    shell_capture = os.path.join(SCRIPT_DIR, "tt-shell-capture.sh")
+    if not env_file or not os.path.isfile(shell_capture):
+        return
+    values = {
+        "TT_RUNTIME_BASH_READS": "1",
+        "TT_SHELL_LOGGER": os.path.join(SCRIPT_DIR, "tt-log.py"),
+        "TT_SHELL_SESSION": session,
+    }
+    try:
+        with open(env_file, "a", encoding="utf-8") as fh:
+            fh.write("\n# trigger-tree runtime Bash read capture\n")
+            for key, value in values.items():
+                fh.write(f"export {key}={shlex.quote(value)}\n")
+            fh.write(f". {shlex.quote(shell_capture)}\n")
+    except OSError:
+        pass
 
 
 def git_head():
@@ -266,6 +295,26 @@ def main():
         append(obj, rotate)
         return
 
+    if event == "shell-read":
+        tool = os.path.basename(sys.argv[2]).lower() if len(sys.argv) > 2 else ""
+        if tool not in ("cat", "head", "tail", "sed", "awk"):
+            return
+        session = os.environ.get("TT_SHELL_SESSION") or os.environ.get("CLAUDE_SESSION_ID", "?")
+        for path in reader_arg_paths(tool, sys.argv[3:], cfg["TT_WATCH_REGEX"]):
+            append(
+                {
+                    "t": "read",
+                    "ts": ts,
+                    "session": session,
+                    "tool": "Bash",
+                    "path": path,
+                    "agent": "runtime",
+                    "capture": "expanded-argv",
+                },
+                rotate,
+            )
+        return
+
     if event == "note":
         text = " ".join(sys.argv[2:]).strip()[:300]
         if text:
@@ -289,6 +338,7 @@ def main():
         return entry
 
     if event == "session":
+        configure_shell_capture(session)
         append(
             {
                 "t": "session",
@@ -334,20 +384,21 @@ def main():
         command = (data.get("tool_input") or {}).get("command", "")
         if looks_like_test_command(command):
             append({"t": "test", "ts": ts, "session": session, "status": "pass"}, rotate)
-        for path in bash_read_paths(command, cfg["TT_WATCH_REGEX"]):
-            append(
-                hook_identity(
-                    {
-                        "t": "read",
-                        "ts": ts,
-                        "session": session,
-                        "tool": "Bash",
-                        "path": path,
-                        "agent": agent,
-                    }
-                ),
-                rotate,
-            )
+        if os.environ.get("TT_RUNTIME_BASH_READS") != "1":
+            for path in bash_read_paths(command, cfg["TT_WATCH_REGEX"]):
+                append(
+                    hook_identity(
+                        {
+                            "t": "read",
+                            "ts": ts,
+                            "session": session,
+                            "tool": "Bash",
+                            "path": path,
+                            "agent": agent,
+                        }
+                    ),
+                    rotate,
+                )
         for path in bash_scan_paths(command, cfg["TT_SCAN_REGEX"]):
             append(
                 hook_identity(

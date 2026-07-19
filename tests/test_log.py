@@ -1,6 +1,9 @@
 import io
 import json
 import os
+import shlex
+import shutil
+import subprocess
 import sys
 
 import pytest
@@ -62,6 +65,25 @@ def test_session_event_and_bad_stdin(tmp_path, monkeypatch):
         "source": "unknown",
         "git_head": None,
     }
+
+
+def test_session_configures_runtime_shell_capture(tmp_path, monkeypatch):
+    env_file = tmp_path / "claude-env.sh"
+    monkeypatch.setenv("CLAUDE_ENV_FILE", str(env_file))
+    mod = load_script("tt-log.py", tmp_path)
+    run_main(mod, monkeypatch, ["session"], json.dumps({"session_id": "S"}))
+
+    configured = env_file.read_text()
+    assert "export TT_RUNTIME_BASH_READS=1" in configured
+    assert "export TT_SHELL_SESSION=S" in configured
+    assert "tt-shell-capture.sh" in configured
+
+
+def test_session_capture_setup_failure_never_breaks_logging(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_ENV_FILE", str(tmp_path))  # a directory cannot be appended
+    mod = load_script("tt-log.py", tmp_path)
+    run_main(mod, monkeypatch, ["session"], json.dumps({"session_id": "S"}))
+    assert read_history(tmp_path)[0]["t"] == "session"
 
 
 def test_session_boundary_and_subagent_identity_are_preserved(tmp_path, monkeypatch):
@@ -205,6 +227,91 @@ def test_bash_reader_commands_log_watched_files_as_reads(tmp_path, monkeypatch):
         event["t"] == "read" and event["tool"] == "Bash" and event["agent"] == "Explore"
         for event in events
     )
+
+
+@pytest.mark.skipif(not shutil.which("bash"), reason="runtime capture requires Bash")
+def test_runtime_capture_resolves_variables_command_substitution_and_loops(tmp_path, monkeypatch):
+    docs = tmp_path / "docs" / "backlog"
+    docs.mkdir(parents=True)
+    first = docs / "0086-first.md"
+    second = docs / "0087-second.md"
+    first.write_text("first\n")
+    second.write_text("second\n")
+    env_file = tmp_path / "claude-env.sh"
+    monkeypatch.setenv("CLAUDE_ENV_FILE", str(env_file))
+    mod = load_script("tt-log.py", tmp_path)
+    run_main(mod, monkeypatch, ["session"], json.dumps({"session_id": "S"}))
+
+    command = f"""
+source {shlex.quote(str(env_file))}
+PICK=$(find docs/backlog -name '*.md' | sort | head -1)
+cat "$PICK"
+for DOC in {shlex.quote(str(first))} {shlex.quote(str(second))}; do
+  head -1 "$DOC" >/dev/null
+done
+"""
+    result = subprocess.run(
+        [shutil.which("bash"), "-c", command],
+        cwd=tmp_path,
+        env=dict(os.environ, CLAUDE_PROJECT_DIR=str(tmp_path)),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout == "first\n"
+
+    reads = [event for event in read_history(tmp_path) if event["t"] == "read"]
+    assert [event["path"] for event in reads] == [
+        "docs/backlog/0086-first.md",
+        "docs/backlog/0086-first.md",
+        "docs/backlog/0087-second.md",
+    ]
+    assert all(
+        event["tool"] == "Bash"
+        and event["agent"] == "runtime"
+        and event["capture"] == "expanded-argv"
+        for event in reads
+    )
+
+    monkeypatch.setenv("TT_RUNTIME_BASH_READS", "1")
+    payload = json.dumps(
+        {
+            "session_id": "S",
+            "tool_name": "Bash",
+            "tool_input": {"command": f"cat '{first}'"},
+        }
+    )
+    run_main(mod, monkeypatch, ["bash"], payload)
+    assert len([event for event in read_history(tmp_path) if event["t"] == "read"]) == 3
+
+
+def test_shell_read_event_filters_invalid_inputs_and_records_docs(tmp_path, monkeypatch):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    target = docs / "a.md"
+    target.write_text("a")
+    source = tmp_path / "a.py"
+    source.write_text("a")
+    monkeypatch.setenv("TT_SHELL_SESSION", "S")
+    mod = load_script("tt-log.py", tmp_path)
+
+    run_main(mod, monkeypatch, ["shell-read"])
+    run_main(mod, monkeypatch, ["shell-read", "printf", str(target)])
+    run_main(mod, monkeypatch, ["shell-read", "cat", str(source)])
+    run_main(mod, monkeypatch, ["shell-read", "sed", "-i", "s/a/b/", str(target)])
+    assert read_history(tmp_path) == []
+
+    run_main(mod, monkeypatch, ["shell-read", "cat", str(target)])
+    assert read_history(tmp_path)[0] == {
+        "schema_version": 1,
+        "t": "read",
+        "ts": read_history(tmp_path)[0]["ts"],
+        "session": "S",
+        "tool": "Bash",
+        "path": "docs/a.md",
+        "agent": "runtime",
+        "capture": "expanded-argv",
+    }
 
 
 def test_shell_parser_and_bash_without_command(tmp_path, monkeypatch):

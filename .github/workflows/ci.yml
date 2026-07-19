@@ -118,7 +118,7 @@ jobs:
         with:
           persist-credentials: false
       - run: sudo apt-get update && sudo apt-get install -y shellcheck
-      - run: shellcheck scripts/tt-open.sh  # tt-config.sh is data parsed by python, not a script
+      - run: shellcheck scripts/tt-open.sh scripts/tt-shell-capture.sh  # tt-config.sh is parsed data
 
   validate:
     runs-on: ubuntu-latest

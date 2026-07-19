@@ -103,14 +103,21 @@ trigger-tree registers three lightweight hooks — full transparency:
 |------|-------|---------|
 | SessionStart | new session | session marker |
 | UserPromptSubmit | your prompt | hashed task marker by default (text is explicit opt-in) |
-| PostToolUse | `Read\|Glob\|Grep`, `Skill`, and Bash | doc reads, native searches, skill names, plus explicit `rg`/`grep`/`find` doc targets |
+| SessionStart + PostToolUse | `Read\|Glob\|Grep`, `Skill`, and Bash | doc reads, native searches, skill names, explicit `rg`/`grep`/`find` targets, and expanded Bash reader paths |
 
 1. **Hooks log shell-side** to `$PROJECT/.trigger-tree/history.jsonl` — zero model
    tokens, a few milliseconds per tool call, and a logging failure can never break
    your session (loggers always exit 0).
 2. **The aggregator is deterministic** — all counting happens in
    `tt-stats.py`; the model only interprets, never computes.
-3. **Discovery stays model-driven** — your CLAUDE.md remains the router. trigger-tree *measures* it; it never injects context or overrides routing. Bash searches count only when `rg`, `grep`, or `find` explicitly targets an existing documentation path; search output is never treated as a read.
+3. **Discovery stays model-driven** — your CLAUDE.md remains the router. trigger-tree
+   *measures* it; it never injects context or overrides routing. Bash searches count
+   only when `rg`, `grep`, or `find` explicitly targets an existing documentation
+   path; search output is never treated as a read. In Bash sessions, lightweight
+   reader wrappers observe expanded file arguments after variables, substitutions,
+   loops, and globs resolve. They preserve command behavior and record only matching
+   paths—not commands, patterns, output, or contents. Other shells use the conservative
+   literal-path fallback.
 
 Subagent reads are attributed (`Explore`, `Plan`, …). Auto-loaded context—including
 the recursive `CLAUDE.md` `@import` graph—is invisible to Read telemetry by design
@@ -327,6 +334,7 @@ python3 -m venv .venv
 .venv/bin/ruff check scripts tests .github/scripts
 .venv/bin/python -m coverage run -m pytest tests -q
 .venv/bin/python -m coverage report --fail-under=100
+shellcheck scripts/tt-open.sh scripts/tt-shell-capture.sh
 claude plugin validate .
 python3 scripts/tt-watch.py --demo
 ```

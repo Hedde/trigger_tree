@@ -1,6 +1,6 @@
 # Privacy Policy — trigger-tree
 
-_Last updated: 2026-07-18_
+_Last updated: 2026-07-19_
 
 ## The short version
 
@@ -14,8 +14,10 @@ trigger-tree's hooks write a local event log to `$PROJECT/.trigger-tree/history.
 inside the project you use it in:
 
 - **Documentation activity**: relative paths read by Read, targeted by Glob/Grep,
-  or explicitly passed as existing doc paths to Bash `rg`/`grep`/`find` commands,
-  with a timestamp, session id, and agent type.
+  explicitly passed as existing doc paths to Bash `rg`/`grep`/`find` commands, or
+  consumed by successful Bash `cat`/`head`/`tail`/non-mutating `sed`/`awk` calls.
+  Bash reader arguments are checked after shell variables, substitutions, loops, and
+  globs resolve; only matching normalized paths are retained, with event metadata.
 - **Skill invocations**: the name of invoked skills.
 - **Prompt markers**: by default a short SHA-1 hash with no prompt text. This is
   configurable via `TT_LOG_PROMPTS` in `.trigger-tree/config.sh`:
@@ -35,8 +37,9 @@ anything.
   can audit every line in this repository).
 - No telemetry to the plugin author, Anthropic, or anyone else.
 - No reading of file *contents* — only paths and event metadata are logged.
-- No shell commands, search patterns, or Bash output are logged — only a normalized
-  explicit documentation target path.
+- No shell commands, argument values other than matching documentation paths, search
+  patterns, or Bash output are logged. Runtime wrappers pass stdout, stderr, and exit
+  status through unchanged.
 - No data leaves your machine.
 
 ## Retention and deletion
