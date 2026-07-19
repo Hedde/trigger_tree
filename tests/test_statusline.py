@@ -42,8 +42,49 @@ def test_fresh_read_green_dot(tmp_path, monkeypatch, capsys):
     )
     mod = load_script("tt-statusline.py", tmp_path)
     out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
-    assert "2 files · 2 folders · depth 2" in out
+    assert "2 files · 0 scans · 2 folders · depth 2" in out
     assert "●" in out and mod.FRESH in out and "docs/b.md" in out
+
+
+def test_scan_only_session_is_live_and_marks_folder_path(tmp_path, monkeypatch, capsys):
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    write_history(
+        tmp_path,
+        [
+            json.dumps({"t": "session", "ts": now, "session": "S"}),
+            json.dumps({"t": "scan", "ts": now, "session": "S", "path": "docs/backlog"}),
+        ],
+    )
+    mod = load_script("tt-statusline.py", tmp_path)
+    out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
+
+    assert "0 files · 1 scans · 0 folders · depth 0" in out
+    assert "●" in out and mod.FRESH in out and "docs/backlog/" in out
+
+
+def test_newer_scan_controls_freshness_but_read_stats_stay_read_derived(
+    tmp_path, monkeypatch, capsys
+):
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    write_history(
+        tmp_path,
+        [
+            json.dumps({"t": "scan", "ts": now, "session": "S", "path": "docs/backlog"}),
+            json.dumps(
+                {
+                    "t": "read",
+                    "ts": "2020-01-01T00:00:00Z",
+                    "session": "S",
+                    "path": "docs/ui/a.md",
+                }
+            ),
+        ],
+    )
+    mod = load_script("tt-statusline.py", tmp_path)
+    out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
+
+    assert "1 files · 1 scans · 1 folders · depth 2" in out
+    assert "●" in out and mod.FRESH in out and "docs/backlog/" in out
 
 
 def test_old_read_dim_dot(tmp_path, monkeypatch, capsys):

@@ -102,12 +102,12 @@ def test_bash_lookup_then_read_improves_live_measurement_iteratively(tmp_path):
     )
     discovered = next_frame_containing("0 reads · 1 scans")
     log(
-        "read",
+        "bash",
         {
             "session_id": "e2e-bash",
             "agent_type": "Explore",
-            "tool_name": "Read",
-            "tool_input": {"file_path": str(target)},
+            "tool_name": "Bash",
+            "tool_input": {"command": f"cat '{target.as_posix()}'"},
         },
     )
     consulted = next_frame_containing("1 reads · 1 scans")

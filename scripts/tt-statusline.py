@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """trigger-tree statusline — live doc-discovery stats for the current session.
 
-Portable (macOS/Linux), stdlib only. The dot pulses with the age of the last read:
+Portable (macOS/Linux), stdlib only. The dot pulses with the age of the last read or scan:
 ● bright green < 90s, ◐ amber < 10min, ○ dim otherwise.
 Register in project or user settings under "statusLine" with a refreshInterval.
 """
@@ -36,7 +36,7 @@ def main():
         print("🌳 tt: no data")
         return
 
-    files, last = {}, None
+    files, scans, last, last_time = {}, 0, None, None
     with open(HIST, encoding="utf-8") as fh:
         for line in fh:
             if f'"session":"{session}"' not in line and f'"session": "{session}"' not in line:
@@ -45,24 +45,35 @@ def main():
                 e = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if e.get("t") == "read":
+            typ = e.get("t")
+            if typ == "read":
                 files[e["path"]] = True
-                last = e
+            elif typ == "scan":
+                scans += 1
+            else:
+                continue
+            try:
+                event_time = datetime.strptime(e["ts"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                    tzinfo=timezone.utc
+                )
+            except (KeyError, ValueError):
+                event_time = None
+            if last is None or (
+                event_time is not None and (last_time is None or event_time >= last_time)
+            ):
+                last, last_time = e, event_time
 
-    if not files:
+    if not files and not scans:
         print("🌳 tt: 0 docs consulted")
         return
 
     dirs = {os.path.dirname(p) for p in files}
-    depth = max(p.count("/") for p in files)
-    stats = f"{len(files)} files · {len(dirs)} folders · depth {depth}"
+    depth = max((p.count("/") for p in files), default=0)
+    stats = f"{len(files)} files · {scans} scans · {len(dirs)} folders · depth {depth}"
 
     age = 10**9
-    try:
-        then = datetime.strptime(last["ts"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-        age = time.time() - then.timestamp()
-    except (KeyError, ValueError):
-        pass
+    if last_time is not None:
+        age = time.time() - last_time.timestamp()
 
     if age < 90:
         dot, color = "●", FRESH
@@ -71,7 +82,8 @@ def main():
     else:
         dot, color = "○", COLD
 
-    print(f"🌳 {stats} {color}{dot} {last['path']}{RESET}")
+    path = last["path"] + ("/" if last.get("t") == "scan" else "")
+    print(f"🌳 {stats} {color}{dot} {path}{RESET}")
 
 
 if __name__ == "__main__":

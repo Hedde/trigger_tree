@@ -5,7 +5,8 @@ Events (first argument):
   session  SessionStart hook
   prompt   UserPromptSubmit hook (respects TT_LOG_PROMPTS: truncate|hash|off)
   read     PostToolUse on Read|Glob|Grep (Read → "read", Glob/Grep → "scan")
-  bash     PostToolUse on Bash (explicit rg/grep/find doc targets → "scan")
+  bash     PostToolUse on Bash (rg/grep/find doc targets → "scan";
+           cat/head/tail/sed/awk doc files → "read")
   skill    PostToolUse on Skill (logs the skill name)
   note     manual annotation: tt-log.py note "text" (e.g. "sharpened UX router")
   ingest   external adapter entry point: tt-log.py ingest '{"t":"read","path":"docs/x.md"}'
@@ -141,6 +142,35 @@ def bash_scan_paths(command, scan_regex):
             common = posixpath.commonpath(targets)
             if common not in found and re.search(scan_regex, common):
                 found.append(common)
+    return found
+
+
+def bash_read_paths(command, watch_regex):
+    """Return existing watched files explicitly consumed by shell reader commands."""
+    found = []
+    readers = ("cat", "head", "tail", "sed", "awk")
+    for segment in shell_segments(command):
+        tool_i = None
+        for i, token in enumerate(segment):
+            if os.path.basename(token).lower() in readers:
+                tool_i = i
+                break
+        if tool_i is None:
+            continue
+        tool = os.path.basename(segment[tool_i]).lower()
+        arguments = segment[tool_i + 1 :]
+        if tool == "sed" and any(
+            token == "--in-place" or token.startswith("--in-place=") or re.match(r"^-i", token)
+            for token in arguments
+        ):
+            continue
+        for token in arguments:
+            candidate = token if os.path.isabs(token) else os.path.join(ROOT, token)
+            if not os.path.isfile(candidate):
+                continue
+            rel = rel_path(os.path.abspath(candidate))
+            if re.search(watch_regex, rel) and rel not in found:
+                found.append(rel)
     return found
 
 
@@ -304,6 +334,20 @@ def main():
         command = (data.get("tool_input") or {}).get("command", "")
         if looks_like_test_command(command):
             append({"t": "test", "ts": ts, "session": session, "status": "pass"}, rotate)
+        for path in bash_read_paths(command, cfg["TT_WATCH_REGEX"]):
+            append(
+                hook_identity(
+                    {
+                        "t": "read",
+                        "ts": ts,
+                        "session": session,
+                        "tool": "Bash",
+                        "path": path,
+                        "agent": agent,
+                    }
+                ),
+                rotate,
+            )
         for path in bash_scan_paths(command, cfg["TT_SCAN_REGEX"]):
             append(
                 hook_identity(

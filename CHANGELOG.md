@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.2 — 2026-07-19
+
+- Keeps the statusline live for scan-only discovery: scan events now participate in
+  freshness and latest-path display, render as folder paths with a trailing slash,
+  and get their own counter while file/folder/depth totals remain read-derived.
+- Records existing watched documentation files consumed by Bash `cat`, `head`,
+  `tail`, non-mutating `sed`, and `awk` commands as ordinary file-level reads.
+  Multiple file arguments are preserved; `sed -i` variants and non-doc files are
+  ignored. End-to-end coverage proves these reads flow through the live watcher.
+
 ## 1.0.1 — 2026-07-19
 
 - Makes the advertised critical-tag and widely-linked safety protections explicit,

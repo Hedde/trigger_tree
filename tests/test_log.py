@@ -159,6 +159,54 @@ def test_bash_doc_searches_are_scans_without_becoming_reads(tmp_path, monkeypatc
     assert all(event["path"] == "docs/ui" and event["agent"] == "Explore" for event in events)
 
 
+def test_bash_reader_commands_log_watched_files_as_reads(tmp_path, monkeypatch):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    first = docs / "first.md"
+    second = docs / "second.md"
+    first.write_text("first")
+    second.write_text("second")
+    source = tmp_path / "app.py"
+    source.write_text("print('ignored')")
+    mod = load_script("tt-log.py", tmp_path)
+    commands = [
+        f"cat '{first}' '{second}'",
+        f"head -20 '{first}'",
+        f"tail -5 '{second}'",
+        f"sed -n '1,20p' '{first}'",
+        f"awk 'NR < 3' '{second}'",
+        f"cat '{source}'",
+        f"sed -i 's/first/changed/' '{first}'",
+        f"sed --in-place=.bak 's/second/changed/' '{second}'",
+    ]
+
+    for command in commands:
+        payload = json.dumps(
+            {
+                "session_id": "S",
+                "agent_type": "Explore",
+                "tool_use_id": command,
+                "tool_name": "Bash",
+                "tool_input": {"command": command},
+            }
+        )
+        run_main(mod, monkeypatch, ["bash"], payload)
+
+    events = read_history(tmp_path)
+    assert [event["path"] for event in events] == [
+        "docs/first.md",
+        "docs/second.md",
+        "docs/first.md",
+        "docs/second.md",
+        "docs/first.md",
+        "docs/second.md",
+    ]
+    assert all(
+        event["t"] == "read" and event["tool"] == "Bash" and event["agent"] == "Explore"
+        for event in events
+    )
+
+
 def test_shell_parser_and_bash_without_command(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
     assert mod.shell_segments("cd docs && rg x . | sort; echo done") == [
