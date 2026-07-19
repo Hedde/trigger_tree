@@ -153,15 +153,11 @@ def test_rare_critical_docs_are_protected_review_items(tmp_path, monkeypatch):
     (tmp_path / ".claude" / "rules").mkdir(parents=True)
     (tmp_path / "docs" / "security").mkdir(parents=True)
     (tmp_path / "docs" / "decisions").mkdir(parents=True)
-    (tmp_path / "docs" / "refs").mkdir(parents=True)
     (tmp_path / ".trigger-tree").mkdir()
     (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_CRITICAL_GLOB='docs/decisions/**'\n")
     (tmp_path / ".claude" / "rules" / "production.md").write_text("Never deploy without review.")
     (tmp_path / "docs" / "security" / "incident.md").write_text("Escalation policy.")
     (tmp_path / "docs" / "decisions" / "adr.md").write_text("critical: true\n")
-    (tmp_path / "docs" / "widely-linked.md").write_text("Stable contract.")
-    for index in range(3):
-        (tmp_path / "docs" / "refs" / f"{index}.md").write_text("See ../widely-linked.md")
     write_history(tmp_path, [{"t": "session", "session": "S"}])
 
     mod = load_script("tt-stats.py", tmp_path)
@@ -175,8 +171,38 @@ def test_rare_critical_docs_are_protected_review_items(tmp_path, monkeypatch):
     assert "Low reads can mean rare-but-critical" in rule["caveat"]
     assert "safety path" in items["docs/security/incident.md"]["why"]
     assert "critical glob docs/decisions/**" in items["docs/decisions/adr.md"]["why"]
-    assert "tagged critical" in items["docs/decisions/adr.md"]["why"]
-    assert "referenced by 3 other docs" in items["docs/widely-linked.md"]["why"]
+
+
+def test_critical_tag_is_protected_without_other_protection(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "recovery.md").write_text("critical: true\n")
+    write_history(tmp_path, [{"t": "session", "session": "S"}])
+
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+    items = {item["path"]: item for item in stats["review_candidates"]}
+
+    recovery = items["docs/recovery.md"]
+    assert recovery["classification"] == "protected"
+    assert recovery["recommendation"] == "review, likely keep — rare-but-critical"
+    assert recovery["why"] == ["tagged critical"]
+
+
+def test_widely_linked_file_is_protected_at_in_link_threshold(tmp_path, monkeypatch):
+    (tmp_path / "docs" / "refs").mkdir(parents=True)
+    (tmp_path / "docs" / "contract.md").write_text("Stable contract.")
+    for index in range(3):
+        (tmp_path / "docs" / "refs" / f"{index}.md").write_text("See ../contract.md")
+    write_history(tmp_path, [{"t": "session", "session": "S"}])
+
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+    items = {item["path"]: item for item in stats["review_candidates"]}
+
+    contract = items["docs/contract.md"]
+    assert contract["classification"] == "protected"
+    assert contract["recommendation"] == "review, likely keep — rare-but-critical"
+    assert contract["why"] == ["referenced by 3 other docs"]
 
 
 def test_experimental_outcome_view_is_correlational_and_flagged(tmp_path, monkeypatch):

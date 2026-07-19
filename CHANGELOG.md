@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 — 2026-07-19
+
+- Makes the advertised critical-tag and widely-linked safety protections explicit,
+  isolated regression contracts. Critical tags are verified without another
+  protection as a fallback; widely-linked docs are verified at the three-in-link
+  threshold. Both must remain protected, rare-but-critical review items.
+
 ## 1.0.0 — 2026-07-19
 
 - Promotes the verified 1.0 release-candidate contract to stable: context-aware
