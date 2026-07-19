@@ -1,7 +1,7 @@
 {
   "name": "trigger-tree",
   "displayName": "trigger-tree",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "See which docs your AI actually discovers. Local, zero-token documentation telemetry with a live dashboard, heat maps, health diagnostics, and evidence-backed router fixes. macOS/Linux/Windows.",
   "author": {
     "name": "Hedde van der Heide"

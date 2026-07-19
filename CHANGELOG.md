@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.4 — 2026-07-19
+
+- Fixes an urgent zsh compatibility regression in the runtime reader wrapper:
+  `status` is a read-only zsh parameter, so assigning it after a successful reader
+  command skipped telemetry and changed the command result to exit 1. The wrapper
+  now uses a private, shell-neutral exit-code variable.
+- Runs the exact variable/command-substitution/loop capture regression in both bash
+  and zsh, proving that reader output and exit status remain unchanged while expanded
+  documentation paths are recorded.
+
 ## 1.0.3 — 2026-07-19
 
 - Captures the expanded runtime arguments of successful Bash `cat`, `head`, `tail`,

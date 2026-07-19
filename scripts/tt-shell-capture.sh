@@ -7,12 +7,12 @@ _tt_capture_reader() {
   shift
 
   command "$reader" "$@"
-  local status=$?
-  if [ "$status" -eq 0 ] && [ -n "${TT_SHELL_LOGGER:-}" ]; then
+  local tt_exit_code=$?
+  if [ "$tt_exit_code" -eq 0 ] && [ -n "${TT_SHELL_LOGGER:-}" ]; then
     python3 "$TT_SHELL_LOGGER" shell-read "$reader" "$@" </dev/null >/dev/null 2>&1 ||
       python "$TT_SHELL_LOGGER" shell-read "$reader" "$@" </dev/null >/dev/null 2>&1 || true
   fi
-  return "$status"
+  return "$tt_exit_code"
 }
 
 cat() { _tt_capture_reader cat "$@"; }

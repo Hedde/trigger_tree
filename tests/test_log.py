@@ -229,8 +229,13 @@ def test_bash_reader_commands_log_watched_files_as_reads(tmp_path, monkeypatch):
     )
 
 
-@pytest.mark.skipif(not shutil.which("bash"), reason="runtime capture requires Bash")
-def test_runtime_capture_resolves_variables_command_substitution_and_loops(tmp_path, monkeypatch):
+@pytest.mark.parametrize("shell_name", ["bash", "zsh"])
+def test_runtime_capture_resolves_variables_command_substitution_and_loops(
+    tmp_path, monkeypatch, shell_name
+):
+    shell = shutil.which(shell_name)
+    if not shell:
+        pytest.skip(f"{shell_name} is unavailable")
     docs = tmp_path / "docs" / "backlog"
     docs.mkdir(parents=True)
     first = docs / "0086-first.md"
@@ -251,7 +256,7 @@ for DOC in {shlex.quote(str(first))} {shlex.quote(str(second))}; do
 done
 """
     result = subprocess.run(
-        [shutil.which("bash"), "-c", command],
+        [shell, "-c", command],
         cwd=tmp_path,
         env=dict(os.environ, CLAUDE_PROJECT_DIR=str(tmp_path)),
         capture_output=True,
