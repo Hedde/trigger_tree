@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0 — 2026-07-19
+
+- Promotes the verified 1.0 release-candidate contract to stable: context-aware
+  always-loaded classification, safe rare-critical review candidates, history
+  schema migration, hardened diagnostics, and the opt-in experimental outcome view.
+- The stable tag is held to the same Linux/macOS/Windows, Python 3.10–3.13,
+  100%-coverage, formatting, shell, workflow-security, plugin-install, and
+  release-integrity gates used for the release candidate.
+
 ## 1.0.0-rc.1 — 2026-07-19
 
 - Recursively resolves the `CLAUDE.md` `@import` graph and classifies injected files
