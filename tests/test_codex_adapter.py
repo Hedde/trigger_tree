@@ -135,7 +135,7 @@ def test_real_codex_hook_logs_unified_exec_read_at_repo_root(tmp_path):
         "session_id": "codex-session",
         "cwd": str(nested),
         "tool_name": "Bash",
-        "tool_input": {"cmd": f"cat {target}"},
+        "tool_input": {"cmd": f'cat "{target}"'},
     }
     result = subprocess.run(
         [sys.executable, os.path.join(REPO, "scripts", "tt-codex-hook.py")],

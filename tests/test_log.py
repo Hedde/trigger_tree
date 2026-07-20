@@ -197,6 +197,9 @@ def test_bash_reader_commands_log_watched_files_as_reads(tmp_path, monkeypatch):
         f"tail -5 '{second}'",
         f"sed -n '1,20p' '{first}'",
         f"awk 'NR < 3' '{second}'",
+        f"Get-Content -Path '{first}'",
+        f"gc '{second}'",
+        f"type '{first}'",
         f"cat '{source}'",
         f"sed -i 's/first/changed/' '{first}'",
         f"sed --in-place=.bak 's/second/changed/' '{second}'",
@@ -222,6 +225,9 @@ def test_bash_reader_commands_log_watched_files_as_reads(tmp_path, monkeypatch):
         "docs/second.md",
         "docs/first.md",
         "docs/second.md",
+        "docs/first.md",
+        "docs/second.md",
+        "docs/first.md",
     ]
     assert all(
         event["t"] == "read" and event["tool"] == "Bash" and event["agent"] == "Explore"

@@ -148,7 +148,7 @@ def bash_scan_paths(command, scan_regex):
 def bash_read_paths(command, watch_regex):
     """Return existing watched files explicitly consumed by shell reader commands."""
     found = []
-    readers = ("cat", "head", "tail", "sed", "awk")
+    readers = ("cat", "head", "tail", "sed", "awk", "get-content", "gc", "type")
     for segment in shell_segments(command):
         tool_i = None
         for i, token in enumerate(segment):
@@ -297,7 +297,7 @@ def main():
 
     if event == "shell-read":
         tool = os.path.basename(sys.argv[2]).lower() if len(sys.argv) > 2 else ""
-        if tool not in ("cat", "head", "tail", "sed", "awk"):
+        if tool not in ("cat", "head", "tail", "sed", "awk", "get-content", "gc", "type"):
             return
         session = os.environ.get("TT_SHELL_SESSION") or os.environ.get("CLAUDE_SESSION_ID", "?")
         for path in reader_arg_paths(tool, sys.argv[3:], cfg["TT_WATCH_REGEX"]):
