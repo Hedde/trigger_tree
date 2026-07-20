@@ -348,6 +348,11 @@ class App:
         filled = max(1, round(cells * math.log1p(score) / math.log1p(max(max_score, 2))))
         return "█" * min(cells, filled) + "·" * max(0, cells - filled)
 
+    def _sort_legend(self, width):
+        if width < 75:
+            return f" sort:{self.sort_mode} · [f]ocus [h]ot [c]old [n]ame"
+        return f" sort:{self.sort_mode} · [f] focus · [h] hot · " "[c] cold · [n] A–Z"
+
     def render(self, now, width, height):
         spin = SPINNER[int(now * 10) % len(SPINNER)]
         header = [
@@ -458,7 +463,7 @@ class App:
                 focus_summary = "   … " + " · ".join(summary) + " hidden"
 
         ticker_lines = min(3, len(self.ticker))
-        fixed = len(header) + 2 + ticker_lines + 1  # footer + hint line
+        fixed = len(header) + 2 + ticker_lines + 2  # footer + sort legend + hint line
         budget = max(4, height - fixed)
         total = sum((1 if d else 0) + len(fs) for d, fs in folders.items())
         hide_quiet = total > budget
@@ -579,13 +584,8 @@ class App:
                         else f"last event {age/60:.0f}m ago"
                     )
                 )
-            lines.append(
-                c256(
-                    DEAD,
-                    f"   ←/→ prompts · f focus · h hot · c cold · n A–Z · "
-                    f"sort:{self.sort_mode} · q quit · {beat}",
-                )
-            )
+            lines.append(c256(AMBER, self._sort_legend(width), bold=True))
+            lines.append(c256(DEAD, f"   ←/→ prompts · q quit · {beat}"))
         return [ln[: width * 4] for ln in lines[:height]]  # *4: ANSI codes don't count
 
 

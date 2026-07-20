@@ -185,6 +185,9 @@ column against the available right edge, so wider panes expose more of long file
 instead of leaving unused space. Sorting is explicit: `f` restores recent-focus,
 `h` shows hottest first, `c` shows coldest first (including untouched files), and
 `n` sorts A–Z. The current mode is always printed in the footer.
+The controls occupy their own persistent legend row (with a compact form for narrow
+panes), separate from prompt navigation and the live heartbeat, so the keys remain
+discoverable instead of disappearing at the right edge.
 
 **Browse per prompt**: press ← to move to older prompts and → to move to newer
 ones — the tree filters to exactly what was aggregated for that input (its reads,

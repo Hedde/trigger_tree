@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.1 — 2026-07-20
+
+- Moves the live sort controls onto a permanent dedicated legend row instead of
+  sharing space with the heartbeat. Wide panes show `[f] focus`, `[h] hot`,
+  `[c] cold`, and `[n] A–Z`; narrow panes get an equally complete compact legend.
+- Keeps the active `sort:<mode>` visible and moves prompt navigation, quit, and
+  heartbeat state to their own row, so no sort key disappears in normal split panes.
+
 ## 1.2.0 — 2026-07-20
 
 - Makes historical prompts identifiable without weakening the privacy default:

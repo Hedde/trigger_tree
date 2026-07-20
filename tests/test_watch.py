@@ -74,6 +74,17 @@ def test_render_and_truncation():
     assert "1 reads" in plain and "q quit" in plain and "last event just now" in plain
 
 
+def test_sort_legend_is_permanent_clear_and_adaptive():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md"])
+    wide = plain(app.render(time.time(), width=100, height=20))
+    assert "sort:focus · [f] focus · [h] hot · [c] cold · [n] A–Z" in wide
+    app.set_sort("cold")
+    narrow = plain(app.render(time.time(), width=50, height=20))
+    assert "sort:cold · [f]ocus [h]ot [c]old [n]ame" in narrow
+    assert "←/→ prompts · q quit" in narrow  # navigation is a separate row
+
+
 def test_live_folders_prioritize_recent_activity_then_return_to_alpha():
     mod = load_script("tt-watch.py", FIXTURE)
     app = mod.App(["docs/alpha/a.md", "docs/zulu/z.md"])
@@ -266,7 +277,7 @@ def test_prompt_buckets_and_browsing():
     app.select_live()
     assert app.selected is None
     frame = "\n".join(app.render(time.time(), width=110, height=30))
-    assert "f focus" in frame and "sort:focus" in frame  # live controls restored
+    assert "[f] focus" in frame and "sort:focus" in frame  # live controls restored
 
 
 def test_scan_only_prompt_shows_folder_search_without_faking_a_read():
