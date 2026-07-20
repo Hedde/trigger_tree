@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0 — 2026-07-20
+
+- Adds a native Codex plugin manifest, marketplace catalog, trigger-tree skill, and
+  lifecycle hooks while retaining the existing Claude Code plugin in the same repo.
+- Normalizes Codex unified-exec `cmd` payloads, native reads, and filesystem MCP reads
+  into the shared telemetry schema. Repository-root resolution keeps one dataset when
+  Codex starts in a nested directory; hook failures remain silent and non-blocking.
+- Documents and tests both installation paths. The website remains exactly six USP
+  cards in a three-column desktop grid.
+
 ## 1.2.2 — 2026-07-20
 
 - Keeps the v1.2.1 dedicated sort-legend fix while replacing the replay integration

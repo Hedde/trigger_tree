@@ -12,6 +12,7 @@
 [![python](https://img.shields.io/badge/python-3.10–3.13-blue.svg)](https://www.python.org/)
 [![platforms](https://img.shields.io/badge/platforms-macOS%20·%20Linux%20·%20Windows-lightgrey.svg)](#platform-support)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2.svg)](https://code.claude.com/docs)
+[![Codex plugin](https://img.shields.io/badge/OpenAI%20Codex-plugin-111827.svg)](https://learn.chatgpt.com/docs/build-plugins)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 AI coding assistants read your project documentation to decide how to work.
@@ -66,6 +67,8 @@ dared judge.
 
 ## Quick start
 
+### Claude Code
+
 ```
 /plugin marketplace add Hedde/trigger_tree
 /plugin install trigger-tree@trigger-tree
@@ -79,6 +82,17 @@ Work normally for a few sessions — the hooks log silently — then:
 /tt status         # snapshot: current heat, lifetime reads, untouched paths
 /tt insights       # full heat/cold map report + HTML
 ```
+
+### Codex
+
+```bash
+codex plugin marketplace add Hedde/trigger_tree
+codex plugin add trigger-tree@trigger-tree
+```
+
+Start a new Codex thread, review and trust the bundled hooks with `/hooks`, then ask
+“Show trigger-tree status” or “Open the trigger-tree live dashboard.” Telemetry is
+collected automatically from official Codex lifecycle hooks; no wrapper is required.
 
 ## Commands
 
@@ -268,18 +282,21 @@ Team auto-install — in your project's `.claude/settings.json`:
 }
 ```
 
-### External tools (Codex, git hooks, editors)
+### Codex adapter and external tools
 
-Other tools don't fire Claude Code hooks, but they can feed the same telemetry
-through a stable adapter entry point:
+Codex support is native. Its adapter normalizes official lifecycle events, unified
+terminal `cmd` payloads, native reads, and filesystem MCP reads into the same history
+schema used by Claude Code. Starting Codex from a repository subdirectory still writes
+to the repository-root dataset.
+
+Git hooks, editors, and other tools can feed that same telemetry through a stable entry
+point:
 
 ```bash
 python3 <plugin>/scripts/tt-log.py ingest '{"t":"read","path":"docs/design/index.md"}'
 ```
 
-Missing `ts`/`session` are stamped automatically; invalid events are dropped
-silently. A Codex wrapper is just a few lines around this call — the plugin side
-is ready.
+Missing `ts`/`session` are stamped automatically; invalid events are dropped silently.
 
 ## Privacy & data
 
@@ -314,15 +331,16 @@ Honesty over marketing — know what the measurement can and cannot see:
 - **Signals, not verdicts.** Untouched files are *review candidates*, never removal
   recommendations. Always-loaded, widely referenced, safety-path, configured-critical,
   and critical-tagged files are protected; low reads can mean rare-but-critical.
-- **Claude Code hooks only fire in Claude Code.** Other tools can participate via
-  the `ingest` adapter entry point (see External tools) — but only if you wire them up.
+- **Tool hooks have surface boundaries.** Claude Code and Codex are supported natively.
+  Hosted tools that bypass local lifecycle hooks remain invisible; other local tools can
+  participate through `ingest` (see Codex adapter and external tools).
 
 ## FAQ
 
 **Where is my data?** `$PROJECT/.trigger-tree/history.jsonl`, per project, on your
 machine, gitignored.
 
-**Does this slow Claude down?** No tokens are ever spent; the hook adds a few
+**Does this slow the agent down?** No tokens are ever spent; the hook adds a few
 milliseconds of shell time per relevant tool call.
 
 **Why does the statusline say "0 docs consulted" at session start?** CLAUDE.md is

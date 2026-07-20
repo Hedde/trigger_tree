@@ -13,6 +13,8 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "Focused top 10" in html
     assert "/tt doctor" in html
     assert "rg</code>/<code>grep</code>/<code>find" in html
+    assert "Claude Code · Codex" in html
+    assert "codex plugin marketplace add Hedde/trigger_tree" in html
     assert "← older" in html and "→ newer" in html and "a live overview" in html
     assert "Math.min(buckets.length - 1, browseIdx + 1)" in html
     assert "browseIdx + 1 >= buckets.length ? null" not in html

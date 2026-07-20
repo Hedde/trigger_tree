@@ -19,11 +19,16 @@ def main(tag: str) -> None:
         fail(f"tag {tag!r} is not vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N")
 
     manifest = json.loads((ROOT / ".claude-plugin/plugin.json").read_text())
+    codex_manifest = json.loads((ROOT / ".codex-plugin/plugin.json").read_text())
     marketplace = json.loads((ROOT / ".claude-plugin/marketplace.json").read_text())
     version = tag.removeprefix("v")
 
     if manifest["version"] != version:
         fail(f"tag {tag} does not match plugin version {manifest['version']}")
+    if codex_manifest["name"] != manifest["name"]:
+        fail("Codex and Claude plugin names disagree")
+    if codex_manifest["version"] != version:
+        fail(f"Codex plugin version {codex_manifest['version']} does not match {version}")
     if marketplace["name"] != manifest["name"]:
         fail("marketplace and plugin names disagree")
     if not any(plugin["name"] == manifest["name"] for plugin in marketplace["plugins"]):

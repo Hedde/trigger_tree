@@ -1,0 +1,12 @@
+{
+  "name": "trigger-tree",
+  "interface": {"displayName": "trigger-tree"},
+  "plugins": [
+    {
+      "name": "trigger-tree",
+      "source": {"source": "url", "url": "https://github.com/Hedde/trigger_tree.git", "ref": "main"},
+      "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+      "category": "Developer Tools"
+    }
+  ]
+}

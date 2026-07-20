@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_FILES = (
     ".claude-plugin/plugin.json",
+    "hooks/claude-hooks.json",
     "hooks/hooks.json",
     "SKILL.md",
     "scripts/tt-log.py",

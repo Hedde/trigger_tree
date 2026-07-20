@@ -28,6 +28,9 @@ def write_release(root, version="1.0.0-rc.1"):
             }
         )
     )
+    codex_dir = root / ".codex-plugin"
+    codex_dir.mkdir()
+    (codex_dir / "plugin.json").write_text(json.dumps({"name": "trigger-tree", "version": version}))
     (root / "CHANGELOG.md").write_text(f"## {version} — 2026-07-19\n")
 
 
@@ -56,4 +59,17 @@ def test_release_integrity_rejects_bad_or_inconsistent_metadata(tmp_path, monkey
         )
     )
     with pytest.raises(SystemExit, match="marketplace plugin version"):
+        mod.main("v1.0.0-rc.1")
+
+
+def test_release_integrity_rejects_inconsistent_codex_metadata(tmp_path, monkeypatch):
+    mod = load_release_integrity()
+    write_release(tmp_path)
+    monkeypatch.setattr(mod, "ROOT", tmp_path)
+    codex = tmp_path / ".codex-plugin" / "plugin.json"
+    codex.write_text(json.dumps({"name": "other", "version": "0.9.0"}))
+    with pytest.raises(SystemExit, match="names disagree"):
+        mod.main("v1.0.0-rc.1")
+    codex.write_text(json.dumps({"name": "trigger-tree", "version": "0.9.0"}))
+    with pytest.raises(SystemExit, match="Codex plugin version"):
         mod.main("v1.0.0-rc.1")
