@@ -146,11 +146,11 @@ ripples up through its parent folders, then fades back to its heat color:
  ⠹ trigger-tree  myproject · live doc-discovery
 
  docs/design/  · 1 unread
-   ├─ principles.md        ▆ h 3.2 · 12×
-   ├─ ui-patterns.md       █ h 6.8 · 17×
+   ├─ principles.md                       ███·· h 3.2 · 12×
+   ├─ ui-patterns.md                      █████ h 6.8 · 17×
    └─ accessibility.md     ·   0
  docs/database/  · 🔍 2 searches · 1 unread
-   └─ migrations.md        ▃ h 1.4 · 4×
+   └─ migrations.md                       ██··· h 1.4 · 4×
 
  33 reads · 2 scans (hunting) · 1 skill uses · 3 sessions
    ● docs/design/ui-patterns.md · 2s ago
@@ -180,11 +180,23 @@ The live view shows at most ten folders with proven activity and collapses untou
 folders/files into one quiet summary. `/tt insights` remains the complete cold-path
 inventory; nothing is removed from the underlying telemetry.
 
+The live rows use horizontal five-cell heat bars and place their heat/lifetime
+column against the available right edge, so wider panes expose more of long filenames
+instead of leaving unused space. Sorting is explicit: `f` restores recent-focus,
+`h` shows hottest first, `c` shows coldest first (including untouched files), and
+`n` sorts A–Z. The current mode is always printed in the footer.
+
 **Browse per prompt**: press ← to move to older prompts and → to move to newer
 ones — the tree filters to exactly what was aggregated for that input (its reads,
 scans and skill uses, with its prompt label in the header: a hash by default, and
 text only after explicitly opting in to `truncate`). The timeline never wraps or
 changes mode at its ends; `a` returns to the live overview.
+
+With the privacy-default `TT_LOG_PROMPTS='hash'`, history shows the stable short
+identifier (for example `#a1b2c3d4e5`) rather than the ambiguous `(prompt)`. To see
+a recognizable prompt preview, set `TT_LOG_PROMPTS='truncate'` in
+`.trigger-tree/config.sh`; future prompts then use the pane width up to 120 characters.
+Previously hashed prompt text cannot and should not be reconstructed.
 
 `--demo` for instant synthetic events, `--replay` to re-run your real history,
 `q` or Ctrl+C to quit. The watcher uses a full-screen terminal buffer with wrapping

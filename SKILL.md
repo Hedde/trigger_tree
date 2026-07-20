@@ -34,7 +34,7 @@ Show exactly this, nothing above or below it:
 > | Command | Does |
 > |---------|------|
 > | `/tt status` | Snapshot: current heat, lifetime reads, untouched paths |
-> | `/tt watch` | Live pulse dashboard in a new terminal window |
+> | `/tt watch` | Live dashboard; horizontal heat bars and focus/hot/cold/A–Z sorting |
 > | `/tt watch demo` | Dashboard with synthetic events (writes nothing) |
 > | `/tt watch replay` | Dashboard replaying the real history, accelerated |
 > | `/tt insights` | Analysis report: heat/cold map, untouched paths, hunting, trend + HTML |

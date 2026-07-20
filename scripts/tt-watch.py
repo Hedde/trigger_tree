@@ -70,7 +70,6 @@ WATCH = _conf_regex("TT_WATCH_REGEX", r"^docs/.*\.md$")
 BASES = ["docs", "agents", "skills", "agent-briefs", ".claude/rules", ".claude/skills", "."]
 
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-SPARK = " ▁▂▃▄▅▆▇█"
 GREEN, AMBER, RED = 114, 214, 196  # three heat tiers, matching the website demo
 DEAD, DIM, WHITE, FOLDER = 240, 245, 231, 250
 BUCKET_LIMIT = 20  # detailed per-prompt buckets kept for browsing (totals aggregate all)
@@ -168,6 +167,7 @@ class App:
         self.buckets = []  # one bucket per typed prompt: its aggregated events
         self._current = {}  # session -> active bucket
         self.selected = None  # bucket index while browsing, None = live view
+        self.sort_mode = "focus"  # focus | hot | cold | name
 
     def sync_inventory(self, files):
         """Make the live tree reflect disk; historical counters remain intact."""
@@ -180,10 +180,14 @@ class App:
         s_id = ev.get("session", "?")
         self.sessions.add(s_id)
         if t == "prompt":
+            prompt_text = (ev.get("prompt") or "").strip()
+            prompt_hash = (ev.get("prompt_hash") or "").strip()
             bucket = {
                 "session": s_id,
                 "ts": ev.get("ts", ""),
-                "prompt": (ev.get("prompt") or "").strip() or "(prompt)",
+                "prompt": prompt_text
+                or (f"#{prompt_hash}" if prompt_hash else "(prompt text off)"),
+                "prompt_kind": "text" if prompt_text else "hash" if prompt_hash else "off",
                 "events": [],
             }
             self.buckets.append(bucket)
@@ -204,6 +208,7 @@ class App:
                     "session": s_id,
                     "ts": ev.get("ts", ""),
                     "prompt": "(session start)",
+                    "prompt_kind": "synthetic",
                     "events": [],
                 }
                 self.buckets.append(bucket)
@@ -277,6 +282,11 @@ class App:
     def select_live(self):
         self.selected = None
 
+    def set_sort(self, mode):
+        if mode in ("focus", "hot", "cold", "name"):
+            self.sort_mode = mode
+            self.selected = None
+
     def _glow(self, node, now):
         t0 = self.pulses.get(node)
         if t0 is None or now < t0:
@@ -317,6 +327,12 @@ class App:
         """Prioritize live activity without making the tree permanently jumpy."""
         if not folder or browsing:
             return (folder != "", 1, 0, -activity, folder)
+        if self.sort_mode == "hot":
+            return (True, 0, 0, -activity, folder)
+        if self.sort_mode == "cold":
+            return (True, 0, 0, activity, folder)
+        if self.sort_mode == "name":
+            return (True, 0, 0, 0, folder)
         touched = self.pulses.get(folder, 0)
         recent = self._is_recent(folder, now)
         return (True, 0 if recent else 1, -touched if recent else 0, -activity, folder)
@@ -325,6 +341,12 @@ class App:
         """A scheduled ripple is active immediately, not only after it starts glowing."""
         touched = self.pulses.get(node, 0)
         return bool(touched and now - touched <= RECENT_SECS)
+
+    def _heat_bar(self, score, max_score, cells=5):
+        if score < HEAT_DEAD_THRESHOLD:
+            return "·" * cells
+        filled = max(1, round(cells * math.log1p(score) / math.log1p(max(max_score, 2))))
+        return "█" * min(cells, filled) + "·" * max(0, cells - filled)
 
     def render(self, now, width, height):
         spin = SPINNER[int(now * 10) % len(SPINNER)]
@@ -340,12 +362,21 @@ class App:
             counts = Counter(e["path"] for e in b["events"] if e["t"] == "read")
             scan_counts = Counter(e["path"].rstrip("/") for e in b["events"] if e["t"] == "scan")
             b_scans = sum(scan_counts.values())
-            prompt_txt = b["prompt"][:56] + ("…" if len(b["prompt"]) > 56 else "")
+            prompt_room = max(18, min(120, width - 46))
+            prompt_txt = b["prompt"][:prompt_room] + ("…" if len(b["prompt"]) > prompt_room else "")
+            privacy_hint = (
+                " · text hidden; set TT_LOG_PROMPTS='truncate' for future previews"
+                if b.get("prompt_kind") == "hash"
+                else ""
+            )
             header.insert(
                 1,
                 c256(AMBER, f" ▸ prompt {self.selected + 1}/{len(self.buckets)} ", bold=True)
                 + c256(WHITE, f'"{prompt_txt}"')
-                + c256(DIM, f" · {sum(counts.values())} reads · {b_scans} scans"),
+                + c256(
+                    DIM,
+                    f" · {sum(counts.values())} reads · {b_scans} scans{privacy_hint}",
+                ),
             )
             files_src = sorted(counts)
             heat_scores = Counter(counts)
@@ -379,13 +410,18 @@ class App:
 
         focus_summary = ""
         folder_activity = {}
+        folder_heat = {}
         for folder, files in folders.items():
             current_heat = sum(heat_scores[f] for f in files)
+            folder_heat[folder] = current_heat
             # Timestamp-less legacy reads have no honest heat. Keep their folder
             # visible and deterministically ordered by lifetime count instead.
             folder_activity[folder] = (
                 current_heat or sum(counts[f] for f in files)
             ) + normalized_scans[folder]
+        folder_order = (
+            folder_heat if self.sort_mode in ("hot", "cold") and not browsing else folder_activity
+        )
         if not browsing:
             active = [
                 folder
@@ -394,13 +430,19 @@ class App:
                 or normalized_scans[folder]
                 or self._is_recent(folder, now)
             ]
-            active.sort(
-                key=lambda folder: self._folder_sort_key(
-                    folder, now, False, folder_activity[folder]
-                )
+            if self.sort_mode in ("cold", "name"):
+                candidates = list(folders)
+            elif self.sort_mode == "hot":
+                candidates = [
+                    folder for folder in folders if any(counts[f] for f in folders[folder])
+                ]
+            else:
+                candidates = active
+            candidates.sort(
+                key=lambda folder: self._folder_sort_key(folder, now, False, folder_order[folder])
             )
-            shown_folders = set(active[:LIVE_FOLDER_LIMIT])
-            more_active = max(0, len(active) - len(shown_folders))
+            shown_folders = set(candidates[:LIVE_FOLDER_LIMIT])
+            more_active = max(0, len(candidates) - len(shown_folders))
             quiet = [folder for folder in folders if folder not in active]
             quiet_unread = sum(len(inventory_folders.get(folder, [])) for folder in quiet)
             folders = {
@@ -408,8 +450,9 @@ class App:
             }
             summary = []
             if more_active:
-                summary.append(f"{more_active} more active")
-            if quiet:
+                label = "more folders" if self.sort_mode in ("cold", "name") else "more active"
+                summary.append(f"{more_active} {label}")
+            if quiet and self.sort_mode in ("focus", "hot"):
                 summary.append(f"{len(quiet)} quiet folders · {quiet_unread} unread")
             if summary:
                 focus_summary = "   … " + " · ".join(summary) + " hidden"
@@ -421,13 +464,23 @@ class App:
         hide_quiet = total > budget
 
         body = []
+        stat_width = 8 if browsing else 16
+        name_column = max(18, width - stat_width - 8)
         for folder in sorted(
             folders,
-            key=lambda d: self._folder_sort_key(d, now, browsing, folder_activity.get(d, 0)),
+            key=lambda d: self._folder_sort_key(d, now, browsing, folder_order.get(d, 0)),
         ):
             files = folders[folder]
+            if not browsing and self.sort_mode == "hot":
+                files = sorted(files, key=lambda f: (-heat_scores[f], f))
+            elif not browsing and self.sort_mode == "cold":
+                files = sorted(files, key=lambda f: (heat_scores[f], f))
             if not browsing:
-                shown = [f for f in files if counts[f] or self._glow(f, now) > 0]
+                shown = (
+                    files
+                    if self.sort_mode in ("cold", "name")
+                    else [f for f in files if counts[f] or self._glow(f, now) > 0]
+                )
             elif hide_quiet:
                 shown = [f for f in files if counts[f] or self._glow(f, now) > 0]
             else:
@@ -450,14 +503,15 @@ class App:
                 color, bold = self._node_color(self._heat(heat), glow)
                 branch = "└─" if i == len(shown) - 1 else "├─"
                 name = os.path.basename(f) if folder else f
-                if len(name) > 34:
-                    name = name[:33] + "…"
-                pad = " " * max(1, 38 - len(name) - (3 if folder else 0))
+                max_name = name_column - (3 if folder else 0)
+                if len(name) > max_name:
+                    name = name[: max_name - 1] + "…"
+                pad = " " * max(2, name_column - len(name) - (3 if folder else 0))
                 if count:
-                    level = math.log1p(heat) / math.log1p(max(max_heat, 2)) if heat else 0
-                    spark = SPARK[max(1, int(level * (len(SPARK) - 1)))]
                     stat_text = (
-                        f"{spark} {count:>3}" if browsing else f"{spark} h{heat:>4.1f} · {count}×"
+                        f"{self._heat_bar(heat, max_heat)} {count:>3}"
+                        if browsing
+                        else f"{self._heat_bar(heat, max_heat)} h{heat:>4.1f} · {count}×"
                     )
                     stat = c256(color, stat_text, bold)
                 else:
@@ -528,7 +582,8 @@ class App:
             lines.append(
                 c256(
                     DEAD,
-                    f"   ←/→ open newest prompt · q quit · heat 30d half-life · counts lifetime · {beat}",
+                    f"   ←/→ prompts · f focus · h hot · c cold · n A–Z · "
+                    f"sort:{self.sort_mode} · q quit · {beat}",
                 )
             )
         return [ln[: width * 4] for ln in lines[:height]]  # *4: ANSI codes don't count
@@ -585,6 +640,14 @@ def handle_key(app, ch):
         app.select_next()
     elif ch in ("a", "A"):
         app.select_live()
+    elif ch in ("f", "F"):
+        app.set_sort("focus")
+    elif ch in ("h", "H"):
+        app.set_sort("hot")
+    elif ch in ("c", "C"):
+        app.set_sort("cold")
+    elif ch in ("n", "N"):
+        app.set_sort("name")
     return False
 
 

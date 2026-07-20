@@ -131,7 +131,7 @@
 <script>
 (function () {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏", SPARK = "▁▂▃▄▅▆▇█";
+  const SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
   const tree = [
     { folder: "docs/design/", files: [
       { name: "principles.md", n: 12, h: 3.2 }, { name: "ui-patterns.md", n: 17, h: 6.8 }, { name: "accessibility.md", n: 3, h: 0.7 }]},
@@ -142,28 +142,40 @@
     { folder: "docs/legacy/", files: [
       { name: "old-api.md", n: 0, h: 0, dead: true }]},
   ];
-  let reads = 44, scans = 3, ticker = [], spin = 0, mode = "live", hunted = false, revived = false, currentPulse = null;
+  let reads = 44, scans = 3, ticker = [], spin = 0, mode = "live", sortMode = "focus", hunted = false, revived = false, currentPulse = null;
   const folderSearches = {};
   let buckets = [], browseIdx = null;
   const PROMPTS = ["style the buttons on the settings page", "add a tenant_id migration", "why is the deploy failing?", "summarize our ADRs"];
   const screen = document.getElementById("screen"), bubble = document.getElementById("bubble");
 
   function heat(n) { return n === 0 ? "dead" : n < 5 ? "warm" : n < 14 ? "hotter" : "hottest"; }
-  function bar(n) { return n === 0 ? "·" : SPARK[Math.min(7, Math.floor(Math.log1p(n) / Math.log1p(20) * 7))]; }
+  function bar(n) {
+    if (!n) return "·····";
+    const filled = Math.max(1, Math.round(5 * Math.log1p(n) / Math.log1p(8)));
+    return "█".repeat(Math.min(5, filled)) + "·".repeat(Math.max(0, 5 - filled));
+  }
   function render() {
     const pulsePath = currentPulse;
     const b = browseIdx !== null ? buckets[browseIdx] : null;
     let out = `<span class="spin"> ${SPIN[spin % SPIN.length]} </span><b>trigger-tree</b><span class="f">  your-project · live doc-discovery</span>\n`;
     if (b) out += ` <span class="hotter">▸ prompt ${browseIdx + 1}/${buckets.length}</span> "${b.text}" <span class="f">· ${b.reads} reads</span>\n\n`;
     else out += `\n`;
-    for (const g of tree) {
+    const groups = [...tree];
+    const folderHeat = g => g.files.reduce((sum, f) => sum + f.h, 0);
+    if (!b && sortMode === "hot") groups.sort((a, z) => folderHeat(z) - folderHeat(a));
+    if (!b && sortMode === "cold") groups.sort((a, z) => folderHeat(a) - folderHeat(z));
+    if (!b && sortMode === "name") groups.sort((a, z) => a.folder.localeCompare(z.folder));
+    for (const g of groups) {
       const searchCount = b ? (b.searches[g.folder] || 0) : (folderSearches[g.folder] || 0);
       if (b && !searchCount && !g.files.some(f => b.files[g.folder + f.name])) continue;
       const folderPulse = pulsePath && pulsePath.startsWith(g.folder) ? "pulse" : "fade";
       const unread = g.files.filter(f => !(b ? b.files[g.folder + f.name] : f.n)).length;
       const status = `${searchCount ? ` · 🔍 ${searchCount} search${searchCount === 1 ? "" : "es"}` : ""}${unread ? ` · ${unread} unread` : ""}`;
       out += ` <span class="folder ${folderPulse}">${g.folder}</span><span class="f">${status}</span>\n`;
-      const shown = b ? g.files.filter(f => b.files[g.folder + f.name]) : g.files;
+      let shown = b ? g.files.filter(f => b.files[g.folder + f.name]) : [...g.files];
+      if (!b && sortMode === "hot") shown.sort((a, z) => z.h - a.h);
+      if (!b && sortMode === "cold") shown.sort((a, z) => a.h - z.h);
+      if (!b && sortMode === "name") shown.sort((a, z) => a.name.localeCompare(z.name));
       shown.forEach((f, i) => {
         const n = b ? b.files[g.folder + f.name] : f.n;
         const branch = i === shown.length - 1 ? "└─" : "├─";
@@ -175,7 +187,7 @@
       });
     }
     out += `\n <b>${buckets.length ? buckets.length : 0}</b><span class="f"> prompts · </span><b>${reads}</b><span class="f"> reads · </span><b>${scans}</b><span class="f"> scans (hunting) · 3 sessions</span>\n`;
-    out += b ? `<span class="f">   ← older · → newer · a live overview</span>\n` : `<span class="f">   ←/→ open newest prompt · heat 30d half-life · counts lifetime</span>\n`;
+    out += b ? `<span class="f">   ← older · → newer · a live overview</span>\n` : `<span class="f">   ←/→ prompts · f focus · h hot · c cold · n A–Z · sort:${sortMode}</span>\n`;
     out += ticker.slice(0, 3).map(t => `   <span class="tick">${t}</span>`).join("\n");
     screen.innerHTML = out;
     const dead = document.getElementById("deadnode");
@@ -254,6 +266,8 @@
       browseIdx = browseIdx === null ? buckets.length - 1 : Math.min(buckets.length - 1, browseIdx + 1); render(); return;
     }
     if (e.key === "a" && browseIdx !== null) { browseIdx = null; render(); return; }
+    const sorts = { f: "focus", h: "hot", c: "cold", n: "name" };
+    if (sorts[e.key]) { sortMode = sorts[e.key]; browseIdx = null; render(); return; }
     buf = (buf + e.key).slice(-4);
     if (buf === "hunt") hunt();
   });

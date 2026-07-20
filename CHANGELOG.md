@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.0 — 2026-07-20
+
+- Makes historical prompts identifiable without weakening the privacy default:
+  hashed prompts show their stable short ID, marker-only prompts say text is off,
+  and opt-in truncated prompt previews expand with the terminal up to 120 characters.
+- Replaces vertical spark glyphs with comparable horizontal five-cell heat bars and
+  moves the heat/lifetime column to the available right edge, making better use of
+  wide split panes while retaining safe narrow-pane truncation.
+- Adds explicit live sorting: `f` recent-focus, `h` hottest, `c` coldest (including
+  untouched inventory), and `n` A–Z. The footer always exposes the keys and active
+  mode; prompt browsing remains a separate bounded chronological timeline.
+- Updates the README, plugin help, and six-card/three-column interactive website
+  demo to match the new dashboard behavior.
+
 ## 1.1.0 — 2026-07-20
 
 - Separates current documentation attention from lifetime popularity. Every

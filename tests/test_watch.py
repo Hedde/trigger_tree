@@ -1,9 +1,14 @@
 import os
+import re
 import sys
 import time
 
 import pytest
 from conftest import FIXTURE, load_script
+
+
+def plain(lines):
+    return re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(lines))
 
 
 def test_app_feed_pulse_and_glow(tmp_path):
@@ -141,7 +146,7 @@ def test_feed_discovers_new_file_but_not_deleted_historical_path(tmp_path):
     long_name = "docs/" + "x" * 40 + ".md"
     (tmp_path / long_name).write_text("x")
     app.feed({"t": "read", "path": long_name, "session": "S"})
-    frame = "\n".join(app.render(time.time(), width=120, height=40))
+    frame = "\n".join(app.render(time.time(), width=60, height=40))
     assert "…" in frame  # long basename truncated
 
 
@@ -201,6 +206,38 @@ def test_prompt_events_are_visible_live():
     assert "[prompt]" not in frame  # the pseudo-agent tag is not rendered
 
 
+def test_hashed_prompt_is_identifiable_without_leaking_text():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md"])
+    app.feed(
+        {
+            "t": "prompt",
+            "prompt_hash": "a1b2c3d4e5",
+            "session": "S",
+            "ts": "2026-07-20T10:00:00Z",
+        },
+        live=False,
+    )
+    assert app.buckets[0]["prompt"] == "#a1b2c3d4e5"
+    assert app.buckets[0]["prompt_kind"] == "hash"
+    app.select_prev()
+    frame = "\n".join(app.render(time.time(), width=150, height=30))
+    assert '"#a1b2c3d4e5"' in frame
+    assert "text hidden; set TT_LOG_PROMPTS='truncate' for future previews" in frame
+
+
+def test_prompt_preview_uses_available_header_width():
+    mod = load_script("tt-watch.py", FIXTURE)
+    prompt = "explain which documentation governs the complete account migration workflow"
+    app = mod.App([])
+    app.feed({"t": "prompt", "prompt": prompt, "session": "S"}, live=False)
+    app.select_prev()
+    narrow = "\n".join(app.render(time.time(), width=70, height=20))
+    wide = "\n".join(app.render(time.time(), width=150, height=20))
+    assert "explain which documentat…" in narrow
+    assert prompt in wide
+
+
 def test_prompt_buckets_and_browsing():
     mod = load_script("tt-watch.py", FIXTURE)
     app = _browse_app(mod)
@@ -229,7 +266,7 @@ def test_prompt_buckets_and_browsing():
     app.select_live()
     assert app.selected is None
     frame = "\n".join(app.render(time.time(), width=110, height=30))
-    assert "open newest prompt" in frame  # live hint restored
+    assert "f focus" in frame and "sort:focus" in frame  # live controls restored
 
 
 def test_scan_only_prompt_shows_folder_search_without_faking_a_read():
@@ -398,12 +435,63 @@ def test_handle_key_dispatch():
     assert mod.handle_key(app, "[") is False and app.selected == 1
     assert mod.handle_key(app, "]") is False and app.selected == 1
     assert mod.handle_key(app, "a") is False and app.selected is None
+    for key, mode in (("h", "hot"), ("c", "cold"), ("n", "name"), ("f", "focus")):
+        app.select_prev()
+        assert mod.handle_key(app, key) is False
+        assert app.selected is None and app.sort_mode == mode
     assert mod.handle_key(app, "x") is False  # unknown keys are ignored
     empty = mod.App([])
     mod.handle_key(empty, "[")  # no buckets: stays live
     assert empty.selected is None
     mod.handle_key(empty, "]")  # no buckets: stays live
     assert empty.selected is None
+
+
+def test_horizontal_heat_bars_dynamic_columns_and_hot_cold_sorting():
+    mod = load_script("tt-watch.py", FIXTURE)
+    files = [
+        "docs/hot/a.md",
+        "docs/cold/a.md",
+        "docs/scanned/a.md",
+        "docs/untouched/a.md",
+    ]
+    app = mod.App(files)
+    app.feed(
+        {"t": "read", "path": "docs/hot/a.md", "session": "S", "ts": "2026-07-20T12:00:00Z"},
+        live=False,
+    )
+    for _ in range(20):
+        app.feed({"t": "scan", "path": "docs/scanned", "session": "S"}, live=False)
+    app.feed(
+        {"t": "read", "path": "docs/cold/a.md", "session": "S", "ts": "2025-07-20T12:00:00Z"},
+        live=False,
+    )
+    now = mod.timestamp_epoch("2026-07-20T12:00:00Z")
+
+    app.set_sort("hot")
+    hot = plain(app.render(now, width=100, height=30))
+    assert hot.index("docs/hot/") < hot.index("docs/cold/")
+    assert "docs/untouched/" not in hot and "docs/scanned/" not in hot
+    assert "███" in hot and "h 1.0 · 1×" in hot
+
+    app.set_sort("cold")
+    cold = plain(app.render(now, width=100, height=30))
+    assert (
+        max(cold.index("docs/scanned/"), cold.index("docs/untouched/"))
+        < cold.index("docs/cold/")
+        < cold.index("docs/hot/")
+    )
+    assert "·····" in cold
+
+    app.set_sort("name")
+    named = plain(app.render(now, width=100, height=30))
+    assert named.index("docs/cold/") < named.index("docs/hot/") < named.index("docs/scanned/")
+
+    narrow_line = next(line for line in hot.splitlines() if "a.md" in line)
+    app.set_sort("hot")
+    wide = plain(app.render(now, width=140, height=30))
+    wide_line = next(line for line in wide.splitlines() if "a.md" in line)
+    assert wide_line.index("█") > narrow_line.index("█")
 
 
 def test_prompt_timeline_is_bounded_directional_and_reversible():
