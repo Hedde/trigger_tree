@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.2 — 2026-07-20
+
+- Keeps the v1.2.1 dedicated sort-legend fix while replacing the replay integration
+  test's wall-clock race with a deterministic clock. Slow or suspended macOS runners
+  can no longer miss the replay branch and report platform-specific 99.8% coverage.
+- v1.2.1 was withdrawn because its tag CI was not fully green. v1.2.2 is the first
+  valid release of the permanent wide/compact dashboard sort legend.
+
 ## 1.2.1 — 2026-07-20
 
 - Moves the live sort controls onto a permanent dedicated legend row instead of

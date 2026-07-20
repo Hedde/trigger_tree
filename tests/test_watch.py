@@ -566,15 +566,23 @@ def test_main_tty_mode_writes_alt_screen(monkeypatch, capsys):
 
 
 def test_main_demo_and_replay(monkeypatch, capsys):
-    # Leave ample scheduler margin beyond the first event at t+0.5s; coverage on
-    # shared macOS runners can suspend the process around the old 0.7s boundary.
     mod = load_script("tt-watch.py", FIXTURE)
     monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--demo", "--seconds", "1.5"])
     mod.main()
     assert "--frame--" in capsys.readouterr().out
 
     mod = load_script("tt-watch.py", FIXTURE)
-    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--replay", "--seconds", "0.7"])
+    # Drive replay with a deterministic clock. A wall-clock deadline made macOS
+    # coverage flaky when the shared runner was suspended before the first t+0.5s event.
+    clock = [0.0]
+
+    def tick():
+        clock[0] += 0.1
+        return clock[0]
+
+    monkeypatch.setattr(mod.time, "time", tick)
+    monkeypatch.setattr(mod.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--replay", "--seconds", "2"])
     mod.main()
     assert "trigger-tree" in capsys.readouterr().out
 
