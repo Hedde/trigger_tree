@@ -76,7 +76,7 @@ dared judge.
 Work normally for a few sessions — the hooks log silently — then:
 
 ```
-/tt status         # snapshot: reads, hot files, untouched paths
+/tt status         # snapshot: current heat, lifetime reads, untouched paths
 /tt insights       # full heat/cold map report + HTML
 ```
 
@@ -86,7 +86,7 @@ One plugin, one command, eight subcommands:
 
 | Command | Does |
 |---------|------|
-| **`/tt status`** | Snapshot of the measurement period: reads, hot files, untouched paths |
+| **`/tt status`** | Snapshot: current heat, lifetime reads, untouched paths |
 | **`/tt watch`** | Live ASCII pulse dashboard (tmux split or a new terminal window) |
 | **`/tt watch demo`** | Dashboard with synthetic events — see it without waiting |
 | **`/tt insights`** | Heat/cold map analysis: untouched paths, hunting, trend, task clusters + HTML report |
@@ -146,16 +146,25 @@ ripples up through its parent folders, then fades back to its heat color:
  ⠹ trigger-tree  myproject · live doc-discovery
 
  docs/design/  · 1 unread
-   ├─ principles.md        ▆  12
-   ├─ ui-patterns.md       █  17
+   ├─ principles.md        ▆ h 3.2 · 12×
+   ├─ ui-patterns.md       █ h 6.8 · 17×
    └─ accessibility.md     ·   0
  docs/database/  · 🔍 2 searches · 1 unread
-   └─ migrations.md        ▃   4
+   └─ migrations.md        ▃ h 1.4 · 4×
 
  33 reads · 2 scans (hunting) · 1 skill uses · 3 sessions
    ● docs/design/ui-patterns.md · 2s ago
    🔍 docs/database [Explore] · 31s ago
 ```
+
+Heat and read count are deliberately different signals. **Reads** are the lifetime
+evidence and never decrease. **Heat** is current attention: each timestamped read has
+weight `0.5^(age_days / 30)`, so its contribution halves every 30 days (1 today,
+0.5 after 30 days, 0.125 after 90 days, and effectively zero after a year). A new
+read reheats the file immediately. `/tt insights` also shows exact 7-, 30-, and
+90-day read windows, the last-read date, and lifetime reads. Folder heat is the sum
+of its file heat. Cold therefore means **inactive now**, never obsolete or safe to
+remove; untouched and protected-context classifications remain separate safeguards.
 
 Folder labels keep two signals separate: `🔍 N searches` proves the folder was
 explicitly searched, while `N unread` counts files without a Read event. Searching
@@ -178,7 +187,9 @@ text only after explicitly opting in to `truncate`). The timeline never wraps or
 changes mode at its ends; `a` returns to the live overview.
 
 `--demo` for instant synthetic events, `--replay` to re-run your real history,
-`q` or Ctrl+C to quit.
+`q` or Ctrl+C to quit. The watcher uses a full-screen terminal buffer with wrapping
+disabled, so refreshes do not accumulate as scrollback; your normal terminal state
+is restored when it exits.
 
 ## Structuring your docs for discovery
 

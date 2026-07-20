@@ -76,7 +76,7 @@
 
   <div class="grid">
     <div class="card"><h3>🔥 Heat &amp; cold maps</h3>
-      <p>A focused top 10 live; complete coverage and untouched paths in insights — including <code>rg</code>/<code>grep</code>/<code>find</code> searches and Bash reads resolved through variables and loops.</p></div>
+      <p>Attention cools with a 30-day half-life while lifetime reads stay visible. Focused top 10 live; exact 7/30/90-day windows in insights. Captures <code>rg</code>/<code>grep</code>/<code>find</code> and expanded Bash reads.</p></div>
     <div class="card"><h3>📈 Proof, not vibes</h3>
       <p><code>/tt suggestions</code> proposes fixes with evidence. <code>/tt note</code> marks the change; the trend shows whether it worked.</p></div>
     <div class="card"><h3>🔒 Local by design</h3>
@@ -134,13 +134,13 @@
   const SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏", SPARK = "▁▂▃▄▅▆▇█";
   const tree = [
     { folder: "docs/design/", files: [
-      { name: "principles.md", n: 12 }, { name: "ui-patterns.md", n: 17 }, { name: "accessibility.md", n: 3 }]},
+      { name: "principles.md", n: 12, h: 3.2 }, { name: "ui-patterns.md", n: 17, h: 6.8 }, { name: "accessibility.md", n: 3, h: 0.7 }]},
     { folder: "docs/database/", files: [
-      { name: "migrations.md", n: 4 }, { name: "principles.md", n: 6 }]},
+      { name: "migrations.md", n: 4, h: 1.4 }, { name: "principles.md", n: 6, h: 2.1 }]},
     { folder: "docs/operations/runbooks/", files: [
-      { name: "rollback.md", n: 2 }]},
+      { name: "rollback.md", n: 2, h: 0.2 }]},
     { folder: "docs/legacy/", files: [
-      { name: "old-api.md", n: 0, dead: true }]},
+      { name: "old-api.md", n: 0, h: 0, dead: true }]},
   ];
   let reads = 44, scans = 3, ticker = [], spin = 0, mode = "live", hunted = false, revived = false, currentPulse = null;
   const folderSearches = {};
@@ -167,13 +167,15 @@
       shown.forEach((f, i) => {
         const n = b ? b.files[g.folder + f.name] : f.n;
         const branch = i === shown.length - 1 ? "└─" : "├─";
-        const cls = pulsePath === g.folder + f.name ? "pulse" : `${heat(n)} fade`;
+        const currentHeat = b ? n : f.h;
+        const cls = pulsePath === g.folder + f.name ? "pulse" : `${heat(currentHeat)} fade`;
         const id = f.dead ? ' id="deadnode" style="cursor:pointer;pointer-events:auto"' : "";
-        out += `   <span class="f">${branch}</span> <span class="${cls}"${id}>${f.name.padEnd(22)}${bar(n)} ${String(n).padStart(3)}</span>\n`;
+        const stat = b ? `${bar(n)} ${String(n).padStart(3)}` : `${bar(currentHeat)} h${currentHeat.toFixed(1).padStart(4)} · ${n}×`;
+        out += `   <span class="f">${branch}</span> <span class="${cls}"${id}>${f.name.padEnd(22)}${stat}</span>\n`;
       });
     }
     out += `\n <b>${buckets.length ? buckets.length : 0}</b><span class="f"> prompts · </span><b>${reads}</b><span class="f"> reads · </span><b>${scans}</b><span class="f"> scans (hunting) · 3 sessions</span>\n`;
-    out += b ? `<span class="f">   ← older · → newer · a live overview</span>\n` : `<span class="f">   ←/→ open newest prompt</span>\n`;
+    out += b ? `<span class="f">   ← older · → newer · a live overview</span>\n` : `<span class="f">   ←/→ open newest prompt · heat 30d half-life · counts lifetime</span>\n`;
     out += ticker.slice(0, 3).map(t => `   <span class="tick">${t}</span>`).join("\n");
     screen.innerHTML = out;
     const dead = document.getElementById("deadnode");
@@ -190,7 +192,7 @@
     }
     const alive = tree.flatMap(g => g.files.filter(f => !f.dead).map(f => ({ g, f })));
     const pick = alive[Math.floor(Math.random() * alive.length)];
-    pick.f.n++; reads++;
+    pick.f.n++; pick.f.h += 1; reads++;
     const cur = buckets[buckets.length - 1];
     const key = pick.g.folder + pick.f.name;
     cur.files[key] = (cur.files[key] || 0) + 1; cur.reads++;
@@ -210,7 +212,7 @@
       : "…nobody has read me in 247 days.<br>I need review—not a verdict. <b>Link me from an index?</b> 🥺";
     bubble.style.opacity = 1;
     setTimeout(() => (bubble.style.opacity = 0), 2600);
-    if (!revived) { revived = true; dead.dead = false; dead.n = 1; reads++;
+    if (!revived) { revived = true; dead.dead = false; dead.n = 1; dead.h = 1; reads++;
       ticker.unshift("● docs/legacy/old-api.md · revived by a human · just now"); }
     currentPulse = "docs/legacy/old-api.md";
     render();

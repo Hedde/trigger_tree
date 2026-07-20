@@ -8,7 +8,8 @@ Run in a second terminal pane next to a Claude Code session:
     python3 scripts/tt-watch.py --replay   # replays the real history, accelerated
 
 A read makes its file flash white and ripples a pulse up through its parent
-folders, then fades back to the file's heat color (read frequency). Untouched
+folders, then fades back to the file's time-decayed heat color. Lifetime read
+counts remain visible as separate evidence. Untouched
 paths stay dim gray. Quit with q or Ctrl+C. 256-color ANSI, stdlib only.
 """
 
@@ -24,6 +25,7 @@ import shutil
 import sys
 import time
 from collections import Counter, deque
+from datetime import datetime, timezone
 
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 HIST = os.path.join(ROOT, ".trigger-tree", "history.jsonl")
@@ -78,6 +80,8 @@ ESCAPE_BYTE_TIMEOUT = 0.2  # tolerate delayed terminal bytes on loaded machines
 PULSE_SECS = 1.4  # how long a flash takes to fade
 RIPPLE_DELAY = 0.09  # per tree level, leaf → root
 RECENT_SECS = 8.0  # keep recently active folders visible before alpha fallback
+HEAT_HALF_LIFE_DAYS = 30.0
+HEAT_DEAD_THRESHOLD = 0.05
 
 
 def c256(n, text, bold=False):
@@ -101,6 +105,13 @@ def inventory():
 
 def all_history_files():
     return sorted(globmod.glob(os.path.join(ROOT, ".trigger-tree", "history*.jsonl")))
+
+
+def timestamp_epoch(ts):
+    try:
+        return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+    except (TypeError, ValueError):
+        return None
 
 
 class Tail:
@@ -144,6 +155,7 @@ class App:
     def __init__(self, files):
         self.files = list(files)
         self.counts = Counter()
+        self.read_times = {}
         self.scans = Counter()
         self.pulses = {}  # node path -> pulse start time (may lie in the future)
         self.ticker = deque(maxlen=4)
@@ -209,6 +221,11 @@ class App:
         if t == "read":
             path = ev["path"]
             self.counts[path] += 1
+            timestamp = timestamp_epoch(ev.get("ts"))
+            if timestamp is None and live:
+                timestamp = time.time()
+            if timestamp is not None:
+                self.read_times.setdefault(path, []).append(timestamp)
             self.total_reads += 1
             if path not in self.files and os.path.isfile(os.path.join(ROOT, path)):
                 self.files.append(path)
@@ -267,13 +284,25 @@ class App:
         p = 1.0 - (now - t0) / PULSE_SECS
         return max(0.0, p)
 
-    def _heat(self, count, max_count):
-        if count <= 0:
+    def heat_scores(self, now):
+        """Current attention per file; lifetime counts deliberately stay separate."""
+        half_life_seconds = HEAT_HALF_LIFE_DAYS * 86400
+        return Counter(
+            {
+                path: sum(
+                    0.5 ** (max(0.0, now - timestamp) / half_life_seconds)
+                    for timestamp in timestamps
+                )
+                for path, timestamps in self.read_times.items()
+            }
+        )
+
+    def _heat(self, score):
+        if score < HEAT_DEAD_THRESHOLD:
             return DEAD
-        level = math.log1p(count) / math.log1p(max(max_count, 2))
-        if level < 0.45:
+        if score < 2:
             return GREEN
-        if level < 0.8:
+        if score < 5:
             return AMBER
         return RED
 
@@ -319,13 +348,17 @@ class App:
                 + c256(DIM, f" · {sum(counts.values())} reads · {b_scans} scans"),
             )
             files_src = sorted(counts)
+            heat_scores = Counter(counts)
         else:
             counts = Counter(
                 {path: count for path, count in self.counts.items() if path in self.files}
             )
             scan_counts = Counter({path.rstrip("/"): count for path, count in self.scans.items()})
             files_src = self.files
-        max_count = max(counts.values(), default=0)
+            heat_scores = Counter(
+                {path: score for path, score in self.heat_scores(now).items() if path in self.files}
+            )
+        max_heat = max(heat_scores.values(), default=0)
 
         # group files per folder ("" = repo root)
         folders = {}
@@ -345,15 +378,21 @@ class App:
             folders.setdefault(folder, [])
 
         focus_summary = ""
-        folder_activity = {
-            folder: sum(counts[f] for f in files) + normalized_scans[folder]
-            for folder, files in folders.items()
-        }
+        folder_activity = {}
+        for folder, files in folders.items():
+            current_heat = sum(heat_scores[f] for f in files)
+            # Timestamp-less legacy reads have no honest heat. Keep their folder
+            # visible and deterministically ordered by lifetime count instead.
+            folder_activity[folder] = (
+                current_heat or sum(counts[f] for f in files)
+            ) + normalized_scans[folder]
         if not browsing:
             active = [
                 folder
                 for folder in folders
-                if folder_activity[folder] or self._is_recent(folder, now)
+                if any(counts[f] for f in folders[folder])
+                or normalized_scans[folder]
+                or self._is_recent(folder, now)
             ]
             active.sort(
                 key=lambda folder: self._folder_sort_key(
@@ -406,17 +445,21 @@ class App:
                 body.append(c256(color, f" {folder}/", bold) + suffix)
             for i, f in enumerate(shown):
                 count = counts[f]
+                heat = heat_scores[f]
                 glow = self._glow(f, now)
-                color, bold = self._node_color(self._heat(count, max_count), glow)
+                color, bold = self._node_color(self._heat(heat), glow)
                 branch = "└─" if i == len(shown) - 1 else "├─"
                 name = os.path.basename(f) if folder else f
                 if len(name) > 34:
                     name = name[:33] + "…"
                 pad = " " * max(1, 38 - len(name) - (3 if folder else 0))
                 if count:
-                    level = math.log1p(count) / math.log1p(max(max_count, 2))
+                    level = math.log1p(heat) / math.log1p(max(max_heat, 2)) if heat else 0
                     spark = SPARK[max(1, int(level * (len(SPARK) - 1)))]
-                    stat = c256(color, f"{spark} {count:>3}", bold)
+                    stat_text = (
+                        f"{spark} {count:>3}" if browsing else f"{spark} h{heat:>4.1f} · {count}×"
+                    )
+                    stat = c256(color, stat_text, bold)
                 else:
                     stat = c256(DEAD, f"· {0:>3}")
                 prefix = f"   {branch} " if folder else " "
@@ -482,7 +525,12 @@ class App:
                         else f"last event {age/60:.0f}m ago"
                     )
                 )
-            lines.append(c256(DEAD, f"   ←/→ open newest prompt · q quit · live · {beat}"))
+            lines.append(
+                c256(
+                    DEAD,
+                    f"   ←/→ open newest prompt · q quit · heat 30d half-life · counts lifetime · {beat}",
+                )
+            )
         return [ln[: width * 4] for ln in lines[:height]]  # *4: ANSI codes don't count
 
 
@@ -593,7 +641,9 @@ def main():
     use_termios = stdin_tty and os.name != "nt"
     old_term = None
     if is_tty:
-        sys.stdout.write("\x1b[?1049h\x1b[?25l")
+        # Full-screen TUI contract: private screen, no cursor, no line wrapping,
+        # and no stale scrollback. Autowrap is restored in finally even on Ctrl+C.
+        sys.stdout.write("\x1b[?1049h\x1b[?25l\x1b[?7l\x1b[2J\x1b[3J\x1b[H")
     if use_termios:  # pragma: no cover — needs a real tty
         import termios
         import tty
@@ -649,7 +699,7 @@ def main():
 
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_term)
         if is_tty:
-            sys.stdout.write("\x1b[?25h\x1b[?1049l")
+            sys.stdout.write("\x1b[?7h\x1b[?25h\x1b[?1049l")
             sys.stdout.flush()
 
 

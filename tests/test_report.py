@@ -27,7 +27,9 @@ def test_full_report_on_fixture(monkeypatch, capsys):
     html = open(out_path, encoding="utf-8").read()
     for expected in (
         "<title>trigger-tree Report</title>",
-        "Most consulted",
+        "Current heat",
+        "30-day half-life",
+        "Lifetime",
         "Skill usage",
         "Review candidates (untouched paths)",
         "Folder heat",

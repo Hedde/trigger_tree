@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.1.0 — 2026-07-20
+
+- Separates current documentation attention from lifetime popularity. Every
+  timestamped read now contributes exponentially decaying heat with a 30-day
+  half-life, while lifetime reads and last-read evidence never disappear.
+- Adds deterministic 7-, 30-, and 90-day windows plus file and folder heat to the
+  stats contract and HTML report. Future clock skew is bounded; undated legacy
+  reads remain in lifetime totals without being presented as current heat.
+- Updates the live watcher to color and sort by current heat while showing heat and
+  lifetime counts side by side. Prompt browsing remains an exact per-prompt view.
+- Makes the watcher a true full-screen TUI: it clears inherited scrollback, disables
+  autowrap while active, and restores the terminal on every exit, preventing refresh
+  frames from accumulating above the dashboard.
+- Updates the plugin instructions, README, and six-card/three-column website example
+  to explain the temporal model and its safety boundary: cold means inactive now,
+  never unimportant or safe to remove.
+
 ## 1.0.4 — 2026-07-19
 
 - Fixes an urgent zsh compatibility regression in the runtime reader wrapper:

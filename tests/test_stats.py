@@ -33,6 +33,45 @@ def test_pure_helpers():
     assert [mod.grade_for(x) for x in (95, 80, 65, 50, 10)] == ["A", "B", "C", "D", "F"]
 
 
+def test_temporal_heat_decays_reheats_and_keeps_lifetime_reads(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("a")
+    (tmp_path / "docs" / "b.md").write_text("b")
+    write_history(
+        tmp_path,
+        [
+            {"t": "read", "session": "S", "path": "docs/a.md", "ts": "2026-07-20T12:00:00Z"},
+            {"t": "read", "session": "S", "path": "docs/a.md", "ts": "2026-06-20T12:00:00Z"},
+            {"t": "read", "session": "S", "path": "docs/a.md", "ts": "2026-04-21T12:00:00Z"},
+            {"t": "read", "session": "S", "path": "docs/a.md", "ts": "2025-07-20T12:00:00Z"},
+            {"t": "read", "session": "S", "path": "docs/a.md"},
+            # Clock skew cannot make a read contribute more than one unit.
+            {"t": "read", "session": "S", "path": "docs/b.md", "ts": "2026-07-21T12:00:00Z"},
+        ],
+    )
+    mod = load_script("tt-stats.py", tmp_path)
+    now = mod.parse_ts("2026-07-20T12:00:00Z")
+    monkeypatch.setattr(mod, "utc_now", lambda: now)
+    stats = run_stats(mod, monkeypatch)
+    files = {item["path"]: item for item in stats["files"]}
+
+    assert files["docs/a.md"]["reads"] == 5
+    assert files["docs/a.md"]["heat"] == 1.625
+    assert files["docs/a.md"]["heat_scored_reads"] == 4
+    assert [files["docs/a.md"][f"reads_{days}d"] for days in (7, 30, 90)] == [1, 2, 3]
+    assert files["docs/b.md"]["heat"] == 1.0
+    assert stats["heat_model"] == {
+        "kind": "exponential_decay",
+        "half_life_days": 30.0,
+        "as_of": "2026-07-20T12:00:00Z",
+        "windows_days": [7, 30, 90],
+        "untimestamped_reads": 1,
+    }
+    folder = stats["folders"][0]
+    assert folder["reads"] == 6 and folder["heat"] == 2.625
+    assert folder["reads_30d"] == 3 and folder["last_read"] == "2026-07-21T12:00:00Z"
+
+
 def test_broken_project_config_falls_back_to_plugin_default(tmp_path, monkeypatch):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "a.md").write_text("x")

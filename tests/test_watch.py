@@ -34,10 +34,22 @@ def test_app_feed_pulse_and_glow(tmp_path):
 def test_heat_and_node_color():
     mod = load_script("tt-watch.py", FIXTURE)
     app = mod.App([])
-    assert app._heat(0, 10) == mod.DEAD
-    assert app._heat(1, 1000) == mod.GREEN
-    assert app._heat(8, 20) == mod.AMBER
-    assert app._heat(10, 10) == mod.RED
+    now = mod.timestamp_epoch("2026-07-20T12:00:00Z")
+    app.feed(
+        {"t": "read", "path": "docs/a.md", "session": "S", "ts": "2026-07-20T12:00:00Z"},
+        live=False,
+    )
+    app.feed(
+        {"t": "read", "path": "docs/a.md", "session": "S", "ts": "2026-06-20T12:00:00Z"},
+        live=False,
+    )
+    assert app.heat_scores(now)["docs/a.md"] == pytest.approx(1.5)
+    assert app.heat_scores(now + 30 * 86400)["docs/a.md"] == pytest.approx(0.75)
+    assert mod.timestamp_epoch("bad") is None and mod.timestamp_epoch(None) is None
+    assert app._heat(0) == mod.DEAD
+    assert app._heat(1) == mod.GREEN
+    assert app._heat(2) == mod.AMBER
+    assert app._heat(5) == mod.RED
     assert app._node_color(100, 0.9) == (mod.WHITE, True)
     assert app._node_color(100, 0.5) == (229, True)
     assert app._node_color(100, 0.0) == (100, False)
@@ -450,6 +462,8 @@ def test_main_tty_mode_writes_alt_screen(monkeypatch, capsys):
     mod.main()
     out = capsys.readouterr().out
     assert "\x1b[?1049h" in out and "\x1b[?1049l" in out  # alt screen enter + restore
+    assert "\x1b[?7l" in out and "\x1b[?7h" in out  # wrapping off + always restored
+    assert "\x1b[3J" in out  # inherited scrollback is cleared once
 
 
 def test_main_demo_and_replay(monkeypatch, capsys):

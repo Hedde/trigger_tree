@@ -33,7 +33,7 @@ Show exactly this, nothing above or below it:
 >
 > | Command | Does |
 > |---------|------|
-> | `/tt status` | Snapshot of this measurement period: reads, hot files, untouched paths |
+> | `/tt status` | Snapshot: current heat, lifetime reads, untouched paths |
 > | `/tt watch` | Live pulse dashboard in a new terminal window |
 > | `/tt watch demo` | Dashboard with synthetic events (writes nothing) |
 > | `/tt watch replay` | Dashboard replaying the real history, accelerated |
@@ -55,7 +55,8 @@ Show exactly this, nothing above or below it:
 > <reads> reads · <scans> scans · <skill_uses> skill uses · <files touched>/<inventory_files> files touched
 > **Health:** <health.grade> (<health.score>/100) — append "(provisional)" unless maturity is `mature`
 >
-> **Most consulted:** top 5 from `files` as `path (n×)`, comma-separated.
+> **Current heat:** sort `files` by `heat` descending and show the top 5 as
+> `path (h<heat>, <reads>× lifetime)`, comma-separated.
 > **Untouched:** <count of untouched> — followed by the maturity suffix:
 > - `cold-start`: "(measurement just started — nothing can be called dead yet)"
 > - `warming`: "(early signal — more sessions needed before judging)"
@@ -84,8 +85,9 @@ Show exactly this, nothing above or below it:
 >
 > **Health** — grade + score with its three drivers, one line ("(provisional)" unless mature).
 > **Key figures** — reads, scans (hunting ratio), skill uses, files touched / inventory.
-> **Folder heat/cold map** — from `folders`: name the hottest folder (reads) and the
-> coldest (lowest coverage), one line each.
+> **Folder heat/cold map** — from `folders`: name the hottest folder by current
+> decayed `heat` (also state 30-day and lifetime reads) and the least-covered folder,
+> one line each. Cold means inactive now, not obsolete.
 > **Untouched paths** — when `mature`: one line per path with a category — 🗑 remove/merge,
 > 🧭 sharpen router (with a concrete proposal), 📦 intentional archive. Use
 > `untouched_detail`: a path with empty `referenced_from` is a **router gap** (no doc
@@ -101,7 +103,9 @@ Show exactly this, nothing above or below it:
 >
 > 📊 Full report: <artifact link or file path>
 
-Analysis rules (do not repeat them in the output): read counts are signals, not verdicts;
+Analysis rules (do not repeat them in the output): lifetime read counts never decay;
+current `heat` uses the `heat_model` 30-day half-life and is distinct from untouched;
+read counts and heat are signals, not verdicts;
 files in `always_loaded` are never dead by definition (system-prompt injection); a file
 younger than the measurement period is new, not untouched; subagent reads (the `agents`
 field) count fully; skill uses make `.claude/skills/**` measurable — an invoked skill's

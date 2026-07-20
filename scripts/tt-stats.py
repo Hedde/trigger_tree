@@ -20,7 +20,7 @@ import os
 import re
 import sys
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from fnmatch import fnmatch
 from itertools import combinations
 
@@ -35,6 +35,8 @@ TREND_DAILY_MAX_DAYS = 14  # daily buckets up to here, weekly beyond
 CLUSTER_JACCARD = 0.6  # min similarity to join an existing task cluster
 HIGH_IN_LINK_COUNT = 3
 SCHEMA_VERSION = 1
+HEAT_HALF_LIFE_DAYS = 30.0
+HEAT_WINDOWS_DAYS = (7, 30, 90)
 
 
 def _conf_texts():
@@ -228,6 +230,30 @@ def parse_ts(ts):
         return None
 
 
+def utc_now():
+    """Return a naive UTC datetime so tests can pin the heat reference clock."""
+    return datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
+
+
+def temporal_metrics(timestamps, now):
+    """Separate current attention from lifetime reads.
+
+    Every timestamped read contributes exponentially decaying heat. Unknown-age
+    legacy reads remain in lifetime totals but cannot honestly contribute heat.
+    Future clock-skewed timestamps are treated as current rather than super-hot.
+    """
+    parsed = [dt for dt in (parse_ts(ts) for ts in timestamps) if dt]
+    ages = [max(0.0, (now - dt).total_seconds() / 86400) for dt in parsed]
+    result = {
+        "heat": round(sum(0.5 ** (age / HEAT_HALF_LIFE_DAYS) for age in ages), 3),
+        "heat_scored_reads": len(parsed),
+    }
+    result.update(
+        {f"reads_{days}d": sum(age <= days for age in ages) for days in HEAT_WINDOWS_DAYS}
+    )
+    return result
+
+
 def observed_days(timestamps):
     first, last = parse_ts(timestamps[0]), parse_ts(timestamps[-1])
     if not first or not last:
@@ -260,15 +286,26 @@ def main():
     notes = [{"ts": e.get("ts"), "text": e.get("text", "")} for e in events if e.get("t") == "note"]
     sessions = sorted({e.get("session", "?") for e in events})
 
+    heat_as_of = utc_now()
     per_file = defaultdict(
-        lambda: {"reads": 0, "last_read": None, "sessions": set(), "agents": Counter()}
+        lambda: {
+            "reads": 0,
+            "last_read": None,
+            "read_times": [],
+            "sessions": set(),
+            "agents": Counter(),
+        }
     )
     for e in reads:
         f = per_file[e["path"]]
         f["reads"] += 1
         f["last_read"] = max(filter(None, [f["last_read"], e.get("ts")]), default=None)
+        f["read_times"].append(e.get("ts"))
         f["sessions"].add(e.get("session", "?"))
         f["agents"][e.get("agent", "main")] += 1
+
+    for data in per_file.values():
+        data.update(temporal_metrics(data["read_times"], heat_as_of))
 
     scan_targets = Counter(e["path"] for e in scans)
 
@@ -464,8 +501,19 @@ def main():
             }
         )
 
-    # Folder heat/cold map: coverage (files touched) and read volume per folder.
-    folder_map = defaultdict(lambda: {"files": 0, "touched": 0, "reads": 0})
+    # Folder heat/cold map: current decayed attention, coverage, and lifetime volume.
+    folder_map = defaultdict(
+        lambda: {
+            "files": 0,
+            "touched": 0,
+            "reads": 0,
+            "heat": 0.0,
+            "reads_7d": 0,
+            "reads_30d": 0,
+            "reads_90d": 0,
+            "last_read": None,
+        }
+    )
     touched_paths = read_paths | used_skill_files
     for p in docs:
         folder = p.rsplit("/", 1)[0] if "/" in p else "(root)"
@@ -473,7 +521,13 @@ def main():
         fm["files"] += 1
         if p in touched_paths:
             fm["touched"] += 1
-        fm["reads"] += per_file[p]["reads"] if p in per_file else 0
+        if p in per_file:
+            data = per_file[p]
+            fm["reads"] += data["reads"]
+            fm["heat"] += data["heat"]
+            for window in HEAT_WINDOWS_DAYS:
+                fm[f"reads_{window}d"] += data[f"reads_{window}d"]
+            fm["last_read"] = max(filter(None, [fm["last_read"], data["last_read"]]), default=None)
     index_names = {"index.md", "_index.md", "README.md", "CLAUDE.md"}
     folders_with_index = {
         p.rsplit("/", 1)[0] if "/" in p else "(root)"
@@ -484,6 +538,7 @@ def main():
         {
             "folder": k,
             **v,
+            "heat": round(v["heat"], 3),
             "coverage": round(v["touched"] / v["files"], 2),
             "has_index": k in folders_with_index,
         }
@@ -522,6 +577,15 @@ def main():
         "observed_from": timestamps[0] if timestamps else None,
         "observed_to": timestamps[-1] if timestamps else None,
         "observed_days": days,
+        "heat_model": {
+            "kind": "exponential_decay",
+            "half_life_days": HEAT_HALF_LIFE_DAYS,
+            "as_of": heat_as_of.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "windows_days": list(HEAT_WINDOWS_DAYS),
+            "untimestamped_reads": sum(
+                d["reads"] - d["heat_scored_reads"] for d in per_file.values()
+            ),
+        },
         "sessions": len(sessions),
         "maturity": maturity,
         "health": health,
@@ -537,6 +601,11 @@ def main():
             {
                 "path": p,
                 "reads": d["reads"],
+                "heat": d["heat"],
+                "reads_7d": d["reads_7d"],
+                "reads_30d": d["reads_30d"],
+                "reads_90d": d["reads_90d"],
+                "heat_scored_reads": d["heat_scored_reads"],
                 "last_read": d["last_read"],
                 "sessions": len(d["sessions"]),
                 "agents": dict(d["agents"]),

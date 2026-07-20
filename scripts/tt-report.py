@@ -70,7 +70,8 @@ def main():
     s = json.loads(stats_raw)
     t = s["totals"]
     maturity = s.get("maturity", "cold-start")
-    max_reads = max((f["reads"] for f in s["files"]), default=1)
+    heated_files = sorted(s["files"], key=lambda f: (-f.get("heat", 0), -f["reads"], f["path"]))
+    max_heat = max((f.get("heat", 0) for f in heated_files), default=1)
 
     parts = [f"<title>trigger-tree Report</title><style>{CSS}</style>"]
     parts.append("<h1>🌳 trigger-tree — documentation telemetry</h1>")
@@ -100,19 +101,29 @@ def main():
         "</div>"
     )
 
-    parts.append("<h2>Most consulted</h2><div class=scroll><table>")
+    heat_model = s.get("heat_model", {})
+    half_life = heat_model.get("half_life_days", 30)
+    half_life_label = f"{half_life:g}" if isinstance(half_life, (int, float)) else esc(half_life)
+    parts.append("<h2>Current heat</h2>")
     parts.append(
-        "<tr><th>Path</th><th>Reads</th><th></th><th>Sessions</th><th>Last read</th><th>Agents</th></tr>"
+        "<p class=muted>Heat is recent attention with a "
+        f"{half_life_label}-day half-life; lifetime reads never decay. "
+        "Cold means inactive now, not unimportant.</p><div class=scroll><table>"
     )
-    for f in s["files"][:20]:
-        w = max(6, int(120 * f["reads"] / max_reads))
-        col = heat_color(f["reads"], max_reads)
-        agents = ", ".join(f"{a}×{n}" if n > 1 else a for a, n in f["agents"].items())
+    parts.append(
+        "<tr><th>Path</th><th>Heat</th><th></th><th>7d</th><th>30d</th><th>90d</th>"
+        "<th>Lifetime</th><th>Last read</th></tr>"
+    )
+    for f in heated_files[:20]:
+        heat = f.get("heat", 0)
+        w = max(6, int(120 * heat / max_heat)) if heat else 6
+        col = heat_color(heat, max_heat)
         parts.append(
-            f"<tr><td><code>{esc(f['path'])}</code></td><td>{f['reads']}</td>"
+            f"<tr><td><code>{esc(f['path'])}</code></td><td>{heat:.3f}</td>"
             f"<td><span class=bar style='width:{w}px;background:{col}'></span></td>"
-            f"<td>{f['sessions']}</td><td><small>{esc(f['last_read'])}</small></td>"
-            f"<td><small>{esc(agents)}</small></td></tr>"
+            f"<td>{f.get('reads_7d', 0)}</td><td>{f.get('reads_30d', 0)}</td>"
+            f"<td>{f.get('reads_90d', 0)}</td><td>{f['reads']}</td>"
+            f"<td><small>{esc(f['last_read'])}</small></td></tr>"
         )
     parts.append("</table></div>")
 
@@ -129,24 +140,27 @@ def main():
     if s.get("folders"):
         parts.append("<h2>Folder heat &amp; cold map</h2>")
         parts.append(
-            "<p class=muted>Coverage = share of files touched. Green is hot, gray is cold "
-            "— cold means review the purpose and routing; it never proves removal is safe.</p>"
+            "<p class=muted>Folder heat sums current decayed file attention. Coverage and lifetime "
+            "reads remain separate; cold means inactive now and never proves removal is safe.</p>"
         )
         parts.append("<div class=scroll><table>")
         parts.append(
-            "<tr><th>Folder</th><th>Touched</th><th></th><th>Coverage</th><th>Reads</th></tr>"
+            "<tr><th>Folder</th><th>Heat</th><th></th><th>30d</th><th>Coverage</th>"
+            "<th>Lifetime</th><th>Last read</th></tr>"
         )
-        for fo in sorted(s["folders"], key=lambda f: (-f["coverage"], f["folder"])):
-            w = max(4, int(120 * fo["coverage"]))
-            col = heat_color(fo["touched"], max(f["files"] for f in s["folders"]))
-            if fo["coverage"] == 0:
-                col = HEAT[0]
+        max_folder_heat = max((f.get("heat", 0) for f in s["folders"]), default=1)
+        for fo in sorted(s["folders"], key=lambda f: (-f.get("heat", 0), f["folder"])):
+            heat = fo.get("heat", 0)
+            w = max(4, int(120 * heat / max_folder_heat)) if heat else 4
+            col = heat_color(heat, max_folder_heat)
             no_index = "" if fo.get("has_index") else " <small class=muted>· no index file</small>"
             parts.append(
                 f"<tr><td><code>{esc(fo['folder'])}/</code>{no_index}</td>"
-                f"<td>{fo['touched']}/{fo['files']}</td>"
+                f"<td>{heat:.3f}</td>"
                 f"<td><span class=bar style='width:{w}px;background:{col}'></span></td>"
-                f"<td>{int(fo['coverage'] * 100)}%</td><td>{fo['reads']}</td></tr>"
+                f"<td>{fo.get('reads_30d', 0)}</td>"
+                f"<td>{fo['touched']}/{fo['files']} ({int(fo['coverage'] * 100)}%)</td>"
+                f"<td>{fo['reads']}</td><td><small>{esc(fo.get('last_read'))}</small></td></tr>"
             )
         parts.append("</table></div>")
 
