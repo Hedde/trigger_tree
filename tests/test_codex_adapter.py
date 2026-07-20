@@ -9,14 +9,17 @@ import pytest
 from conftest import REPO, load_script
 
 
-def test_translate_codex_lifecycle_and_tool_payloads(tmp_path):
+def test_translate_codex_lifecycle_and_tool_payloads(tmp_path, monkeypatch):
     mod = load_script("tt-codex-hook.py", tmp_path)
 
     route, session = mod.translate({"hook_event_name": "SessionStart"})
     assert route == "session" and session["source"] == "codex"
     assert mod.translate({"hook_event_name": "UserPromptSubmit"})[0] == "prompt"
+    monkeypatch.setenv("PLUGIN_ROOT", str(tmp_path))
     route, stop = mod.translate({"hook_event_name": "Stop"})
     assert route == "outcome" and stop["reason"] == "codex-stop"
+    monkeypatch.delenv("PLUGIN_ROOT")
+    assert mod.translate({"hook_event_name": "Stop"})[0] is None
     assert mod.translate({"hook_event_name": "Unknown"})[0] is None
 
     route, bash = mod.translate(

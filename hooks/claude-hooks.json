@@ -1,12 +1,8 @@
 {
   "hooks": {
-    "SessionStart": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py session || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py session"}]}],
-    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py prompt || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py prompt"}]}],
     "SessionEnd": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py outcome || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py outcome"}]}],
     "PostToolUse": [
-      {"matcher": "Read|Glob|Grep", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py read || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py read"}]},
-      {"matcher": "Skill", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py skill || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py skill"}]},
-      {"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py bash || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py bash"}]}
+      {"matcher": "Skill", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py skill || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py skill"}]}
     ],
     "PostToolUseFailure": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py bash-failure || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py bash-failure"}]}]
   }

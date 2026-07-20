@@ -62,6 +62,8 @@ def translate(payload):
     if event == "PostToolUse":
         return normalize_tool(payload)
     if event == "Stop":
+        if not os.environ.get("PLUGIN_ROOT"):
+            return None, payload
         normalized = dict(payload)
         normalized["reason"] = payload.get("reason", "codex-stop")
         return "outcome", normalized

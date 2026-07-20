@@ -14,6 +14,7 @@ REQUIRED_FILES = (
     "hooks/claude-hooks.json",
     "hooks/hooks.json",
     "SKILL.md",
+    "skills/tt/SKILL.md",
     "scripts/tt-log.py",
     "scripts/tt-doctor.py",
 )
@@ -76,6 +77,10 @@ def main() -> None:
         manifest = json.loads((install_path / ".claude-plugin/plugin.json").read_text())
         if matches[0]["version"] != manifest["version"]:
             raise SystemExit("installed version does not match plugin manifest")
+
+        hooks = (install_path / "hooks" / "hooks.json").read_text()
+        if "${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py" not in hooks:
+            raise SystemExit("shared hooks do not use the cross-client plugin root")
 
         print(f"Installed trigger-tree v{manifest['version']} in an isolated Claude config")
 

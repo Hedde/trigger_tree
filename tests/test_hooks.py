@@ -10,10 +10,8 @@ def test_every_documented_post_tool_use_has_a_logger_route():
     manifest = json.load(open(os.path.join(REPO, "hooks", "claude-hooks.json"), encoding="utf-8"))
     entries = manifest["hooks"]["PostToolUse"]
     routes = {entry["matcher"]: entry["hooks"][0]["command"] for entry in entries}
-    assert set(routes) == {"Read|Glob|Grep", "Skill", "Bash"}
-    assert routes["Read|Glob|Grep"].count("tt-log.py read") == 2
+    assert set(routes) == {"Skill"}
     assert routes["Skill"].count("tt-log.py skill") == 2
-    assert routes["Bash"].count("tt-log.py bash") == 2
     assert manifest["hooks"]["SessionEnd"][0]["hooks"][0]["command"].count("tt-log.py outcome") == 2
     failure = manifest["hooks"]["PostToolUseFailure"][0]
     assert failure["matcher"] == "Bash"
@@ -27,6 +25,7 @@ def test_codex_hooks_use_the_adapter_and_remain_silent():
         for group in groups:
             for hook in group["hooks"]:
                 assert hook["type"] == "command"
-                assert "${PLUGIN_ROOT}/scripts/tt-codex-hook.py" in hook["command"]
-                assert "%PLUGIN_ROOT%\\scripts\\tt-codex-hook.py" in hook["commandWindows"]
+                assert "${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py" in hook["command"]
+                assert "%CLAUDE_PLUGIN_ROOT%\\scripts\\tt-codex-hook.py" in hook["commandWindows"]
+                assert "${PLUGIN_ROOT}" not in hook["command"]
                 assert hook["timeout"] == 5

@@ -14,6 +14,7 @@ def test_codex_manifest_is_complete_and_references_real_components():
     assert manifest["skills"] == "./skills/"
     assert "hooks" not in manifest  # Codex discovers hooks/hooks.json by convention.
     assert (ROOT / "skills" / "trigger-tree" / "SKILL.md").is_file()
+    assert (ROOT / "skills" / "tt" / "SKILL.md").is_file()
     assert (ROOT / "hooks" / "hooks.json").is_file()
 
     interface = manifest["interface"]

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.2 — 2026-07-20
+
+- Restores Claude Code startup and `/tt` discovery after the withdrawn v1.3.1 package:
+  shared hooks now use the Claude-compatible plugin-root variable that Codex also
+  provides, and the Claude command has an explicit conventional `skills/tt/SKILL.md`.
+- Prevents duplicate shared Claude events while retaining Claude-only skill, failure,
+  and session-end telemetry. Codex-only Stop outcomes no longer run in Claude.
+- Adds installed-package regression checks for the command skill and hook environment.
+
 ## 1.3.1 — 2026-07-20
 
 - Clearly separates Claude Code and Codex installation, invocation, hooks, and
