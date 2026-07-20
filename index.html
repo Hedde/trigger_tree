@@ -41,6 +41,12 @@
   code, pre.block { font-family:ui-monospace,Menlo,Consolas,monospace; }
   pre.block { background:var(--panel); border:1px solid var(--line); border-radius:8px;
               padding:1rem 1.2rem; overflow-x:auto; font-size:.9rem; line-height:1.7; }
+  .install-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+  .install-card { background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .install-card h3 { padding:1rem 1.2rem .2rem; }
+  .install-card > p { color:var(--muted); padding:0 1.2rem 1rem; font-size:.9rem; }
+  .install-card pre.block { border:0; border-top:1px solid var(--line); border-radius:0; }
+  .install-note { color:var(--muted); margin-top:1rem; font-size:.9rem; }
   table { border-collapse:collapse; width:100%; }
   th,td { text-align:left; padding:.5rem .7rem; border-bottom:1px solid var(--line); font-size:.95rem; }
   th { color:var(--muted); } td code { color:var(--bright); }
@@ -49,7 +55,7 @@
             box-shadow:0 8px 30px rgba(0,0,0,.6); pointer-events:none; opacity:0; transition:opacity .3s; }
   footer { text-align:center; color:var(--muted); margin-top:4rem; font-size:.9rem; }
   @media (max-width:850px) { .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-  @media (max-width:580px) { .grid { grid-template-columns:1fr; } }
+  @media (max-width:580px) { .grid, .install-grid { grid-template-columns:1fr; } }
   @media (prefers-reduced-motion: reduce) { .pulse { text-shadow:none; } }
 </style>
 </head>
@@ -101,16 +107,31 @@
   what to protect or reroute, and what to rescue.</p>
 
   <h2>Install</h2>
-  <pre class="block">/plugin marketplace add Hedde/trigger_tree
+  <div class="install-grid">
+    <section class="install-card">
+      <h3>Claude Code</h3>
+      <p>Slash commands, Claude hooks, and optional Claude statusline.</p>
+      <pre class="block">/plugin marketplace add Hedde/trigger_tree
 /plugin install trigger-tree@trigger-tree
 /tt setup
 /tt doctor</pre>
-  <p style="color:var(--muted);max-width:720px">Codex:</p>
-  <pre class="block">codex plugin marketplace add Hedde/trigger_tree
+    </section>
+    <section class="install-card">
+      <h3>OpenAI Codex</h3>
+      <p>Codex lifecycle hooks and natural-language workflows. Codex's built-in <code>/statusline</code> is separate.</p>
+      <pre class="block">codex plugin marketplace add Hedde/trigger_tree
 codex plugin add trigger-tree@trigger-tree
-# start a new thread, then review the local hooks with /hooks</pre>
+# start a new thread
+# review and trust hooks with /hooks</pre>
+    </section>
+  </div>
+  <p class="install-note"><b>Where it appears:</b> this GitHub marketplace installs immediately under your configured
+  marketplace/Installed plugins. It will appear under OpenAI Curated only after a separate OpenAI submission,
+  review, approval, and publish step.</p>
 
-  <h2>Commands</h2>
+  <h2>Use it</h2>
+  <p class="install-note">Claude Code uses the <code>/tt</code> commands below. In Codex, ask for the same outcome—for
+  example “Show trigger-tree status” or “Open the trigger-tree live dashboard.”</p>
   <table>
     <tr><th>Command</th><th>Does</th></tr>
     <tr><td><code>/tt status</code></td><td>Snapshot: reads, hot files, untouched paths</td></tr>

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.1 — 2026-07-20
+
+- Clearly separates Claude Code and Codex installation, invocation, hooks, and
+  statusline behavior in the README and website.
+- Explains that direct GitHub marketplace installation is immediately usable but is
+  distinct from an OpenAI Curated listing, which requires submission and review.
+- Keeps the website's six USP cards in the fixed three-column desktop grid.
+
 ## 1.3.0 — 2026-07-20
 
 - Adds a native Codex plugin manifest, marketplace catalog, trigger-tree skill, and

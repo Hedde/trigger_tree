@@ -69,6 +69,9 @@ dared judge.
 
 ### Claude Code
 
+Use this path for `/tt` slash commands, Claude hooks, and the optional Claude
+statusline:
+
 ```
 /plugin marketplace add Hedde/trigger_tree
 /plugin install trigger-tree@trigger-tree
@@ -85,6 +88,8 @@ Work normally for a few sessions — the hooks log silently — then:
 
 ### Codex
 
+Use this path for Codex lifecycle hooks and natural-language trigger-tree workflows:
+
 ```bash
 codex plugin marketplace add Hedde/trigger_tree
 codex plugin add trigger-tree@trigger-tree
@@ -94,9 +99,24 @@ Start a new Codex thread, review and trust the bundled hooks with `/hooks`, then
 “Show trigger-tree status” or “Open the trigger-tree live dashboard.” Telemetry is
 collected automatically from official Codex lifecycle hooks; no wrapper is required.
 
-## Commands
+| | Claude Code | OpenAI Codex |
+|---|---|---|
+| Install | `/plugin marketplace add` | `codex plugin marketplace add` |
+| Invoke | `/tt status`, `/tt watch`, etc. | Ask for the desired trigger-tree workflow |
+| Hooks | Claude plugin hooks | Codex lifecycle hooks; trust via `/hooks` |
+| Statusline | Optional trigger-tree counter | Codex’s built-in `/statusline` is separate |
+| Visible after GitHub install | Claude marketplace/plugin list | Configured marketplace and Installed plugins |
 
-One plugin, one command, eight subcommands:
+> **GitHub install versus OpenAI Curated:** the commands above install trigger-tree
+> directly; they do not add it to OpenAI’s public directory. An OpenAI Curated listing
+> requires a separate skills-only submission through the
+> [OpenAI plugin portal](https://platform.openai.com/plugins), followed by review,
+> approval, and an explicit publish step.
+
+## Claude Code commands and Codex workflows
+
+Claude Code exposes one command with eight subcommands. In Codex, ask for the matching
+outcome in natural language; the bundled `trigger-tree` skill runs the same local core.
 
 | Command | Does |
 |---------|------|
