@@ -84,6 +84,7 @@ Work normally for a few sessions — the hooks log silently — then:
 ```
 /tt status         # snapshot: current heat, lifetime reads, untouched paths
 /tt insights       # full heat/cold map report + HTML
+/tt tips           # Claude-specific memory and instruction maintenance tips
 ```
 
 ### Codex
@@ -115,7 +116,7 @@ collected automatically from official Codex lifecycle hooks; no wrapper is requi
 
 ## Claude Code commands and Codex workflows
 
-Claude Code exposes one command with eight subcommands. In Codex, ask for the matching
+Claude Code exposes one command with nine subcommands. In Codex, ask for the matching
 outcome in natural language; the bundled `trigger-tree` skill runs the same local core.
 
 | Command | Does |
@@ -125,9 +126,15 @@ outcome in natural language; the bundled `trigger-tree` skill runs the same loca
 | **`/tt watch demo`** | Dashboard with synthetic events — see it without waiting |
 | **`/tt insights`** | Heat/cold map analysis: untouched paths, hunting, trend, task clusters + HTML report |
 | **`/tt suggestions`** | Concise scope + max 5 evidence-backed fixes; full stats stay off stdout |
+| **`/tt tips`** | Client-aware instruction maintenance: Claude memory/rules or Codex AGENTS.md |
 | **`/tt note <text>`** | Annotate the timeline ("sharpened UX router") — visible in the trend |
 | **`/tt doctor`** | Verify hooks, privacy, statusline, and live telemetry with actionable fixes |
 | **`/tt setup`** | Wire trigger-tree into a project: gitignore, statusline, optional config override |
+
+Tips are intentionally client-specific. Claude advice follows Anthropic's guidance to
+[audit auto memory, keep CLAUDE.md concise, and remove conflicting instructions](https://code.claude.com/docs/en/memory).
+Codex advice follows OpenAI's guidance to
+[maintain AGENTS.md and a reproducible development environment](https://openai.com/business/guides-and-resources/how-openai-uses-codex/).
 
 ## How it works
 

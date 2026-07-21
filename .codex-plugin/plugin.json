@@ -1,6 +1,6 @@
 {
   "name": "trigger-tree",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "description": "Local, zero-token documentation discovery telemetry for Codex and Claude Code.",
   "author": {
     "name": "Hedde van der Heide",

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.0 — 2026-07-21
+
+- Adds concise, read-only maintenance tips with strict client separation: Claude Code
+  receives `/memory`, CLAUDE.md, and scoped-rule guidance; Codex receives AGENTS.md and
+  reproducible-environment guidance. Neither client sees advice for the other.
+- Grounds tips in repository evidence such as missing or oversized instruction files,
+  unscoped Claude rules, and absent Codex verification commands. Output is deterministic,
+  bounded to four tips, and never edits instruction or memory files automatically.
+- Documents the official Anthropic and OpenAI guidance behind the recommendations and
+  adds `/tt tips` to the Claude command and equivalent Codex natural-language workflow.
+
 ## 1.3.2 — 2026-07-20
 
 - Restores Claude Code startup and `/tt` discovery after the withdrawn v1.3.1 package:
