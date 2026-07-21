@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.0 — 2026-07-21
+
+- Makes prompt history recognizable after setup: `/tt setup` now creates a project
+  config using local, gitignored 200-character previews. `/tt setup hash`, `truncate`,
+  and `off` explicitly switch modes; existing history is never rewritten.
+- Preserves the privacy-safe installation boundary: before setup, or without a readable
+  project config, prompt logging still falls back to hashes and stores no prompt text.
+- Reworks dashboard temperature into a coherent blue → cyan → green → amber → red
+  spectrum. Untouched stays neutral gray, folder colors reflect aggregate heat, and a
+  permanent adaptive heat legend separates temperature from lifetime read counts.
+- Updates the README, privacy policy, Claude/Codex workflows, and website demo while
+  preserving the website's six-card, three-column desktop USP grid.
+
 ## 1.4.0 — 2026-07-21
 
 - Adds concise, read-only maintenance tips with strict client separation: Claude Code

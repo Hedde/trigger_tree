@@ -52,9 +52,11 @@ def test_heat_and_node_color():
     assert app.heat_scores(now + 30 * 86400)["docs/a.md"] == pytest.approx(0.75)
     assert mod.timestamp_epoch("bad") is None and mod.timestamp_epoch(None) is None
     assert app._heat(0) == mod.DEAD
-    assert app._heat(1) == mod.GREEN
-    assert app._heat(2) == mod.AMBER
-    assert app._heat(5) == mod.RED
+    assert app._heat(0.2) == mod.COLD
+    assert app._heat(1) == mod.COOL
+    assert app._heat(2) == mod.GREEN
+    assert app._heat(5) == mod.AMBER
+    assert app._heat(10) == mod.RED
     assert app._node_color(100, 0.9) == (mod.WHITE, True)
     assert app._node_color(100, 0.5) == (229, True)
     assert app._node_color(100, 0.0) == (100, False)
@@ -83,6 +85,15 @@ def test_sort_legend_is_permanent_clear_and_adaptive():
     narrow = plain(app.render(time.time(), width=50, height=20))
     assert "sort:cold · [f]ocus [h]ot [c]old [n]ame" in narrow
     assert "←/→ prompts · q quit" in narrow  # navigation is a separate row
+
+
+def test_heat_legend_is_coherent_permanent_and_adaptive():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md"])
+    wide = plain(app.render(time.time(), width=100, height=20))
+    assert "heat: cold → cool → active → warm → hot · · untouched" in wide
+    narrow = plain(app.render(time.time(), width=50, height=20))
+    assert "heat: cold→cool→active→warm→hot · · untouched" in narrow
 
 
 def test_live_folders_prioritize_recent_activity_then_return_to_alpha():

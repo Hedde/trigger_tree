@@ -6,16 +6,16 @@ Steps (each reported as created/updated/skipped):
   2. Copy tt-statusline.py to $PROJECT/.claude/tt-statusline.py (plugins cannot ship
      a statusLine, so the script must live in the project).
   3. Register the statusline in $PROJECT/.claude/settings.json (only if none is set).
-  4. --with-config: copy the default tt-config.sh to .trigger-tree/config.sh so the
-     project can customize which paths count as documentation.
+  4. Create .trigger-tree/config.sh with recognizable truncated prompt previews by
+     default. Use --prompt-mode hash|truncate|off to make privacy explicit.
 
-Usage: python3 tt-setup.py [--with-config]
+Usage: python3 tt-setup.py [--prompt-mode hash|truncate|off]
 """
 
+import argparse
 import json
 import os
 import shutil
-import sys
 
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -85,23 +85,61 @@ def register_statusline():
     report("updated", ".claude/settings.json (statusLine registered)")
 
 
-def copy_config():
+def prompt_mode_message(mode):
+    if mode == "truncate":
+        return "prompt previews: first 200 characters stored locally (gitignored)"
+    if mode == "hash":
+        return "prompt privacy: hashes only; historical previews unavailable"
+    return "prompt privacy: markers only; no text or hash stored"
+
+
+def write_prompt_mode(path, mode):
+    with open(path, encoding="utf-8") as fh:
+        lines = fh.read().splitlines()
+    assignment = f"TT_LOG_PROMPTS='{mode}'"
+    changed = False
+    for index, line in enumerate(lines):
+        if line.strip().startswith("TT_LOG_PROMPTS="):
+            changed = line != assignment
+            lines[index] = assignment
+            break
+    else:
+        lines.append(assignment)
+        changed = True
+    if changed:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
+    return changed
+
+
+def configure_prompts(mode, explicit=False):
     dst_dir = os.path.join(ROOT, ".trigger-tree")
     os.makedirs(dst_dir, exist_ok=True)
     dst = os.path.join(dst_dir, "config.sh")
     if os.path.isfile(dst):
-        report("skipped", ".trigger-tree/config.sh (already exists)")
+        if explicit and write_prompt_mode(dst, mode):
+            report("updated", f".trigger-tree/config.sh ({prompt_mode_message(mode)})")
+        else:
+            report("skipped", ".trigger-tree/config.sh (existing prompt setting preserved)")
         return
     shutil.copyfile(os.path.join(SCRIPT_DIR, "tt-config.sh"), dst)
-    report("created", ".trigger-tree/config.sh (project override)")
+    write_prompt_mode(dst, mode)
+    report("created", f".trigger-tree/config.sh ({prompt_mode_message(mode)})")
 
 
-def main():
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--with-config", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--prompt-mode", choices=("truncate", "hash", "off"))
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
     ensure_gitignore()
     copy_statusline()
     register_statusline()
-    if "--with-config" in sys.argv:
-        copy_config()
+    configure_prompts(args.prompt_mode or "truncate", explicit=args.prompt_mode is not None)
     print("done — restart the session (or wait for settings reload) to activate the statusline")
 
 

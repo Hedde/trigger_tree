@@ -10,7 +10,8 @@ Run in a second terminal pane next to a Claude Code session:
 A read makes its file flash white and ripples a pulse up through its parent
 folders, then fades back to the file's time-decayed heat color. Lifetime read
 counts remain visible as separate evidence. Untouched
-paths stay dim gray. Quit with q or Ctrl+C. 256-color ANSI, stdlib only.
+paths stay dim gray. Cold-to-hot activity uses a coherent blue → cyan → green →
+amber → red spectrum. Quit with q or Ctrl+C. 256-color ANSI, stdlib only.
 """
 
 import argparse
@@ -70,8 +71,8 @@ WATCH = _conf_regex("TT_WATCH_REGEX", r"^docs/.*\.md$")
 BASES = ["docs", "agents", "skills", "agent-briefs", ".claude/rules", ".claude/skills", "."]
 
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-GREEN, AMBER, RED = 114, 214, 196  # three heat tiers, matching the website demo
-DEAD, DIM, WHITE, FOLDER = 240, 245, 231, 250
+COLD, COOL, GREEN, AMBER, RED = 75, 80, 114, 214, 196
+DEAD, DIM, WHITE = 240, 245, 231
 BUCKET_LIMIT = 20  # detailed per-prompt buckets kept for browsing (totals aggregate all)
 EVENTS_PER_BUCKET = 500  # cap against runaway tasks flooding one bucket
 LIVE_FOLDER_LIMIT = 10  # focused live overview; full cold inventory lives in insights
@@ -310,9 +311,13 @@ class App:
     def _heat(self, score):
         if score < HEAT_DEAD_THRESHOLD:
             return DEAD
+        if score < 0.5:
+            return COLD
         if score < 2:
-            return GREEN
+            return COOL
         if score < 5:
+            return GREEN
+        if score < 10:
             return AMBER
         return RED
 
@@ -352,6 +357,18 @@ class App:
         if width < 75:
             return f" sort:{self.sort_mode} · [f]ocus [h]ot [c]old [n]ame"
         return f" sort:{self.sort_mode} · [f] focus · [h] hot · " "[c] cold · [n] A–Z"
+
+    def _heat_legend(self, width):
+        labels = (
+            (COLD, "cold"),
+            (COOL, "cool"),
+            (GREEN, "active"),
+            (AMBER, "warm"),
+            (RED, "hot"),
+        )
+        separator = "→" if width < 75 else " → "
+        scale = separator.join(c256(color, label, bold=True) for color, label in labels)
+        return c256(DIM, " heat: ") + scale + c256(DEAD, " · · untouched")
 
     def render(self, now, width, height):
         spin = SPINNER[int(now * 10) % len(SPINNER)]
@@ -463,7 +480,7 @@ class App:
                 focus_summary = "   … " + " · ".join(summary) + " hidden"
 
         ticker_lines = min(3, len(self.ticker))
-        fixed = len(header) + 2 + ticker_lines + 2  # footer + sort legend + hint line
+        fixed = len(header) + 2 + ticker_lines + 3  # footer + heat/sort legends + hint
         budget = max(4, height - fixed)
         total = sum((1 if d else 0) + len(fs) for d, fs in folders.items())
         hide_quiet = total > budget
@@ -491,7 +508,9 @@ class App:
             else:
                 shown = files
             if folder:
-                color, bold = self._node_color(FOLDER, self._glow(folder, now))
+                color, bold = self._node_color(
+                    self._heat(folder_heat.get(folder, 0)), self._glow(folder, now)
+                )
                 searches = normalized_scans[folder]
                 unread = sum(1 for f in inventory_folders.get(folder, []) if not counts[f])
                 status = []
@@ -549,6 +568,7 @@ class App:
             + c256(WHITE, f"{len(self.sessions)}", bold=True)
             + c256(DIM, " sessions")
         )
+        lines.append(self._heat_legend(width))
         if browsing:
             icons = {"read": "●", "scan": "🔍", "skill": "⚡"}
             for e in self.buckets[self.selected]["events"][-3:]:

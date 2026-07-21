@@ -75,7 +75,7 @@ statusline:
 ```
 /plugin marketplace add Hedde/trigger_tree
 /plugin install trigger-tree@trigger-tree
-/tt setup          # wires gitignore + statusline into your project (idempotent)
+/tt setup          # wires the project; local 200-character prompt previews by default
 /tt doctor         # proves this repo is wired and receiving telemetry
 ```
 
@@ -129,7 +129,7 @@ outcome in natural language; the bundled `trigger-tree` skill runs the same loca
 | **`/tt tips`** | Client-aware instruction maintenance: Claude memory/rules or Codex AGENTS.md |
 | **`/tt note <text>`** | Annotate the timeline ("sharpened UX router") — visible in the trend |
 | **`/tt doctor`** | Verify hooks, privacy, statusline, and live telemetry with actionable fixes |
-| **`/tt setup`** | Wire trigger-tree into a project: gitignore, statusline, optional config override |
+| **`/tt setup [truncate\|hash\|off]`** | Wire the project and choose recognizable local previews or privacy-first markers |
 
 Tips are intentionally client-specific. Claude advice follows Anthropic's guidance to
 [audit auto memory, keep CLAUDE.md concise, and remove conflicting instructions](https://code.claude.com/docs/en/memory).
@@ -143,7 +143,7 @@ trigger-tree registers three lightweight hooks — full transparency:
 | Hook | Event | Records |
 |------|-------|---------|
 | SessionStart | new session | session marker |
-| UserPromptSubmit | your prompt | hashed task marker by default (text is explicit opt-in) |
+| UserPromptSubmit | your prompt | first 200 characters after setup; choose `hash` or `off` for stronger privacy |
 | SessionStart + PostToolUse | `Read\|Glob\|Grep`, `Skill`, and Bash | doc reads, native searches, skill names, explicit `rg`/`grep`/`find` targets, and expanded Bash reader paths |
 
 1. **Hooks log shell-side** to `$PROJECT/.trigger-tree/history.jsonl` — zero model
@@ -232,15 +232,14 @@ discoverable instead of disappearing at the right edge.
 
 **Browse per prompt**: press ← to move to older prompts and → to move to newer
 ones — the tree filters to exactly what was aggregated for that input (its reads,
-scans and skill uses, with its prompt label in the header: a hash by default, and
-text only after explicitly opting in to `truncate`). The timeline never wraps or
+scans and skill uses, with its prompt label in the header). The timeline never wraps or
 changes mode at its ends; `a` returns to the live overview.
 
-With the privacy-default `TT_LOG_PROMPTS='hash'`, history shows the stable short
-identifier (for example `#a1b2c3d4e5`) rather than the ambiguous `(prompt)`. To see
-a recognizable prompt preview, set `TT_LOG_PROMPTS='truncate'` in
-`.trigger-tree/config.sh`; future prompts then use the pane width up to 120 characters.
-Previously hashed prompt text cannot and should not be reconstructed.
+`/tt setup` defaults to `TT_LOG_PROMPTS='truncate'`, so history shows a recognizable
+preview of at most 200 characters. The data remains local and gitignored, but it is
+still prompt text on disk. Choose `/tt setup hash` for stable fingerprints without
+text, or `/tt setup off` for marker-only history. Only future prompts are affected;
+previously hashed prompt text cannot and should not be reconstructed.
 
 `--demo` for instant synthetic events, `--replay` to re-run your real history,
 `q` or Ctrl+C to quit. The watcher uses a full-screen terminal buffer with wrapping
@@ -280,8 +279,7 @@ Practical guidance, as encoded in `/tt suggestions`:
 
 ## Configuration
 
-Optional per-project override: `.trigger-tree/config.sh` (create it with
-`/tt setup config`):
+Per-project settings live in `.trigger-tree/config.sh` (created by `/tt setup`):
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
@@ -289,7 +287,7 @@ Optional per-project override: `.trigger-tree/config.sh` (create it with
 | `TT_SCAN_REGEX` | doc folders | which Glob/Grep and explicit Bash-search targets count as hunting |
 | `TT_ALWAYS_LOADED_REGEX` | CLAUDE/AGENTS.md, .claude/skills | auto-loaded files, augmented by recursive `@imports` and excluded from review candidates |
 | `TT_CRITICAL_GLOB` | empty | comma-separated globs protected as rare-but-critical review items |
-| `TT_LOG_PROMPTS` | `hash` | `hash` (sha1 only) · `truncate` (opt-in, 200 chars) · `off` (marker only) |
+| `TT_LOG_PROMPTS` | `truncate` after setup; `hash` without config | `truncate` (200 local chars) · `hash` (sha1 only) · `off` (marker only) |
 | `TT_ROTATE_BYTES` | 5 MB | rotate history.jsonl to a timestamped archive beyond this size |
 | `TT_EXPERIMENTAL_OUTCOMES` | `off` | `on` enables a local, correlational committed-vs-abandoned session view |
 
@@ -330,7 +328,7 @@ Missing `ts`/`session` are stamped automatically; invalid events are dropped sil
 - ✅ **No network calls of any kind** — python3 standard library only; audit every line.
 - ✅ **Nothing leaves your machine** — data lives in `$PROJECT/.trigger-tree/` (gitignored).
 - ✅ **Paths and metadata only** — file *contents* are never read or stored.
-- ✅ **No prompt text by default** — only a short hash; `truncate` is explicit opt-in.
+- ✅ **Prompt privacy is explicit** — setup explains its local preview default; `hash` and `off` remain one-command alternatives.
 - ✅ **You own deletion** — remove `.trigger-tree/` and all history is gone.
 
 Full policy: [PRIVACY.md](PRIVACY.md) · Security reports: [SECURITY.md](SECURITY.md)
@@ -390,9 +388,9 @@ the plugin hooks, local-data gitignore, statusline registration, and whether thi
 exact repository has received valid telemetry. `/tt watch` always binds its split
 to the repository that invoked it and tails new hook events in real time.
 
-**Can I change prompt logging?** The default stores only a short SHA-1 hash, never
-prompt text. Set `TT_LOG_PROMPTS='off'` for marker-only events or explicitly opt in
-to `truncate` (first 200 characters) in `.trigger-tree/config.sh`.
+**Can I change prompt logging?** Yes: `/tt setup truncate` stores recognizable
+200-character previews locally, `/tt setup hash` stores only a short SHA-1 fingerprint,
+and `/tt setup off` stores marker-only events. Existing history is not rewritten.
 
 ## Development
 

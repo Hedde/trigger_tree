@@ -42,7 +42,7 @@ Show exactly this, nothing above or below it:
 > | `/tt tips` | Concise Claude-specific instruction and memory maintenance tips |
 > | `/tt note <text>` | Annotate the timeline (e.g. "sharpened UX router") — shows up in the trend |
 > | `/tt doctor` | Verify hooks, privacy, statusline, and telemetry with actionable fixes |
-> | `/tt setup` | Wire trigger-tree into this project: gitignore, statusline, optional config |
+> | `/tt setup [truncate\|hash\|off]` | Wire the project; choose recognizable previews or privacy-first prompt markers |
 > | `/tt help` | This overview |
 >
 > Telemetry runs automatically via hooks; the statusline shows the live session counter.
@@ -136,8 +136,9 @@ maintenance recommendations only; do not edit memory or instruction files automa
 
 ## `$1` = "setup"
 
-1. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-setup.py"`
-   (append `--with-config` if `$2` is "config").
+1. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-setup.py"`. If `$2` is
+   `truncate`, `hash`, or `off`, append `--prompt-mode "$2"`. The default creates
+   truncated local previews; an existing config is preserved unless a mode is explicit.
 2. Show the script's summary lines verbatim (they report created/updated/skipped per
    step), nothing else.
 
