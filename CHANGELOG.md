@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.8.2 — 2026-07-21
+## 1.8.3 — 2026-07-21
 
 - Prevents report and session-cache symlink escapes: HTML reports are written through
   private atomic files, project-controlled symlink parents are refused, and lock/cache
@@ -17,6 +17,8 @@
   history, and avoids rescanning every archive for genuinely new sessions.
 - Clarifies that hooks store paths and metadata while selected documentation content is
   read only for local analysis and is never stored in telemetry or uploaded.
+- Exercises symlink-refusal regressions through portable metadata simulations on every
+  CI platform, including Windows environments without symlink privileges.
 
 ## 1.8.0 — 2026-07-21
 

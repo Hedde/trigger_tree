@@ -2,6 +2,7 @@ import json
 import os
 import stat
 import sys
+from types import SimpleNamespace
 
 import pytest
 from conftest import FIXTURE, load_script
@@ -98,6 +99,16 @@ def test_report_refuses_symlinked_telemetry_directory(tmp_path, monkeypatch, cap
     with pytest.raises(RuntimeError, match="symlinked .trigger-tree"):
         run_report(mod, monkeypatch, capsys, tmp_path)
     assert not (outside / "report.html").exists()
+
+
+def test_report_refuses_mocked_symlink_directory_on_every_platform(tmp_path, monkeypatch):
+    mod = load_script("tt-report.py", tmp_path)
+    out_dir = str(tmp_path / ".trigger-tree")
+    monkeypatch.setattr(mod.os.path, "lexists", lambda path: os.fspath(path) == out_dir)
+    monkeypatch.setattr(mod.os, "lstat", lambda _path: SimpleNamespace(st_mode=stat.S_IFLNK))
+
+    with pytest.raises(RuntimeError, match="symlinked .trigger-tree"):
+        mod.write_report("private")
 
 
 def test_privacy_policy_matches_local_content_analysis():

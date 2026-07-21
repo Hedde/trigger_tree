@@ -6,6 +6,7 @@ import shutil
 import stat
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 from conftest import load_script
@@ -195,6 +196,63 @@ def test_session_cache_and_lock_symlinks_are_never_followed(tmp_path):
     (telemetry / "write.lock").symlink_to(victim)
     mod.append({"t": "prompt", "session": "S"}, 1000)
     assert victim.read_text() == "untouched"
+
+
+def test_session_cache_rejects_mocked_symlink_on_every_platform(tmp_path, monkeypatch):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    mod = load_script("tt-log.py", tmp_path)
+    state_dir = str(telemetry / "sessions")
+    real_lexists = mod.os.path.lexists
+    real_lstat = mod.os.lstat
+
+    monkeypatch.setattr(
+        mod.os.path,
+        "lexists",
+        lambda path: True if os.fspath(path) == state_dir else real_lexists(path),
+    )
+    monkeypatch.setattr(
+        mod.os,
+        "lstat",
+        lambda path: (
+            SimpleNamespace(st_mode=stat.S_IFLNK)
+            if os.fspath(path) == state_dir
+            else real_lstat(path)
+        ),
+    )
+
+    mod._update_session_state(
+        str(telemetry),
+        {"t": "read", "session": "S", "path": "docs/a.md", "ts": mod.now_ts()},
+    )
+    assert not (telemetry / "sessions").exists()
+
+
+def test_append_rejects_mocked_lock_symlink_on_every_platform(tmp_path, monkeypatch):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    mod = load_script("tt-log.py", tmp_path)
+    lock_path = str(telemetry / "write.lock")
+    real_lexists = mod.os.path.lexists
+    real_lstat = mod.os.lstat
+
+    monkeypatch.setattr(
+        mod.os.path,
+        "lexists",
+        lambda path: True if os.fspath(path) == lock_path else real_lexists(path),
+    )
+    monkeypatch.setattr(
+        mod.os,
+        "lstat",
+        lambda path: (
+            SimpleNamespace(st_mode=stat.S_IFLNK)
+            if os.fspath(path) == lock_path
+            else real_lstat(path)
+        ),
+    )
+
+    mod.append({"t": "prompt", "session": "S"}, 1000)
+    assert not (telemetry / "history.jsonl").exists()
 
 
 def test_secure_append_rejects_non_directory_and_non_regular_fd(tmp_path, monkeypatch):
