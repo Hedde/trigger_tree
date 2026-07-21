@@ -211,7 +211,7 @@ Folder labels keep two signals separate: `🔍 N searches` proves the folder was
 explicitly searched, while `N unread` counts files without a Read event. Searching
 a folder never pretends its files were consulted; reading one lowers only `unread`.
 The same counters are scoped to the selected prompt when browsing with ←/→.
-The live tree refreshes its inventory every second: deleted files and folders
+The live tree refreshes its inventory every five seconds: deleted files and folders
 disappear from the current overview while their evidence remains available in
 historical prompt browsing and aggregate trends.
 Recently active folders temporarily move above quiet folders so live work stays
@@ -225,7 +225,10 @@ The live rows use horizontal five-cell heat bars and place their heat/lifetime
 column against the available right edge, so wider panes expose more of long filenames
 instead of leaving unused space. Sorting is explicit: `f` restores recent-focus,
 `h` shows hottest first, `c` shows coldest first (including untouched files), and
-`n` sorts A–Z. The current mode is always printed in the footer.
+`n` toggles A–Z and Z–A. Always-loaded `CLAUDE.md`, `AGENTS.md`, rules, and skills
+are labeled `injected` instead of being misrepresented as cold. The current mode is
+always printed in the footer. Press `s` to change prompt privacy inside the dashboard;
+changes apply to future prompts and are written atomically to the gitignored project config.
 The controls occupy their own persistent legend row (with a compact form for narrow
 panes), separate from prompt navigation and the live heartbeat, so the keys remain
 discoverable instead of disappearing at the right edge.

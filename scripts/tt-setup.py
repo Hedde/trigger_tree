@@ -15,7 +15,8 @@ Usage: python3 tt-setup.py [--prompt-mode hash|truncate|off]
 import argparse
 import json
 import os
-import shutil
+import stat
+import tempfile
 
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -32,8 +33,51 @@ def report(action, target):
     print(f"{action:8s} {target}")
 
 
+def assert_safe_destination(path, allow_directory=False):
+    """Refuse project-controlled symlinks and non-regular write destinations."""
+    root = os.path.abspath(ROOT)
+    target = os.path.abspath(path)
+    if os.path.commonpath((root, target)) != root:
+        raise RuntimeError(f"refusing destination outside project: {path}")
+    current = root
+    for part in os.path.relpath(target, root).split(os.sep):
+        current = os.path.join(current, part)
+        if not os.path.lexists(current):
+            continue
+        mode = os.lstat(current).st_mode
+        if stat.S_ISLNK(mode):
+            raise RuntimeError(f"refusing symlink destination: {current}")
+        if current != target and not stat.S_ISDIR(mode):
+            raise RuntimeError(f"refusing non-directory parent: {current}")
+        if (
+            current == target
+            and not stat.S_ISREG(mode)
+            and not (allow_directory and stat.S_ISDIR(mode))
+        ):
+            raise RuntimeError(f"refusing non-regular destination: {current}")
+
+
+def atomic_write(path, content, mode=0o644):
+    """Replace a checked project file without ever following the destination."""
+    assert_safe_destination(path)
+    parent = os.path.dirname(path)
+    assert_safe_destination(parent, allow_directory=True)
+    fd, temporary = tempfile.mkstemp(prefix=".trigger-tree-", dir=parent)
+    try:
+        os.fchmod(fd, mode)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        os.replace(temporary, path)
+    finally:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+
+
 def ensure_gitignore():
     path = os.path.join(ROOT, ".gitignore")
+    assert_safe_destination(path)
     existing = ""
     if os.path.isfile(path):
         existing = open(path, encoding="utf-8").read()
@@ -41,24 +85,25 @@ def ensure_gitignore():
     if not missing:
         report("skipped", ".gitignore (entries present)")
         return
-    with open(path, "a", encoding="utf-8") as fh:
-        if existing and not existing.endswith("\n"):
-            fh.write("\n")
-        fh.write("\n".join(missing) + "\n")
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    atomic_write(path, existing + "\n".join(missing) + "\n")
     report("updated", f".gitignore (+{len(missing)} entries)")
 
 
 def copy_statusline():
     dst_dir = os.path.join(ROOT, ".claude")
+    assert_safe_destination(dst_dir, allow_directory=True)
     os.makedirs(dst_dir, exist_ok=True)
     dst = os.path.join(dst_dir, "tt-statusline.py")
-    shutil.copyfile(os.path.join(SCRIPT_DIR, "tt-statusline.py"), dst)
-    os.chmod(dst, 0o755)
+    source = open(os.path.join(SCRIPT_DIR, "tt-statusline.py"), encoding="utf-8").read()
+    atomic_write(dst, source, 0o755)
     report("copied", ".claude/tt-statusline.py")
 
 
 def register_statusline():
     path = os.path.join(ROOT, ".claude", "settings.json")
+    assert_safe_destination(path)
     settings = {}
     if os.path.isfile(path):
         try:
@@ -79,9 +124,7 @@ def register_statusline():
         "command": STATUSLINE_CMD,
         "refreshInterval": 5,
     }
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(settings, fh, indent=2)
-        fh.write("\n")
+    atomic_write(path, json.dumps(settings, indent=2) + "\n")
     report("updated", ".claude/settings.json (statusLine registered)")
 
 
@@ -94,6 +137,7 @@ def prompt_mode_message(mode):
 
 
 def write_prompt_mode(path, mode):
+    assert_safe_destination(path)
     with open(path, encoding="utf-8") as fh:
         lines = fh.read().splitlines()
     assignment = f"TT_LOG_PROMPTS='{mode}'"
@@ -107,14 +151,15 @@ def write_prompt_mode(path, mode):
         lines.append(assignment)
         changed = True
     if changed:
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write("\n".join(lines) + "\n")
+        atomic_write(path, "\n".join(lines) + "\n")
     return changed
 
 
 def configure_prompts(mode, explicit=False):
     dst_dir = os.path.join(ROOT, ".trigger-tree")
-    os.makedirs(dst_dir, exist_ok=True)
+    assert_safe_destination(dst_dir, allow_directory=True)
+    os.makedirs(dst_dir, mode=0o700, exist_ok=True)
+    os.chmod(dst_dir, 0o700)
     dst = os.path.join(dst_dir, "config.sh")
     if os.path.isfile(dst):
         if explicit and write_prompt_mode(dst, mode):
@@ -122,7 +167,8 @@ def configure_prompts(mode, explicit=False):
         else:
             report("skipped", ".trigger-tree/config.sh (existing prompt setting preserved)")
         return
-    shutil.copyfile(os.path.join(SCRIPT_DIR, "tt-config.sh"), dst)
+    source = open(os.path.join(SCRIPT_DIR, "tt-config.sh"), encoding="utf-8").read()
+    atomic_write(dst, source)
     write_prompt_mode(dst, mode)
     report("created", f".trigger-tree/config.sh ({prompt_mode_message(mode)})")
 

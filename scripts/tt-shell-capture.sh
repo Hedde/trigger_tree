@@ -15,8 +15,11 @@ _tt_capture_reader() {
   return "$tt_exit_code"
 }
 
-cat() { _tt_capture_reader cat "$@"; }
-head() { _tt_capture_reader head "$@"; }
-tail() { _tt_capture_reader tail "$@"; }
-sed() { _tt_capture_reader sed "$@"; }
-awk() { _tt_capture_reader awk "$@"; }
+# The `function name` form is deliberately alias-safe in both Bash and zsh.
+# A user's existing alias may continue to take precedence; preserving their shell
+# semantics is more important than forcing telemetry for that command.
+function cat { _tt_capture_reader cat "$@"; }
+function head { _tt_capture_reader head "$@"; }
+function tail { _tt_capture_reader tail "$@"; }
+function sed { _tt_capture_reader sed "$@"; }
+function awk { _tt_capture_reader awk "$@"; }

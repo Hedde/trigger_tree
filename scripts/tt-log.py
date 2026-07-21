@@ -26,8 +26,10 @@ import os
 import posixpath
 import re
 import shlex
+import stat
 import subprocess
 import sys
+import tempfile
 import time
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
@@ -65,12 +67,117 @@ def now_ts():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def _session_state_path(hist_dir, session):
+    name = hashlib.sha256(str(session).encode("utf-8")).hexdigest()[:32] + ".json"
+    return os.path.join(hist_dir, "sessions", name)
+
+
+def _update_session_state(hist_dir, obj):
+    """Keep statusline work bounded and independent from history rotation."""
+    if obj.get("t") not in ("read", "scan") or not obj.get("session"):
+        return
+    state_dir = os.path.join(hist_dir, "sessions")
+    os.makedirs(state_dir, mode=0o700, exist_ok=True)
+    path = _session_state_path(hist_dir, obj["session"])
+    try:
+        state = json.loads(open(path, encoding="utf-8").read())
+    except (OSError, ValueError):
+        # Upgrade path: seed once from all rotated/current history. The event being
+        # appended is already present in the current file, so do not count it twice.
+        state = _session_state_from_history(hist_dir, obj["session"])
+    else:
+        if obj["t"] == "read":
+            state["files"] = sorted(set(state.get("files", [])) | {obj["path"]})
+        else:
+            state["scans"] = int(state.get("scans", 0)) + 1
+        state["last"] = {"t": obj["t"], "path": obj["path"], "ts": obj.get("ts", "")}
+    fd, temporary = tempfile.mkstemp(prefix=".session.", dir=state_dir, text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(state, handle, ensure_ascii=False, separators=(",", ":"))
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def _session_state_from_history(hist_dir, session):
+    files, scans, last = set(), 0, None
+    for history in sorted(glob.glob(os.path.join(hist_dir, "history*.jsonl"))):
+        try:
+            lines = open(history, encoding="utf-8")
+        except OSError:
+            continue
+        with lines:
+            for line in lines:
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    continue
+                if event.get("session") != session or event.get("t") not in ("read", "scan"):
+                    continue
+                if event["t"] == "read":
+                    files.add(event["path"])
+                else:
+                    scans += 1
+                if last is None or event.get("ts", "") >= last.get("ts", ""):
+                    last = {"t": event["t"], "path": event["path"], "ts": event.get("ts", "")}
+    return {"files": sorted(files), "scans": scans, "last": last}
+
+
 def append(obj, rotate_bytes):
     obj.setdefault("schema_version", SCHEMA_VERSION)
     hist_dir = os.path.join(ROOT, ".trigger-tree")
-    os.makedirs(hist_dir, exist_ok=True)
+    if os.path.lexists(hist_dir):
+        mode = os.lstat(hist_dir).st_mode
+        if not stat.S_ISDIR(mode) or stat.S_ISLNK(mode):
+            return
+    else:
+        os.makedirs(hist_dir, mode=0o700)
+    try:
+        os.chmod(hist_dir, 0o700)
+    except OSError:
+        pass
+    lock_path = os.path.join(hist_dir, "write.lock")
+    flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+    lock_fd = os.open(lock_path, flags, 0o600)
+    if not stat.S_ISREG(os.fstat(lock_fd).st_mode):
+        os.close(lock_fd)
+        return
+    try:
+        if os.name == "nt":  # pragma: no cover - exercised by Windows CI
+            import msvcrt
+
+            if os.path.getsize(lock_path) == 0:
+                os.write(lock_fd, b"0")
+            os.lseek(lock_fd, 0, os.SEEK_SET)
+            msvcrt.locking(lock_fd, msvcrt.LK_LOCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        _append_locked(obj, rotate_bytes, hist_dir)
+    finally:
+        if os.name == "nt":  # pragma: no cover - exercised by Windows CI
+            import msvcrt
+
+            os.lseek(lock_fd, 0, os.SEEK_SET)
+            msvcrt.locking(lock_fd, msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+
+
+def _append_locked(obj, rotate_bytes, hist_dir):
     hist = os.path.join(hist_dir, "history.jsonl")
     try:
+        if os.path.lexists(hist):
+            mode = os.lstat(hist).st_mode
+            if not stat.S_ISREG(mode) or stat.S_ISLNK(mode):
+                return
         if os.path.getsize(hist) > rotate_bytes:
             stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
             archive = os.path.join(hist_dir, f"history-{stamp}.jsonl")
@@ -79,10 +186,25 @@ def append(obj, rotate_bytes):
                 archive = os.path.join(hist_dir, f"history-{stamp}-{suffix}.jsonl")
                 suffix += 1
             os.rename(hist, archive)
+            try:
+                os.chmod(archive, 0o600)
+            except OSError:
+                pass
     except OSError:
         pass
-    with open(hist, "a", encoding="utf-8") as fh:
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(hist, flags, 0o600)
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        os.close(fd)
+        return
+    try:
+        os.chmod(hist, 0o600)
+    except OSError:
+        pass
+    with os.fdopen(fd, "a", encoding="utf-8") as fh:
         fh.write(json.dumps(obj, ensure_ascii=False) + "\n")
+    _update_session_state(hist_dir, obj)
 
 
 def rel_path(target):

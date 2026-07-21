@@ -1,3 +1,4 @@
+import hashlib
 import io
 import json
 import sys
@@ -30,6 +31,46 @@ def test_no_reads_for_session(tmp_path, monkeypatch, capsys):
     assert "0 docs consulted" in run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
 
 
+def test_session_summary_survives_history_rotation_and_avoids_rescan(tmp_path, monkeypatch, capsys):
+    telemetry = tmp_path / ".trigger-tree"
+    sessions = telemetry / "sessions"
+    sessions.mkdir(parents=True)
+    name = hashlib.sha256(b"S").hexdigest()[:32] + ".json"
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    (sessions / name).write_text(
+        json.dumps(
+            {
+                "files": ["docs/a.md", "docs/deep/b.md"],
+                "scans": 7,
+                "last": {"t": "scan", "path": "docs/new", "ts": now},
+            }
+        )
+    )
+    (telemetry / "history-rotated.jsonl").write_text("not consulted")
+    mod = load_script("tt-statusline.py", tmp_path)
+    out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
+    assert "2 files · 7 scans · 2 folders · depth 2" in out
+    assert "docs/new/" in out
+
+
+def test_session_summary_with_invalid_last_timestamp_is_cold(tmp_path, monkeypatch, capsys):
+    sessions = tmp_path / ".trigger-tree" / "sessions"
+    sessions.mkdir(parents=True)
+    name = hashlib.sha256(b"S").hexdigest()[:32] + ".json"
+    (sessions / name).write_text(
+        json.dumps(
+            {
+                "files": ["docs/a.md"],
+                "scans": 0,
+                "last": {"t": "read", "path": "docs/a.md", "ts": "invalid"},
+            }
+        )
+    )
+    mod = load_script("tt-statusline.py", tmp_path)
+    out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
+    assert "○" in out and "docs/a.md" in out
+
+
 def test_fresh_read_green_dot(tmp_path, monkeypatch, capsys):
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     write_history(
@@ -60,6 +101,17 @@ def test_scan_only_session_is_live_and_marks_folder_path(tmp_path, monkeypatch, 
 
     assert "0 files · 1 scans · 0 folders · depth 0" in out
     assert "●" in out and mod.FRESH in out and "docs/backlog/" in out
+
+
+def test_statusline_strips_terminal_controls_from_event_path(tmp_path, monkeypatch, capsys):
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    path = "docs/safe\x1b]52;c;c3RvbGVu\x07\x1b[2J\u202eevil.md"
+    write_history(tmp_path, [json.dumps({"t": "read", "ts": now, "session": "S", "path": path})])
+    mod = load_script("tt-statusline.py", tmp_path)
+    out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
+    assert "\x1b]52" not in out and "\x1b[2J" not in out and "\x07" not in out
+    assert "\u202e" not in out and "docs/safeevil.md" in out
+    assert mod.terminal_safe("café 👩‍💻") == "café 👩‍💻"
 
 
 def test_newer_scan_controls_freshness_but_read_stats_stay_read_derived(

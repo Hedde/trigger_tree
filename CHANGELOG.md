@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.6.0 — 2026-07-21
+
+- Distinguishes injected instruction context from thermal activity: `CLAUDE.md`,
+  `AGENTS.md`, and configured always-loaded paths are labeled `injected` and cannot
+  misleadingly appear as cold documentation.
+- Adds in-dashboard prompt privacy settings (`s`) with atomic, symlink-safe updates;
+  makes `n` genuinely toggle A–Z/Z–A and aligns root/nested heat columns exactly.
+- Makes the live watcher bounded by file count, preserves partial JSONL appends, and
+  reduces inventory walks without sacrificing deletion detection.
+- Keeps statusline totals across history rotation through private per-session summaries,
+  serializes concurrent hook writes, and avoids rescanning the growing history on every
+  refresh.
+- Hardens telemetry against symlink writes and terminal escape injection, makes setup
+  writes atomic, applies private permissions, and preserves Bash/zsh reader aliases.
+- Adds Python fallback without retrying failed hooks and expands regression coverage for
+  every behavior above across the supported platforms.
+
 ## 1.5.0 — 2026-07-21
 
 - Makes prompt history recognizable after setup: `/tt setup` now creates a project

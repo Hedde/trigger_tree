@@ -3,6 +3,7 @@ import json
 import os
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 
@@ -27,6 +28,146 @@ def test_rel_path(tmp_path):
     mod = load_script("tt-log.py", tmp_path)
     assert mod.rel_path(str(tmp_path / "docs" / "a.md")) == "docs/a.md"
     assert mod.rel_path("/elsewhere/x.md") == "/elsewhere/x.md"
+
+
+def test_history_is_private(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    run_main(mod, monkeypatch, ["prompt"], '{"session_id":"S","prompt":"hello"}')
+    telemetry = tmp_path / ".trigger-tree"
+    history = telemetry / "history.jsonl"
+    assert stat.S_IMODE(telemetry.stat().st_mode) == 0o700
+    assert stat.S_IMODE(history.stat().st_mode) == 0o600
+
+
+def test_logger_maintains_bounded_statusline_summary_across_rotation(tmp_path):
+    mod = load_script("tt-log.py", tmp_path)
+    first = {"t": "read", "session": "S", "path": "docs/a.md", "ts": mod.now_ts()}
+    second = {"t": "scan", "session": "S", "path": "docs", "ts": mod.now_ts()}
+    mod.append(first, 1)
+    mod.append(second, 1)
+    state_path = mod._session_state_path(str(tmp_path / ".trigger-tree"), "S")
+    state = json.loads(open(state_path, encoding="utf-8").read())
+    assert state["files"] == ["docs/a.md"]
+    assert state["scans"] == 1
+    assert state["last"]["path"] == "docs"
+    assert list((tmp_path / ".trigger-tree").glob("history-*.jsonl"))
+
+
+def test_session_summary_migrates_existing_rotated_history_without_reset(tmp_path):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    old = telemetry / "history-old.jsonl"
+    old.write_text(
+        "not json\n"
+        + json.dumps(
+            {"t": "read", "session": "S", "path": "docs/old.md", "ts": "2026-01-01T00:00:00Z"}
+        )
+        + "\n"
+        + json.dumps({"t": "scan", "session": "S", "path": "docs", "ts": "2026-01-02T00:00:00Z"})
+        + "\n"
+    )
+    mod = load_script("tt-log.py", tmp_path)
+    event = {"t": "read", "session": "S", "path": "docs/new.md", "ts": "2026-01-03T00:00:00Z"}
+    mod.append(event, 1000)
+    state = json.loads(open(mod._session_state_path(str(telemetry), "S"), encoding="utf-8").read())
+    assert state == {
+        "files": ["docs/new.md", "docs/old.md"],
+        "scans": 1,
+        "last": {"t": "read", "path": "docs/new.md", "ts": "2026-01-03T00:00:00Z"},
+    }
+
+
+def test_session_summary_skips_history_that_disappears(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    missing = str(tmp_path / "history-gone.jsonl")
+    monkeypatch.setattr(mod.glob, "glob", lambda _pattern: [missing])
+    assert mod._session_state_from_history(str(tmp_path), "S") == {
+        "files": [],
+        "scans": 0,
+        "last": None,
+    }
+
+
+def test_session_summary_atomic_cleanup_and_nonregular_history_fd(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    event = {"t": "read", "session": "S", "path": "docs/a.md", "ts": mod.now_ts()}
+    real_replace = mod.os.replace
+    monkeypatch.setattr(mod.os, "replace", lambda *_args: (_ for _ in ()).throw(OSError("full")))
+    with pytest.raises(OSError):
+        mod._update_session_state(str(telemetry), event)
+    assert not list((telemetry / "sessions").glob(".session.*"))
+    monkeypatch.setattr(mod.os, "replace", real_replace)
+
+    real_open = mod.os.open
+    calls = 0
+    read_fd, write_fd = os.pipe()
+    os.close(read_fd)
+
+    def history_is_pipe(path, flags, mode=0o777):
+        nonlocal calls
+        calls += 1
+        return write_fd if calls == 2 else real_open(path, flags, mode)
+
+    monkeypatch.setattr(mod.os, "open", history_is_pipe)
+    mod.append(event, 1000)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlink creation needs elevated rights on Windows")
+def test_history_symlink_is_never_followed(tmp_path, monkeypatch):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    victim = tmp_path / "victim"
+    victim.write_text("untouched\n")
+    (telemetry / "history.jsonl").symlink_to(victim)
+    mod = load_script("tt-log.py", tmp_path)
+    run_main(mod, monkeypatch, ["prompt"], '{"session_id":"S","prompt":"secret"}')
+    assert victim.read_text() == "untouched\n"
+
+
+def test_secure_append_rejects_non_directory_and_non_regular_fd(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    (tmp_path / ".trigger-tree").write_text("not a directory")
+    mod.append({"t": "prompt"}, 100)
+
+    (tmp_path / ".trigger-tree").unlink()
+    (tmp_path / ".trigger-tree").mkdir()
+    read_fd, write_fd = os.pipe()
+    os.close(read_fd)
+    monkeypatch.setattr(mod.os, "open", lambda *_args, **_kwargs: write_fd)
+    mod.append({"t": "prompt"}, 100)
+
+
+def test_secure_append_permission_hardening_is_best_effort(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    real_chmod = mod.os.chmod
+
+    def selective_chmod(path, mode):
+        if str(path).endswith(".trigger-tree") or str(path).endswith("history.jsonl"):
+            raise OSError("unsupported")
+        return real_chmod(path, mode)
+
+    monkeypatch.setattr(mod.os, "chmod", selective_chmod)
+    mod.append({"t": "prompt"}, 100)
+    assert (tmp_path / ".trigger-tree" / "history.jsonl").is_file()
+
+
+def test_rotated_archive_permission_hardening_is_best_effort(tmp_path, monkeypatch):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    (telemetry / "history.jsonl").write_text("old data")
+    mod = load_script("tt-log.py", tmp_path)
+    real_chmod = mod.os.chmod
+
+    def archive_chmod(path, mode):
+        if "history-" in str(path):
+            raise OSError("unsupported")
+        return real_chmod(path, mode)
+
+    monkeypatch.setattr(mod.os, "chmod", archive_chmod)
+    mod.append({"t": "prompt"}, 1)
+    assert list(telemetry.glob("history-*.jsonl"))
 
 
 @pytest.mark.skipif(os.name == "nt", reason="chmod 0 does not block reads on Windows")
@@ -77,6 +218,23 @@ def test_session_configures_runtime_shell_capture(tmp_path, monkeypatch):
     assert "export TT_RUNTIME_BASH_READS=1" in configured
     assert "export TT_SHELL_SESSION=S" in configured
     assert "tt-shell-capture.sh" in configured
+
+
+@pytest.mark.parametrize("shell", ["bash", "zsh"])
+def test_runtime_shell_capture_sources_safely_with_reader_alias(shell):
+    executable = shutil.which(shell)
+    if not executable:
+        pytest.skip(f"{shell} is unavailable")
+    capture = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "scripts", "tt-shell-capture.sh"
+    )
+    source = shlex.quote(capture)
+    if shell == "bash":
+        args = [executable, "-O", "expand_aliases", "-c", f"alias cat='cat -n'; source {source}"]
+    else:
+        args = [executable, "-c", f"alias cat='cat -n'; source {source}"]
+    result = subprocess.run(args, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_session_capture_setup_failure_never_breaks_logging(tmp_path, monkeypatch):

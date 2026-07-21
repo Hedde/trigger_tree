@@ -11,6 +11,20 @@ def plain(lines):
     return re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(lines))
 
 
+def test_terminal_render_strips_controls_but_preserves_unicode():
+    mod = load_script("tt-watch.py", FIXTURE)
+    attack = "safe\x1b]52;c;c3RvbGVu\x07\x1b[2J\r\u202eevil"
+    app = mod.App(["docs/a.md"])
+    app.feed({"t": "prompt", "prompt": attack, "session": "S"})
+    app.feed({"t": "read", "path": "docs/a.md", "session": "S", "agent": attack})
+    app.select_prev()
+    rendered = "\n".join(app.render(time.time(), width=100, height=30))
+    assert "\x1b]52" not in rendered and "\x1b[2J" not in rendered
+    assert "\x07" not in rendered and "\r" not in rendered and "\u202e" not in rendered
+    assert "safe" in rendered
+    assert mod.terminal_safe("café 👩‍💻") == "café 👩‍💻"
+
+
 def test_app_feed_pulse_and_glow(tmp_path):
     mod = load_script("tt-watch.py", FIXTURE)
     app = mod.App(["docs/a.md", "docs/sub/b.md", ".claude/skills/deploy/SKILL.md"])
@@ -83,8 +97,80 @@ def test_sort_legend_is_permanent_clear_and_adaptive():
     assert "sort:focus · [f] focus · [h] hot · [c] cold · [n] A–Z" in wide
     app.set_sort("cold")
     narrow = plain(app.render(time.time(), width=50, height=20))
-    assert "sort:cold · [f]ocus [h]ot [c]old [n]ame" in narrow
+    assert "sort:cold · [f]ocus [h]ot [c]old [n]A–Z [s]ettings" in narrow
     assert "←/→ prompts · q quit" in narrow  # navigation is a separate row
+
+
+def test_name_sort_toggles_both_directions():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md", "docs/z.md"])
+    app.set_sort("name")
+    ascending = plain(app.render(time.time(), width=100, height=30))
+    assert ascending.index("a.md") < ascending.index("z.md")
+    app.set_sort("name")
+    descending = plain(app.render(time.time(), width=100, height=30))
+    assert "[n] Z–A" in descending
+    assert descending.index("z.md") < descending.index("a.md")
+
+
+def test_injected_files_are_labeled_and_stat_columns_align():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["CLAUDE.md", "AGENTS.md", "docs/a.md"])
+    app.feed({"t": "read", "path": "CLAUDE.md", "session": "S"}, live=False)
+    app.feed({"t": "read", "path": "docs/a.md", "session": "S"}, live=False)
+    frame = plain(app.render(time.time(), width=110, height=30))
+    claude = next(line for line in frame.splitlines() if "CLAUDE.md" in line)
+    nested = next(line for line in frame.splitlines() if "a.md" in line)
+    assert "injected · 1×" in claude
+    assert claude.index("injected") == nested.index("·····")
+
+
+def test_dashboard_prompt_settings_are_interactive_and_atomic(tmp_path, monkeypatch):
+    mod = load_script("tt-watch.py", tmp_path)
+    app = mod.App([])
+    assert mod.handle_key(app, "s") is False and app.settings_open
+    assert "Prompt privacy" in plain(app.render(time.time(), 100, 20))
+    mod.handle_key(app, "3")
+    config = tmp_path / ".trigger-tree" / "config.sh"
+    assert "TT_LOG_PROMPTS='off'" in config.read_text()
+    mod.handle_key(app, "1")
+    assert "TT_LOG_PROMPTS='truncate'" in config.read_text()
+    assert "Saved: truncate" in plain(app.render(time.time(), 100, 20))
+    mod.handle_key(app, "s")
+    assert not app.settings_open
+
+
+def test_dashboard_settings_refuse_symlink_config(tmp_path):
+    mod = load_script("tt-watch.py", tmp_path)
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    victim = tmp_path / "victim"
+    victim.write_text("safe")
+    try:
+        (telemetry / "config.sh").symlink_to(victim)
+    except OSError:
+        pytest.skip("symlinks unavailable")
+    assert mod.save_prompt_mode("off") is False
+    assert victim.read_text() == "safe"
+
+
+def test_dashboard_settings_safe_fallback_and_cleanup(tmp_path, monkeypatch):
+    mod = load_script("tt-watch.py", tmp_path)
+    assert mod.prompt_mode() == "hash"
+    monkeypatch.setattr(mod, "_conf_texts", lambda: [])
+    assert mod.prompt_mode() == "hash"
+    assert mod.save_prompt_mode("invalid") is False
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.symlink_to(tmp_path / "elsewhere")
+    assert mod.save_prompt_mode("off") is False
+    telemetry.unlink()
+
+    def fail_replace(*_args):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(mod.os, "replace", fail_replace)
+    assert mod.save_prompt_mode("off") is False
+    assert not list(telemetry.glob(".config.*"))
 
 
 def test_heat_legend_is_coherent_permanent_and_adaptive():
@@ -152,6 +238,18 @@ def test_tail_handles_rotation(tmp_path):
     assert tail.poll() == []  # unchanged file: nothing new
     p.write_text('{"t":"scan","path":"docs"}\n')  # smaller file: rotation/truncation
     assert tail.poll()[0]["t"] == "scan"
+
+
+def test_tail_retries_an_in_progress_append_exactly_once(tmp_path):
+    mod = load_script("tt-watch.py", FIXTURE)
+    p = tmp_path / "h.jsonl"
+    p.write_bytes(b'{"t":"read","path":"docs/a')
+    tail = mod.Tail(str(p), from_start=True)
+    assert tail.poll() == []
+    with open(p, "ab") as fh:
+        fh.write(b'.md"}\n')
+    assert tail.poll() == [{"t": "read", "path": "docs/a.md"}]
+    assert tail.poll() == []
 
 
 def test_feed_discovers_new_file_but_not_deleted_historical_path(tmp_path):
@@ -638,10 +736,31 @@ def test_main_live_mode_resyncs_inventory_on_deterministic_clock(monkeypatch, ca
     monkeypatch.setattr(mod.time, "time", tick)
     monkeypatch.setattr(mod.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(mod, "inventory", tracked_inventory)
-    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--seconds", "1.5"])
+    monkeypatch.setattr(
+        sys, "argv", ["tt-watch.py", "--seconds", str(mod.INVENTORY_SYNC_SECS + 0.5)]
+    )
     mod.main()
-    assert len(calls) >= 2  # initial inventory plus the one-second live resync
+    assert len(calls) == 2  # initial inventory plus one bounded-cadence live resync
     assert "trigger-tree" in capsys.readouterr().out
+
+
+def test_heat_state_is_bounded_by_files_not_read_events():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md"])
+    base = mod.timestamp_epoch("2026-07-20T12:00:00Z")
+    for offset in range(10_000):
+        app.feed(
+            {
+                "t": "read",
+                "path": "docs/a.md",
+                "session": "S",
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(base + offset)),
+            },
+            live=False,
+        )
+    assert len(app.read_heat) == 1
+    assert len(app.read_heat["docs/a.md"]) == 2
+    assert app.heat_scores(base + 9_999)["docs/a.md"] > 9_000
 
 
 def test_main_exits_on_keyboard_interrupt(monkeypatch, capsys):

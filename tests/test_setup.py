@@ -1,6 +1,7 @@
 import json
 import os
 
+import pytest
 from conftest import load_script
 
 
@@ -93,3 +94,44 @@ def test_gitignore_without_trailing_newline(tmp_path, capsys):
     mod.ensure_gitignore()
     content = (tmp_path / ".gitignore").read_text()
     assert "node_modules\n.trigger-tree/*" in content
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlink creation needs elevated rights on Windows")
+@pytest.mark.parametrize(
+    "relative",
+    (".gitignore", ".claude/tt-statusline.py", ".claude/settings.json", ".trigger-tree/config.sh"),
+)
+def test_setup_refuses_symlink_write_destinations(tmp_path, relative):
+    victim = tmp_path / "outside"
+    victim.write_text("untouched\n")
+    destination = tmp_path / relative
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.symlink_to(victim)
+    mod = load_script("tt-setup.py", tmp_path)
+    with pytest.raises(RuntimeError, match="refusing symlink"):
+        mod.main(["--prompt-mode", "off"])
+    assert victim.read_text() == "untouched\n"
+
+
+def test_setup_permissions_and_security_disclosure_are_consistent(tmp_path):
+    mod = load_script("tt-setup.py", tmp_path)
+    mod.main([])
+    assert ((tmp_path / ".trigger-tree").stat().st_mode & 0o777) == 0o700
+    repo = os.path.dirname(os.path.dirname(__file__))
+    security = open(os.path.join(repo, "SECURITY.md"), encoding="utf-8").read()
+    assert "recommended `/tt setup` flow stores" in security
+    assert "200-character local preview by default" in security
+
+
+def test_safe_destination_rejects_escape_non_directory_parent_and_directory_target(tmp_path):
+    mod = load_script("tt-setup.py", tmp_path)
+    with pytest.raises(RuntimeError, match="outside project"):
+        mod.assert_safe_destination(tmp_path.parent / "outside")
+    parent = tmp_path / "parent"
+    parent.write_text("file")
+    with pytest.raises(RuntimeError, match="non-directory parent"):
+        mod.assert_safe_destination(parent / "child")
+    directory = tmp_path / "directory"
+    directory.mkdir()
+    with pytest.raises(RuntimeError, match="non-regular destination"):
+        mod.assert_safe_destination(directory)

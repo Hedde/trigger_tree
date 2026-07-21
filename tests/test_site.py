@@ -9,7 +9,8 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "grid-template-columns:repeat(auto-fit" not in html
     assert "30-day half-life while lifetime reads stay visible" in html
     assert '█".repeat' in html and '·".repeat' in html
-    assert "f focus · h hot · c cold · n A–Z" in html
+    assert "f focus · h hot · c cold" in html
+    assert 'nameDesc ? "Z–A" : "A–Z"' in html and "s settings" in html
     assert 'const sorts = { f: "focus", h: "hot", c: "cold", n: "name" }' in html
     assert "Focused top 10" in html
     assert "/tt doctor" in html

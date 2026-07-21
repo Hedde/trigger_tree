@@ -24,7 +24,9 @@ import re
 import select
 import shutil
 import sys
+import tempfile
 import time
+import unicodedata
 from collections import Counter, deque
 from datetime import datetime, timezone
 
@@ -68,6 +70,10 @@ def _conf_regex(name, fallback):
 
 
 WATCH = _conf_regex("TT_WATCH_REGEX", r"^docs/.*\.md$")
+ALWAYS_LOADED = _conf_regex(
+    "TT_ALWAYS_LOADED_REGEX",
+    r"(^|/)(CLAUDE(?:\.local)?|AGENTS)\.md$|^\.claude/(rules|skills)/",
+)
 BASES = ["docs", "agents", "skills", "agent-briefs", ".claude/rules", ".claude/skills", "."]
 
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
@@ -80,12 +86,70 @@ ESCAPE_BYTE_TIMEOUT = 0.2  # tolerate delayed terminal bytes on loaded machines
 PULSE_SECS = 1.4  # how long a flash takes to fade
 RIPPLE_DELAY = 0.09  # per tree level, leaf → root
 RECENT_SECS = 8.0  # keep recently active folders visible before alpha fallback
+INVENTORY_SYNC_SECS = 5.0  # disk discovery is useful, but a full walk need not run per second
 HEAT_HALF_LIFE_DAYS = 30.0
 HEAT_DEAD_THRESHOLD = 0.05
+INJECTED = 141
+
+
+def prompt_mode():
+    for text in _conf_texts():
+        match = re.search(r"TT_LOG_PROMPTS='(hash|truncate|off)'", text)
+        if match:
+            return match.group(1)
+    return "hash"
+
+
+def save_prompt_mode(mode):
+    """Atomically update only prompt privacy in the project config."""
+    if mode not in ("truncate", "hash", "off"):
+        return False
+    directory = os.path.join(ROOT, ".trigger-tree")
+    config = os.path.join(directory, "config.sh")
+    try:
+        if os.path.lexists(directory) and os.path.islink(directory):
+            return False
+        os.makedirs(directory, mode=0o700, exist_ok=True)
+        if os.path.lexists(config) and (os.path.islink(config) or not os.path.isfile(config)):
+            return False
+        try:
+            text = open(config, encoding="utf-8").read()
+        except FileNotFoundError:
+            text = ""
+        line = f"TT_LOG_PROMPTS='{mode}'"
+        if re.search(r"^TT_LOG_PROMPTS='[^']*'", text, flags=re.M):
+            text = re.sub(r"^TT_LOG_PROMPTS='[^']*'", line, text, flags=re.M)
+        else:
+            text = text.rstrip("\n") + ("\n" if text else "") + line + "\n"
+        fd, temporary = tempfile.mkstemp(prefix=".config.", dir=directory, text=True)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(text)
+            os.chmod(temporary, 0o600)
+            os.replace(temporary, config)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+        return True
+    except OSError:
+        return False
+
+
+def terminal_safe(value):
+    """Strip terminal controls and invisible direction overrides from untrusted text."""
+    bidi_controls = "\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069"
+    text = re.sub(r"(?:\x1b\]|\x9d).*?(?:\x07|\x1b\\|\x9c)", "", str(value), flags=re.S)
+    text = re.sub(r"(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]", "", text)
+    text = re.sub(r"\x1b[@-_]", "", text)
+    return "".join(
+        ch
+        for ch in text
+        if unicodedata.category(ch) not in ("Cc", "Cs") and ch not in bidi_controls
+    )
 
 
 def c256(n, text, bold=False):
-    return f"\x1b[{'1;' if bold else ''}38;5;{n}m{text}\x1b[0m"
+    return f"\x1b[{'1;' if bold else ''}38;5;{n}m{terminal_safe(text)}\x1b[0m"
 
 
 def inventory():
@@ -120,6 +184,7 @@ class Tail:
     def __init__(self, path, from_start=False):
         self.path = path
         self.pos = 0
+        self.pending = b""
         if not from_start and os.path.isfile(path):
             self.pos = os.path.getsize(path)
 
@@ -129,17 +194,21 @@ class Tail:
         size = os.path.getsize(self.path)
         if size < self.pos:  # truncated/rotated
             self.pos = 0
+            self.pending = b""
         if size == self.pos:
             return []
-        with open(self.path) as fh:
+        with open(self.path, "rb") as fh:
             fh.seek(self.pos)
             chunk = fh.read()
             self.pos = fh.tell()
+        chunk = self.pending + chunk
+        lines = chunk.split(b"\n")
+        self.pending = lines.pop()  # an unterminated append is retried on the next poll
         events = []
-        for line in chunk.splitlines():
+        for line in lines:
             try:
-                events.append(json.loads(line))
-            except json.JSONDecodeError:
+                events.append(json.loads(line.decode("utf-8")))
+            except (UnicodeDecodeError, json.JSONDecodeError):
                 continue
         return events
 
@@ -155,7 +224,9 @@ class App:
     def __init__(self, files):
         self.files = list(files)
         self.counts = Counter()
-        self.read_times = {}
+        # path -> (decayed score at reference timestamp, reference timestamp).
+        # This preserves exponential heat without retaining every historical read.
+        self.read_heat = {}
         self.scans = Counter()
         self.pulses = {}  # node path -> pulse start time (may lie in the future)
         self.ticker = deque(maxlen=4)
@@ -169,6 +240,9 @@ class App:
         self._current = {}  # session -> active bucket
         self.selected = None  # bucket index while browsing, None = live view
         self.sort_mode = "focus"  # focus | hot | cold | name
+        self.name_desc = False
+        self.settings_open = False
+        self.settings_message = ""
 
     def sync_inventory(self, files):
         """Make the live tree reflect disk; historical counters remain intact."""
@@ -231,7 +305,7 @@ class App:
             if timestamp is None and live:
                 timestamp = time.time()
             if timestamp is not None:
-                self.read_times.setdefault(path, []).append(timestamp)
+                self._record_heat(path, timestamp)
             self.total_reads += 1
             if path not in self.files and os.path.isfile(os.path.join(ROOT, path)):
                 self.files.append(path)
@@ -263,6 +337,22 @@ class App:
             t0 = now + (len(parts) - i) * RIPPLE_DELAY
             self.pulses[node] = max(self.pulses.get(node, 0), t0)
 
+    def _record_heat(self, path, timestamp):
+        half_life_seconds = HEAT_HALF_LIFE_DAYS * 86400
+        previous = self.read_heat.get(path)
+        if previous is None:
+            self.read_heat[path] = (1.0, timestamp)
+            return
+        score, reference = previous
+        if timestamp >= reference:
+            score *= 0.5 ** ((timestamp - reference) / half_life_seconds)
+            self.read_heat[path] = (score + 1.0, timestamp)
+        else:
+            # History should normally be chronological, but rotated/imported logs
+            # can be out of order. Add an older contribution at the current reference.
+            score += 0.5 ** ((reference - timestamp) / half_life_seconds)
+            self.read_heat[path] = (score, reference)
+
     def select_prev(self):
         if not self.buckets:
             return
@@ -285,8 +375,19 @@ class App:
 
     def set_sort(self, mode):
         if mode in ("focus", "hot", "cold", "name"):
+            if mode == "name" and self.sort_mode == "name":
+                self.name_desc = not self.name_desc
+            elif mode == "name":
+                self.name_desc = False
             self.sort_mode = mode
             self.selected = None
+
+    def set_prompt_mode(self, mode):
+        self.settings_message = (
+            f"Saved: {mode} (new prompts only)"
+            if save_prompt_mode(mode)
+            else "Could not safely update .trigger-tree/config.sh"
+        )
 
     def _glow(self, node, now):
         t0 = self.pulses.get(node)
@@ -300,11 +401,8 @@ class App:
         half_life_seconds = HEAT_HALF_LIFE_DAYS * 86400
         return Counter(
             {
-                path: sum(
-                    0.5 ** (max(0.0, now - timestamp) / half_life_seconds)
-                    for timestamp in timestamps
-                )
-                for path, timestamps in self.read_times.items()
+                path: score * 0.5 ** (max(0.0, now - reference) / half_life_seconds)
+                for path, (score, reference) in self.read_heat.items()
             }
         )
 
@@ -354,9 +452,13 @@ class App:
         return "█" * min(cells, filled) + "·" * max(0, cells - filled)
 
     def _sort_legend(self, width):
+        name_label = "Z–A" if self.name_desc else "A–Z"
         if width < 75:
-            return f" sort:{self.sort_mode} · [f]ocus [h]ot [c]old [n]ame"
-        return f" sort:{self.sort_mode} · [f] focus · [h] hot · " "[c] cold · [n] A–Z"
+            return f" sort:{self.sort_mode} · [f]ocus [h]ot [c]old [n]{name_label} [s]ettings"
+        return (
+            f" sort:{self.sort_mode} · [f] focus · [h] hot · [c] cold · "
+            f"[n] {name_label} · [s] settings"
+        )
 
     def _heat_legend(self, width):
         labels = (
@@ -378,6 +480,24 @@ class App:
             + c256(DIM, f"  {os.path.basename(ROOT)} · live doc-discovery"),
             "",
         ]
+        if self.settings_open:
+            current = prompt_mode()
+            choices = (
+                ("1", "truncate", "local previews (first 200 characters)"),
+                ("2", "hash", "fingerprints only (repeat prompts remain linkable)"),
+                ("3", "off", "markers only (maximum privacy)"),
+            )
+            lines = header + [c256(WHITE, " Prompt privacy", bold=True), ""]
+            for key, mode, description in choices:
+                marker = "●" if mode == current else "○"
+                color = GREEN if mode == current else DIM
+                lines.append(c256(color, f"  [{key}] {marker} {mode:<8}  {description}"))
+            lines += [
+                "",
+                c256(AMBER, f"  {self.settings_message}") if self.settings_message else "",
+            ]
+            lines.append(c256(DEAD, "  s/Esc back · changes apply to future prompts only"))
+            return lines[:height]
         browsing = self.selected is not None and 0 <= self.selected < len(self.buckets)
         if browsing:
             b = self.buckets[self.selected]
@@ -463,6 +583,8 @@ class App:
             candidates.sort(
                 key=lambda folder: self._folder_sort_key(folder, now, False, folder_order[folder])
             )
+            if self.sort_mode == "name" and self.name_desc:
+                candidates.sort(key=lambda folder: (folder == "", folder), reverse=True)
             shown_folders = set(candidates[:LIVE_FOLDER_LIMIT])
             more_active = max(0, len(candidates) - len(shown_folders))
             quiet = [folder for folder in folders if folder not in active]
@@ -488,15 +610,22 @@ class App:
         body = []
         stat_width = 8 if browsing else 16
         name_column = max(18, width - stat_width - 8)
-        for folder in sorted(
+        rendered_folders = sorted(
             folders,
             key=lambda d: self._folder_sort_key(d, now, browsing, folder_order.get(d, 0)),
-        ):
+        )
+        if not browsing and self.sort_mode == "name" and self.name_desc:
+            rendered_folders = sorted(rendered_folders, reverse=True)
+        for folder in rendered_folders:
             files = folders[folder]
             if not browsing and self.sort_mode == "hot":
                 files = sorted(files, key=lambda f: (-heat_scores[f], f))
             elif not browsing and self.sort_mode == "cold":
-                files = sorted(files, key=lambda f: (heat_scores[f], f))
+                files = sorted(
+                    files, key=lambda f: (bool(ALWAYS_LOADED.search(f)), heat_scores[f], f)
+                )
+            elif not browsing and self.sort_mode == "name":
+                files = sorted(files, reverse=self.name_desc)
             if not browsing:
                 shown = (
                     files
@@ -523,15 +652,20 @@ class App:
             for i, f in enumerate(shown):
                 count = counts[f]
                 heat = heat_scores[f]
+                injected = bool(ALWAYS_LOADED.search(f))
                 glow = self._glow(f, now)
-                color, bold = self._node_color(self._heat(heat), glow)
+                color, bold = self._node_color(INJECTED if injected else self._heat(heat), glow)
                 branch = "└─" if i == len(shown) - 1 else "├─"
                 name = os.path.basename(f) if folder else f
-                max_name = name_column - (3 if folder else 0)
+                prefix = f"   {branch} " if folder else " "
+                max_name = max(1, name_column - len(prefix))
                 if len(name) > max_name:
                     name = name[: max_name - 1] + "…"
-                pad = " " * max(2, name_column - len(name) - (3 if folder else 0))
-                if count:
+                pad = " " * max(2, name_column - len(prefix) - len(name))
+                if injected:
+                    stat_text = "injected" + (f" · {count}×" if count else "")
+                    stat = c256(INJECTED, stat_text, bold=True)
+                elif count:
                     stat_text = (
                         f"{self._heat_bar(heat, max_heat)} {count:>3}"
                         if browsing
@@ -540,7 +674,6 @@ class App:
                     stat = c256(color, stat_text, bold)
                 else:
                     stat = c256(DEAD, f"· {0:>3}")
-                prefix = f"   {branch} " if folder else " "
                 body.append(
                     c256(244 if folder else DIM, prefix) + c256(color, name, bold) + pad + stat
                 )
@@ -652,6 +785,12 @@ def read_key(fd):
 
 def handle_key(app, ch):
     """Key dispatch for the interactive loop. Returns True when the watcher should quit."""
+    if app.settings_open:
+        if ch in ("s", "S", "\x1b"):
+            app.settings_open = False
+        elif ch in ("1", "2", "3"):
+            app.set_prompt_mode({"1": "truncate", "2": "hash", "3": "off"}[ch])
+        return False
     if ch in ("q", "Q"):
         return True
     if ch == "[":
@@ -668,6 +807,9 @@ def handle_key(app, ch):
         app.set_sort("cold")
     elif ch in ("n", "N"):
         app.set_sort("name")
+    elif ch in ("s", "S"):
+        app.settings_open = True
+        app.settings_message = ""
     return False
 
 
@@ -717,7 +859,7 @@ def main():
     rng = random.Random()
     demo = demo_event(app.files or ["CLAUDE.md"], rng) if args.demo else None
     next_evt = time.time() + 0.5
-    next_inventory_sync = time.time() + 1.0
+    next_inventory_sync = time.time() + INVENTORY_SYNC_SECS
 
     is_tty = sys.stdout.isatty()
     stdin_tty = sys.stdin.isatty()
@@ -765,7 +907,7 @@ def main():
                     app.feed(ev)
                 if now >= next_inventory_sync:
                     app.sync_inventory(inventory())
-                    next_inventory_sync = now + 1.0
+                    next_inventory_sync = now + INVENTORY_SYNC_SECS
             size = shutil.get_terminal_size(fallback=(100, 34))
             frame = app.render(now, size.columns, size.lines)
             if is_tty:
