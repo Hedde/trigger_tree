@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.3 — 2026-07-21
+
+- Keeps the live dashboard footer visible when a busy tree overflows the terminal:
+  the rotating tip, sort controls, and navigation help can no longer be clipped by
+  the generated `files hidden` and focused-folder summary rows.
+- Adds a crowded-dashboard regression fixture covering the exact failure mode.
+
 ## 1.6.2 — 2026-07-21
 
 - Moves maintenance tips into the live dashboard as a quiet, deterministic line that

@@ -792,6 +792,27 @@ def test_client_detection_and_rotating_dashboard_tips(monkeypatch):
     assert "tip:" not in plain(app.render(0, width=100, height=30))
 
 
+def test_crowded_dashboard_never_clips_tip_or_navigation_footer():
+    mod = load_script("tt-watch.py", FIXTURE)
+    files = [f"docs/backlog/{number:04d}-item.md" for number in range(80)]
+    app = mod.App(files, ["Review project memory for stale guidance."])
+    for number, path in enumerate(files):
+        app.feed(
+            {
+                "t": "read",
+                "path": path,
+                "session": "S",
+                "ts": f"2026-07-20T12:{number % 60:02d}:00Z",
+            },
+            live=False,
+        )
+    rendered = plain(app.render(0, width=120, height=35))
+    assert len(rendered.splitlines()) <= 35
+    assert "files hidden" in rendered
+    assert "tip: Review project memory for stale guidance." in rendered
+    assert "←/→ prompts · q quit" in rendered
+
+
 def test_main_exits_on_keyboard_interrupt(monkeypatch, capsys):
     mod = load_script("tt-watch.py", FIXTURE)
     monkeypatch.setattr(sys, "argv", ["tt-watch.py"])  # no --seconds: only KI can stop it

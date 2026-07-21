@@ -638,7 +638,12 @@ class App:
 
         ticker_lines = min(3, len(self.ticker))
         tip_line = None if browsing else self._tip_line(now, width)
-        fixed = len(header) + 2 + ticker_lines + 3 + bool(tip_line)
+        # Body overflow adds a visible "files hidden" row and focus mode may
+        # add its own summary. Reserve both up front: the live footer (including
+        # its tip and key legend) must never be pushed below the terminal edge.
+        overflow_rows = 1
+        summary_rows = 1 if focus_summary else 0
+        fixed = len(header) + 2 + ticker_lines + 3 + bool(tip_line) + overflow_rows + summary_rows
         budget = max(4, height - fixed)
         total = sum((1 if d else 0) + len(fs) for d, fs in folders.items())
         hide_quiet = total > budget
@@ -714,7 +719,7 @@ class App:
                     c256(244 if folder else DIM, prefix) + c256(color, name, bold) + pad + stat
                 )
 
-        body_budget = max(1, budget - (1 if focus_summary else 0))
+        body_budget = max(1, budget)
         if len(body) > body_budget:
             hidden_extra = len(body) - body_budget
             body = body[:body_budget]
