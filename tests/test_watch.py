@@ -609,6 +609,30 @@ def test_main_live_mode_picks_up_appended_events(tmp_path, monkeypatch, capsys):
     assert "1 reads" in plain  # the live tail fed the appended event
 
 
+def test_main_live_mode_resyncs_inventory_on_deterministic_clock(monkeypatch, capsys):
+    mod = load_script("tt-watch.py", FIXTURE)
+    clock = [0.0]
+    calls = []
+
+    def tick():
+        clock[0] += 0.1
+        return clock[0]
+
+    original_inventory = mod.inventory
+
+    def tracked_inventory():
+        calls.append(clock[0])
+        return original_inventory()
+
+    monkeypatch.setattr(mod.time, "time", tick)
+    monkeypatch.setattr(mod.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(mod, "inventory", tracked_inventory)
+    monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--seconds", "1.5"])
+    mod.main()
+    assert len(calls) >= 2  # initial inventory plus the one-second live resync
+    assert "trigger-tree" in capsys.readouterr().out
+
+
 def test_main_exits_on_keyboard_interrupt(monkeypatch, capsys):
     mod = load_script("tt-watch.py", FIXTURE)
     monkeypatch.setattr(sys, "argv", ["tt-watch.py"])  # no --seconds: only KI can stop it
