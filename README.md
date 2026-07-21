@@ -62,7 +62,7 @@ dared judge.
 | You are | Your question | trigger-tree answers with |
 |---------|---------------|---------------------------|
 | Senior developer | "Why maintain docs nobody reads?" | Read counts and router gaps per file |
-| Tech lead | "Was our CLAUDE.md pruning correct?" | Trend: hunting ratio before/after each `/tt note` |
+| Tech lead | "Did search activity change after our router edit?" | Correlational trend before/after each `/tt note` |
 | Product owner | "We track token cost — where's doc utility?" | One A–F documentation health grade |
 
 ## Quick start
@@ -123,7 +123,7 @@ outcome in natural language; the bundled `trigger-tree` skill runs the same loca
 | **`/tt status`** | Snapshot: current heat, lifetime reads, untouched paths |
 | **`/tt watch`** | Live ASCII pulse dashboard (tmux split or a new terminal window) |
 | **`/tt watch demo`** | Dashboard with synthetic events — see it without waiting |
-| **`/tt insights`** | Heat/cold map analysis: untouched paths, hunting, trend, task clusters + HTML report |
+| **`/tt insights`** | Heat/cold map analysis: router reachability, search concentration, trend, task clusters + HTML report |
 | **`/tt suggestions`** | Concise scope + max 5 evidence-backed fixes; full stats stay off stdout |
 | **`/tt note <text>`** | Annotate the timeline ("sharpened UX router") — visible in the trend |
 | **`/tt doctor`** | Verify hooks, privacy, statusline, and live telemetry with actionable fixes |
@@ -168,13 +168,14 @@ Files with zero reads are **review candidates**, never removal recommendations.
 Protected context (always-loaded files, safety paths, critical tags/globs, and docs
 with many in-links) is called out as likely-keep. Then the loop closes:
 
-1. `/tt insights` shows the **folder heat & cold map** and flags **router gaps**:
-   untouched files that no other doc even links to.
-2. `/tt suggestions` turns that into concrete edits ("add X to docs/README.md under
-   Y — untouched and unreferenced, 0 reads in 3 weeks").
+1. `/tt insights` shows the **folder heat & cold map**, global in-links, and direct
+   reachability from each folder's existing `README.md`, `_index.md`, `index.md`, or
+   `CLAUDE.md`. A link elsewhere no longer masks a missing folder-router entry.
+2. `/tt suggestions` emits zero to five edits, never a quota. A link proposal is only
+   produced when both files exist and the router does not already mention the target.
 3. You apply, then `/tt note "sharpened UX router"`.
-4. The **trend** (hunting ratio per week) shows whether the change actually worked —
-   measured, not guessed.
+4. The **trend** shows whether search activity changed after the note. This is
+   correlation, not proof that the router edit caused the change.
 
 ## The dashboard
 
@@ -191,7 +192,7 @@ ripples up through its parent folders, then fades back to its heat color:
  docs/database/  · 🔍 2 searches · 1 unread
    └─ migrations.md                       ██··· h 1.4 · 4×
 
- 33 reads · 2 scans (hunting) · 1 skill uses · 3 sessions
+ 33 reads · 2 searches · 1 skill uses · 3 sessions
    ● docs/design/ui-patterns.md · 2s ago
    🔍 docs/database [Explore] · 31s ago
 ```
@@ -206,7 +207,10 @@ of its file heat. Cold therefore means **inactive now**, never obsolete or safe 
 remove; untouched and protected-context classifications remain separate safeguards.
 
 Folder labels keep two signals separate: `🔍 N searches` proves the folder was
-explicitly searched, while `N unread` counts files without a Read event. Searching
+explicitly searched, while `N unread` counts files without a Read event. Insights also
+show the search tool mix and whether searches are concentrated in a few sessions or
+distributed across many. Concentrated bursts may be intentional bulk work; neither
+pattern proves why a search occurred. Searching
 a folder never pretends its files were consulted; reading one lowers only `unread`.
 The same counters are scoped to the selected prompt when browsing with ←/→.
 The live tree refreshes its inventory every five seconds: deleted files and folders

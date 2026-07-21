@@ -9,9 +9,13 @@ import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-def router_for(path):
-    folder = path.rsplit("/", 1)[0] if "/" in path else "docs"
-    return "docs/README.md" if folder == "docs" else f"{folder}/index.md"
+def router_for(path, router_coverage=None):
+    """Return a router proven to exist in stats; never invent index.md."""
+    folder = path.rsplit("/", 1)[0] if "/" in path else "(root)"
+    for item in router_coverage or []:
+        if item.get("folder") == folder:
+            return item.get("router")
+    return None
 
 
 def build_suggestions(stats):
@@ -29,19 +33,31 @@ def build_suggestions(stats):
                 ("protected", item["path"]),
                 f"Review, likely keep — rare-but-critical: {item['path']} — {'; '.join(item['why'])}. {item['caveat']}",
             )
-        elif not item.get("referenced_from") and not item.get("template", False):
+        elif (
+            not item.get("template", False)
+            and item.get("router")
+            and not item.get("router_mentions_target", False)
+        ):
             add(
                 ("gap", item["path"]),
-                f"Review candidate: add a link to {item['path']} in {router_for(item['path'])} — no reads and no doc references it. {item['caveat']}",
+                f"Review candidate: add a link to {item['path']} in {item['router']} — both files exist and that router does not mention the target. {item['caveat']}",
             )
 
-    # Backward-compatible fallback for pre-1.0 stats payloads.
+    # Pre-1.0 payloads lack enough repository evidence for a safe link edit.
     for item in stats.get("untouched_detail", []) if not stats.get("review_candidates") else []:
         if not item.get("referenced_from") and not item.get("template", False):
             path = item["path"]
             add(
                 ("gap", path),
-                f"Review candidate: add a link to {path} in {router_for(path)} — unread and no doc references it (router gap). Low reads can mean rare-but-critical; verify before archiving.",
+                f"Review routing for {path} — legacy telemetry shows no reads or references, but cannot verify an existing router target. Low reads can mean rare-but-critical; verify before editing.",
+            )
+
+    for coverage in stats.get("router_coverage", []):
+        router = coverage.get("router")
+        for path in coverage.get("unlisted", []):
+            add(
+                ("unlisted", path),
+                f"Review candidate: add a link to {path} in {router} — both files exist and the folder router does not mention the target.",
             )
 
     for folder in stats.get("folders", []):
@@ -51,7 +67,7 @@ def build_suggestions(stats):
         if not folder.get("has_index") and folder.get("coverage", 0) < 0.5:
             add(
                 ("folder", name),
-                f"Add {name}/index.md — {folder['touched']}/{folder['files']} files read and the folder has no entry point.",
+                f"Add a folder entry point in {name}/ (README.md, _index.md, or index.md) — {folder['touched']}/{folder['files']} files read and no existing router was found.",
             )
 
     for folder in stats.get("folders", []):
@@ -67,11 +83,12 @@ def build_suggestions(stats):
                 f"Review routing for {name}/ — none of its {folder['files']} files were read. Low reads can mean rare-but-critical; verify before archiving.",
             )
 
-    for hunt in stats.get("hunting", []):
-        add(
-            ("hunt", hunt["path"]),
-            f"Sharpen the index instructions for {hunt['path']} — {hunt['scans']} searches indicate hunting instead of routed reads.",
-        )
+    for hunt in stats.get("search_activity", stats.get("hunting", [])):
+        if hunt.get("pattern") == "distributed":
+            add(
+                ("hunt", hunt["path"]),
+                f"Review routing for {hunt['path']} — {hunt['scans']} searches recur across {hunt['sessions']}/{hunt['total_sessions']} sessions ({hunt['tools']}); search telemetry is correlational, not proof of failed routing.",
+            )
 
     for path in stats.get("unknown_reads", []):
         add(

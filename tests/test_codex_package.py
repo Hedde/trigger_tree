@@ -72,3 +72,6 @@ def test_claude_command_contract_uses_plugin_root_and_only_real_scripts():
     }
     assert all((ROOT / "scripts" / name).is_file() for name in references)
     assert 'TT_CLIENT=claude "${CLAUDE_PLUGIN_ROOT}/scripts/tt-open.sh"' in text
+    assert "zero to three, never a quota" in text
+    assert "silently verify against the repository" in text
+    assert "not proof of failed routing" in text

@@ -746,7 +746,7 @@ class App:
             + c256(WHITE, f"{self.total_reads}", bold=True)
             + c256(DIM, " reads · ")
             + c256(WHITE, f"{self.total_scans}", bold=True)
-            + c256(DIM, " scans (hunting) · ")
+            + c256(DIM, " searches · ")
             + c256(WHITE, f"{self.total_skills}", bold=True)
             + c256(DIM, " skill uses · ")
             + c256(WHITE, f"{len(self.sessions)}", bold=True)

@@ -90,7 +90,7 @@
     <div class="card"><h3>🔒 Local by design</h3>
       <p>Paths and optional prompt previews stay local and gitignored. Choose truncated previews, hashes, or markers only. Stdlib only, zero network calls.</p></div>
     <div class="card"><h3>🅰️ A grade your PO gets</h3>
-      <p>Coverage, router gaps and hunting distilled into one <b>documentation health</b> score — trackable sprint over sprint.</p></div>
+      <p>Coverage, verified folder-router reachability, and search concentration distilled into one <b>documentation health</b> score — trackable sprint over sprint.</p></div>
     <div class="card"><h3>⚡ Zero model tokens</h3>
       <p>Hooks run shell-side in milliseconds. Measuring costs nothing — not in tokens, not in latency, not in context.</p></div>
     <div class="card"><h3>🤝 Claude Code · Codex</h3>
@@ -138,7 +138,7 @@ codex plugin add trigger-tree@trigger-tree
     <tr><th>Command</th><th>Does</th></tr>
     <tr><td><code>/tt status</code></td><td>Snapshot: reads, hot files, untouched paths</td></tr>
     <tr><td><code>/tt watch</code></td><td>This dashboard, live, in your terminal</td></tr>
-    <tr><td><code>/tt insights</code></td><td>Heat/cold map analysis + HTML report</td></tr>
+    <tr><td><code>/tt insights</code></td><td>Heat/cold map, router reachability, search patterns + HTML</td></tr>
     <tr><td><code>/tt suggestions</code></td><td>Max 5 evidence-backed router fixes</td></tr>
     <tr><td><code>/tt note</code></td><td>Annotate router changes on the timeline</td></tr>
     <tr><td><code>/tt doctor</code></td><td>Prove this repo is wired and receiving events</td></tr>
@@ -213,7 +213,7 @@ codex plugin add trigger-tree@trigger-tree
         out += `   <span class="f">${branch}</span> <span class="${cls}"${id}>${f.name.padEnd(22)}${stat}</span>\n`;
       });
     }
-    out += `\n <b>${buckets.length ? buckets.length : 0}</b><span class="f"> prompts · </span><b>${reads}</b><span class="f"> reads · </span><b>${scans}</b><span class="f"> scans (hunting) · 3 sessions</span>\n`;
+    out += `\n <b>${buckets.length ? buckets.length : 0}</b><span class="f"> prompts · </span><b>${reads}</b><span class="f"> reads · </span><b>${scans}</b><span class="f"> searches · 3 sessions</span>\n`;
     out += ` <span class="f">heat:</span> <span class="cold">cold</span> → <span class="cool">cool</span> → <span class="active">active</span> → <span class="warm">warm</span> → <span class="hot">hot</span><span class="dead"> · · untouched</span>\n`;
     out += b ? `<span class="f">   ← older · → newer · a live overview</span>\n` : `<span class="f">   ←/→ prompts · f focus · h hot · c cold · n ${nameDesc ? "Z–A" : "A–Z"} · s settings · sort:${sortMode}</span>\n<span class="cool"> tip: Review agent instructions after architecture or workflow changes.</span>\n`;
     out += ticker.slice(0, 3).map(t => `   <span class="tick">${t}</span>`).join("\n");
@@ -261,7 +261,7 @@ codex plugin add trigger-tree@trigger-tree
 
   function hunt() {
     if (hunted) return; hunted = true; mode = "hunt";
-    document.getElementById("hintx").textContent = "hunting mode: the model is searching instead of being routed — sharpen your index!";
+    document.getElementById("hintx").textContent = "search activity: concentration across sessions helps separate bulk work from recurring discovery friction";
     let i = 0;
     const iv = setInterval(() => {
       const g = tree[Math.floor(Math.random() * tree.length)];

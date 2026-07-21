@@ -16,6 +16,7 @@ Usage: python3 tt-stats.py [path/to/history.jsonl]
 import glob
 import hashlib
 import json
+import math
 import os
 import re
 import sys
@@ -37,6 +38,7 @@ HIGH_IN_LINK_COUNT = 3
 SCHEMA_VERSION = 1
 HEAT_HALF_LIFE_DAYS = 30.0
 HEAT_WINDOWS_DAYS = (7, 30, 90)
+ROUTER_NAMES = ("README.md", "_index.md", "index.md", "CLAUDE.md")
 
 
 def _conf_texts():
@@ -193,6 +195,27 @@ def posix_dirname(path):
     return path.rsplit("/", 1)[0] if "/" in path else ""
 
 
+def folder_routers(docs):
+    """Return the actual entry point for each folder, never an invented filename."""
+    available = set(docs)
+    folders = {posix_dirname(path) for path in docs}
+    routers = {}
+    for folder in folders:
+        for name in ROUTER_NAMES:
+            candidate = f"{folder}/{name}" if folder else name
+            if candidate in available:
+                routers[folder] = candidate
+                break
+    return routers
+
+
+def text_mentions_target(text, target, source):
+    """Conservatively detect an existing local reference before proposing one."""
+    base = target.rsplit("/", 1)[-1]
+    relative = os.path.relpath(target, posix_dirname(source) or ".").replace(os.sep, "/")
+    return any(value and value in text for value in (target, relative, base))
+
+
 def is_safety_path(path):
     return path.startswith(".claude/rules/") or path.startswith("security/") or "/security/" in path
 
@@ -308,6 +331,34 @@ def main():
         data.update(temporal_metrics(data["read_times"], heat_as_of))
 
     scan_targets = Counter(e["path"] for e in scans)
+    scans_by_target_session = defaultdict(Counter)
+    scan_tools = defaultdict(Counter)
+    for event in scans:
+        target = event["path"]
+        scans_by_target_session[target][event.get("session", "?")] += 1
+        scan_tools[target][event.get("tool", "unknown")] += 1
+    search_activity = []
+    for path, count in scan_targets.most_common(10):
+        session_count = len(scans_by_target_session[path])
+        max_session_share = max(scans_by_target_session[path].values(), default=0) / count
+        pattern = (
+            "concentrated"
+            if session_count <= max(2, math.ceil(max(1, len(sessions)) * 0.2))
+            or max_session_share >= 0.6
+            else "distributed"
+        )
+        search_activity.append(
+            {
+                "path": path,
+                "scans": count,
+                "sessions": session_count,
+                "total_sessions": len(sessions),
+                "session_reach": round(session_count / max(1, len(sessions)), 2),
+                "max_session_share": round(max_session_share, 2),
+                "tools": dict(scan_tools[path]),
+                "pattern": pattern,
+            }
+        )
 
     per_skill = defaultdict(lambda: {"uses": 0, "sessions": set(), "last_used": None})
     for e in skill_events:
@@ -397,6 +448,7 @@ def main():
         {
             "period": k,
             **v,
+            "search_ratio": round(v["scans"] / v["reads"], 2) if v["reads"] else None,
             "hunting_ratio": round(v["scans"] / v["reads"], 2) if v["reads"] else None,
         }
         for k, v in sorted(trend_buckets.items())
@@ -424,12 +476,39 @@ def main():
             texts[p] = open(os.path.join(ROOT, p), encoding="utf-8", errors="ignore").read()
         except OSError:
             texts[p] = ""
+    routers = folder_routers(docs)
+    router_coverage = []
+    for folder, router in sorted(routers.items()):
+        members = [
+            path
+            for path in docs
+            if posix_dirname(path) == folder and path != router and path not in always_loaded_set
+        ]
+        listed = [path for path in members if text_mentions_target(texts[router], path, router)]
+        router_coverage.append(
+            {
+                "folder": folder or "(root)",
+                "router": router,
+                "files": len(members),
+                "listed": len(listed),
+                "unlisted": sorted(set(members) - set(listed)),
+            }
+        )
     untouched_detail = []
     for p in untouched:
         base = p.rsplit("/", 1)[-1]
         refs = [q for q, t in texts.items() if q != p and (p in t or base in t)]
+        router = routers.get(posix_dirname(p))
         untouched_detail.append(
-            {"path": p, "referenced_from": sorted(refs)[:5], "template": base.startswith("_")}
+            {
+                "path": p,
+                "referenced_from": sorted(refs)[:5],
+                "template": base.startswith("_"),
+                "router": router,
+                "router_mentions_target": bool(
+                    router and text_mentions_target(texts[router], p, router)
+                ),
+            }
         )
 
     review_candidates = []
@@ -528,11 +607,10 @@ def main():
             for window in HEAT_WINDOWS_DAYS:
                 fm[f"reads_{window}d"] += data[f"reads_{window}d"]
             fm["last_read"] = max(filter(None, [fm["last_read"], data["last_read"]]), default=None)
-    index_names = {"index.md", "_index.md", "README.md", "CLAUDE.md"}
     folders_with_index = {
         p.rsplit("/", 1)[0] if "/" in p else "(root)"
         for p in docs
-        if p.rsplit("/", 1)[-1] in index_names
+        if p.rsplit("/", 1)[-1] in ROUTER_NAMES
     }
     folders = [
         {
@@ -549,7 +627,10 @@ def main():
     router_gaps = sum(1 for d in untouched_detail if not d["referenced_from"])
     denom = max(1, len(docs) - len(always_loaded))
     coverage_overall = round(len(touched_paths & set(docs)) / denom, 2)
-    hunting_ratio = round(len(scans) / len(reads), 2) if reads else 0.0
+    distributed_scans = sum(
+        item["scans"] for item in search_activity if item["pattern"] == "distributed"
+    )
+    distributed_search_ratio = round(distributed_scans / len(reads), 2) if reads else 0.0
     score = max(
         0,
         min(
@@ -558,7 +639,7 @@ def main():
                 100
                 - (1 - coverage_overall) * 40
                 - min(20, router_gaps * 4)
-                - min(20, hunting_ratio * 50)
+                - min(20, distributed_search_ratio * 50)
             ),
         ),
     )
@@ -569,7 +650,7 @@ def main():
         "drivers": [
             f"{len(untouched)} of {len(docs)} docs untouched",
             f"{router_gaps} router gaps (untouched and unreferenced)",
-            f"hunting ratio {hunting_ratio}",
+            f"distributed search ratio {distributed_search_ratio}",
         ],
     }
 
@@ -624,6 +705,7 @@ def main():
         "untouched": untouched,
         "untouched_detail": untouched_detail,
         "review_candidates": review_candidates,
+        "router_coverage": router_coverage,
         "protected_docs": protected_docs,
         "folders": folders,
         "always_loaded": always_loaded,
@@ -638,7 +720,8 @@ def main():
         "history_schema": {"current": SCHEMA_VERSION, **history_diagnostics},
         "experimental_outcomes": experimental_outcomes,
         "unknown_reads": sorted(p for p in read_paths if p not in docs),
-        "hunting": [{"path": p, "scans": n} for p, n in scan_targets.most_common(10)],
+        "search_activity": search_activity,
+        "hunting": search_activity,  # compatibility alias; scans are not causal evidence
         "trend": trend,
         "notes": notes,
         "clusters": clusters[:12],

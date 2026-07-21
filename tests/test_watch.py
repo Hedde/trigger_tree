@@ -422,7 +422,7 @@ def test_scan_only_prompt_shows_folder_search_without_faking_a_read():
 
     frame = re.sub(r"\x1b\[[0-9;]*m", "", "\n".join(app.render(time.time(), 100, 30)))
     assert "docs/ui/  · 🔍 1 search · 2 unread" in frame
-    assert "0 reads · 1 scans" in frame
+    assert "0 reads · 1 searches" in frame
     assert "a.md" not in frame and "b.md" not in frame
 
 

@@ -33,6 +33,70 @@ def test_pure_helpers():
     assert [mod.grade_for(x) for x in (95, 80, 65, 50, 10)] == ["A", "B", "C", "D", "F"]
 
 
+def test_router_coverage_uses_existing_index_and_ignores_unrelated_inlinks(tmp_path, monkeypatch):
+    architecture = tmp_path / "docs" / "architecture"
+    other = tmp_path / "docs" / "other"
+    architecture.mkdir(parents=True)
+    other.mkdir(parents=True)
+    (architecture / "_index.md").write_text("- [Listed](listed.md)\n")
+    (architecture / "listed.md").write_text("Listed\n")
+    (architecture / "unlisted.md").write_text("Unlisted\n")
+    (other / "reference.md").write_text("See ../architecture/unlisted.md\n")
+    write_history(tmp_path, [{"t": "session", "session": "S"}])
+
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+    coverage = {item["folder"]: item for item in stats["router_coverage"]}
+
+    assert coverage["docs/architecture"] == {
+        "folder": "docs/architecture",
+        "router": "docs/architecture/_index.md",
+        "files": 2,
+        "listed": 1,
+        "unlisted": ["docs/architecture/unlisted.md"],
+    }
+    detail = {item["path"]: item for item in stats["untouched_detail"]}
+    assert detail["docs/architecture/unlisted.md"]["referenced_from"] == ["docs/other/reference.md"]
+    assert detail["docs/architecture/unlisted.md"]["router_mentions_target"] is False
+
+
+def test_search_activity_distinguishes_concentrated_and_distributed_sessions(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "README.md").write_text("Docs\n")
+    events = []
+    for number in range(10):
+        session = f"S{number}"
+        events.append({"t": "session", "session": session})
+        if number < 2:
+            events.extend(
+                {"t": "scan", "session": session, "path": "docs/bulk", "tool": "Bash"}
+                for _ in range(4)
+            )
+        if number < 6:
+            events.append(
+                {"t": "scan", "session": session, "path": "docs/repeated", "tool": "Grep"}
+            )
+    write_history(tmp_path, events)
+
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+    activity = {item["path"]: item for item in stats["hunting"]}
+    assert stats["search_activity"] == stats["hunting"]
+
+    assert activity["docs/bulk"] == {
+        "path": "docs/bulk",
+        "scans": 8,
+        "sessions": 2,
+        "total_sessions": 10,
+        "session_reach": 0.2,
+        "max_session_share": 0.5,
+        "tools": {"Bash": 8},
+        "pattern": "concentrated",
+    }
+    assert activity["docs/repeated"]["pattern"] == "distributed"
+    assert activity["docs/repeated"]["tools"] == {"Grep": 6}
+
+
 def test_temporal_heat_decays_reheats_and_keeps_lifetime_reads(tmp_path, monkeypatch):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "a.md").write_text("a")
@@ -306,7 +370,8 @@ def test_fixture_full_run(monkeypatch):
         "sessions": 1,
         "last_used": "2026-07-01T09:05:00Z",
     }
-    assert len(s["trend"]) == 4 and s["trend"][0]["hunting_ratio"] == 0.2
+    assert len(s["trend"]) == 4 and s["trend"][0]["search_ratio"] == 0.2
+    assert s["trend"][0]["hunting_ratio"] == 0.2  # compatibility alias
     assert s["notes"] == [{"ts": "2026-07-01T10:00:00Z", "text": "sharpened UX router"}]
     # three task clusters: UX (2 similar sessions merged via Jaccard), database, incident
     assert len(s["clusters"]) == 3, s["clusters"]
@@ -317,13 +382,13 @@ def test_fixture_full_run(monkeypatch):
     ]
 
     assert s["health"] == {
-        "score": 50,
+        "score": 56,
         "grade": "D",
         "coverage": 0.41,
         "drivers": [
             "19 of 34 docs untouched",
             "12 router gaps (untouched and unreferenced)",
-            "hunting ratio 0.12",
+            "distributed search ratio 0.0",
         ],
     }
 

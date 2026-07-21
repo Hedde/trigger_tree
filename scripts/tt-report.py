@@ -93,7 +93,7 @@ def main():
     parts.append(
         "<div class=kpi>"
         f"<div><b>{t['reads']}</b>reads</div>"
-        f"<div><b>{t['scans']}</b>scans (hunting)</div>"
+        f"<div><b>{t['scans']}</b>searches</div>"
         f"<div><b>{t.get('skill_uses', 0)}</b>skill uses</div>"
         f"<div><b>{s['sessions']}</b>sessions</div>"
         f"<div><b>{len(s['files'])}/{t['inventory_files']}</b>files touched</div>"
@@ -209,15 +209,17 @@ def main():
     if s.get("trend") and len(s["trend"]) > 1:
         max_bucket = max(b["reads"] + b["scans"] for b in s["trend"]) or 1
         parts.append(
-            "<h2>Trend</h2><p class=muted>Hunting ratio per period — falling after a "
-            "router change (see notes) means the change worked.</p><div class=scroll><table>"
+            "<h2>Trend</h2><p class=muted>Search/read ratio per period. Movement after "
+            "a note is correlation, not proof that the recorded edit caused it.</p>"
+            "<div class=scroll><table>"
         )
         parts.append(
-            "<tr><th>Period</th><th>Reads</th><th>Scans</th><th></th><th>Hunting ratio</th></tr>"
+            "<tr><th>Period</th><th>Reads</th><th>Searches</th><th></th><th>Search ratio</th></tr>"
         )
         for b in s["trend"]:
             w = max(4, int(120 * (b["reads"] + b["scans"]) / max_bucket))
-            ratio = "—" if b["hunting_ratio"] is None else b["hunting_ratio"]
+            ratio_value = b.get("search_ratio", b.get("hunting_ratio"))
+            ratio = "—" if ratio_value is None else ratio_value
             parts.append(
                 f"<tr><td>{esc(b['period'])}</td><td>{b['reads']}</td><td>{b['scans']}</td>"
                 f"<td><span class=bar style='width:{w}px;background:{HEAT[2]}'></span></td>"
@@ -254,16 +256,38 @@ def main():
             parts.append(f"<tr><td>{bucket}</td><td>{value['sessions']}</td><td>{docs}</td></tr>")
         parts.append("</table></div>")
 
-    if s["hunting"]:
-        parts.append("<h2>Hunting (Glob/Grep inside doc folders)</h2><div class=scroll><table>")
-        parts.append("<tr><th>Folder</th><th>Scans</th></tr>")
+    if s.get("router_coverage"):
+        parts.append("<h2>Folder-router coverage</h2><div class=scroll><table>")
+        parts.append("<tr><th>Router</th><th>Listed</th><th>Unlisted direct files</th></tr>")
+        for item in s["router_coverage"]:
+            missing = "<br>".join("<code>" + esc(path) + "</code>" for path in item["unlisted"])
+            parts.append(
+                f"<tr><td><code>{esc(item['router'])}</code></td>"
+                f"<td>{item['listed']}/{item['files']}</td>"
+                f"<td>{missing or '—'}</td></tr>"
+            )
+        parts.append(
+            "</table></div><p class=muted>Unlisted means absent from that folder's existing "
+            "README.md, _index.md, index.md, or CLAUDE.md; links elsewhere do not count as "
+            "folder-router reachability.</p>"
+        )
+
+    search_activity = s.get("search_activity", s.get("hunting", []))
+    if search_activity:
+        parts.append("<h2>Search activity inside doc folders</h2><div class=scroll><table>")
+        parts.append(
+            "<tr><th>Folder</th><th>Scans</th><th>Sessions</th><th>Tools</th><th>Pattern</th></tr>"
+        )
         parts.extend(
-            f"<tr><td><code>{esc(h['path'])}</code></td><td>{h['scans']}</td></tr>"
-            for h in s["hunting"]
+            f"<tr><td><code>{esc(h['path'])}</code></td><td>{h['scans']}</td>"
+            f"<td>{h.get('sessions', '—')}/{h.get('total_sessions', '—')}</td>"
+            f"<td>{esc(h.get('tools', {}))}</td><td>{esc(h.get('pattern', 'unknown'))}</td></tr>"
+            for h in search_activity
         )
         parts.append(
-            "</table></div><p class=muted>Heavy hunting = the model is searching instead "
-            "of being routed. A candidate for sharper index instructions.</p>"
+            "</table></div><p class=muted>A scan records explicit search activity, not its "
+            "cause. Concentrated bursts may be intentional bulk work; distributed recurrence "
+            "can support, but does not prove, a routing hypothesis.</p>"
         )
 
     if s.get("clusters"):

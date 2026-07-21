@@ -88,7 +88,7 @@ def test_bash_lookup_then_read_improves_live_measurement_iteratively(tmp_path):
             else:
                 frame.append(line)
 
-    initial = next_frame_containing("0 reads · 0 scans")  # watcher is ready
+    initial = next_frame_containing("0 reads · 0 searches")  # watcher is ready
     log(
         "bash",
         {
@@ -100,7 +100,7 @@ def test_bash_lookup_then_read_improves_live_measurement_iteratively(tmp_path):
             },
         },
     )
-    discovered = next_frame_containing("0 reads · 1 scans")
+    discovered = next_frame_containing("0 reads · 1 searches")
     log(
         "bash",
         {
@@ -110,7 +110,7 @@ def test_bash_lookup_then_read_improves_live_measurement_iteratively(tmp_path):
             "tool_input": {"command": f"cat '{target.as_posix()}'"},
         },
     )
-    consulted = next_frame_containing("1 reads · 1 scans")
+    consulted = next_frame_containing("1 reads · 1 searches")
     watcher.terminate()
     watcher.communicate(timeout=30)
     assert "🔍" not in initial

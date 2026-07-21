@@ -44,6 +44,9 @@ def test_full_report_on_fixture(monkeypatch, capsys):
         "provisional",
         "no index file",
         "template — intentional archive",
+        "Folder-router coverage",
+        "Search activity inside doc folders",
+        "not its cause",
     ):
         assert expected in html, expected
     os.remove(out_path)  # keep the fixture clean for other tests

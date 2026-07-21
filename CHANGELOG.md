@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.0 — 2026-07-21
+
+- Makes insights proposals evidence-thresholded rather than quota-shaped: zero is a
+  valid result, and every proposed link must be re-verified against two existing files
+  and an absent router reference.
+- Adds direct folder-router coverage using the repository's actual `README.md`,
+  `_index.md`, `index.md`, or `CLAUDE.md`; unrelated in-links no longer hide files that
+  are absent from their own folder entry point.
+- Reclassifies scans as non-causal search activity with tool mix, session reach,
+  maximum-session share, and concentrated/distributed patterns. Concentrated bulk work
+  no longer creates router suggestions or lowers the documentation health score.
+- Updates the HTML report, README, website, and live terminology to explain the tighter
+  evidence boundaries without adding any project-specific context.
+
 ## 1.6.5 — 2026-07-21
 
 - Excludes injected instruction files and injected-only folders from cold sorting;

@@ -86,7 +86,7 @@ Show exactly this, nothing above or below it:
 > **🌳 trigger-tree insights** _(period, #sessions, maturity)_
 >
 > **Health** — grade + score with its three drivers, one line ("(provisional)" unless mature).
-> **Key figures** — reads, scans (hunting ratio), skill uses, files touched / inventory.
+> **Key figures** — reads, searches, skill uses, files touched / inventory.
 > **Folder heat/cold map** — from `folders`: name the hottest folder by current
 > decayed `heat` (also state 30-day and lifetime reads) and the least-covered folder,
 > one line each. Cold means inactive now, not obsolete.
@@ -96,18 +96,27 @@ Show exactly this, nothing above or below it:
 > links to it) — that's nearly always 🧭; `template: true` entries are automatically 📦.
 > When `warming`: present as untouched with the note that judgment needs more data;
 > no categories.
-> **Trend** — only when `trend` has 2+ periods: is the hunting ratio falling or rising,
-> and does that correlate with any `notes` (router changes)?
-> **Hunting** — only if scans > 20% of reads: which folder, what that suggests.
+> **Trend** — only when `trend` has 2+ periods: is `search_ratio` falling or rising,
+> and does that correlate with any `notes` (router changes)? Never say a note or edit
+> caused the change.
+> **Search activity** — only if scans > 20% of reads: use `search_activity` to report
+> the tool mix, sessions/total_sessions, and `pattern`. A scan is an explicit search in a
+> watched path, not proof of failed routing. Treat `concentrated` activity as possible
+> bulk/research workflow; only `distributed` recurrence may support a routing hypothesis.
 > **Task clusters** — top 2-3 from `clusters`: "tasks like <example prompt> consistently
 > use <paths>" — flag when a cluster misses an obvious doc.
-> **Router proposals** — max 3, concrete ("add X to docs/README.md under Y").
+> **Router proposals** — zero to three, never a quota. Use only `router_coverage`
+> entries where both `router` and target already exist and the target is in `unlisted`.
+> Before presenting a proposal, silently verify against the repository that the router
+> still exists and still does not mention the target. If verification fails or evidence
+> is insufficient, omit it. “No evidence-backed router proposals” is a valid result.
 >
 > 📊 Full report: <artifact link or file path>
 
 Analysis rules (do not repeat them in the output): lifetime read counts never decay;
 current `heat` uses the `heat_model` 30-day half-life and is distinct from untouched;
 read counts and heat are signals, not verdicts;
+scan counts are narrow search telemetry and do not establish why a search occurred;
 files in `always_loaded` are never dead by definition (system-prompt injection); a file
 younger than the measurement period is new, not untouched; subagent reads (the `agents`
 field) count fully; skill uses make `.claude/skills/**` measurable — an invoked skill's
