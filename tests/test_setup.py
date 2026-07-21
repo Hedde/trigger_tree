@@ -10,7 +10,6 @@ def test_full_setup_and_idempotency(tmp_path, monkeypatch, capsys):
     mod.main([])
     out = capsys.readouterr().out
     assert "updated" in out and "copied" in out and "created" in out
-
     assert os.path.isfile(tmp_path / ".claude" / "tt-statusline.py")
     assert os.path.isfile(tmp_path / ".trigger-tree" / "config.sh")
     assert "TT_LOG_PROMPTS='truncate'" in (tmp_path / ".trigger-tree" / "config.sh").read_text()
@@ -23,6 +22,18 @@ def test_full_setup_and_idempotency(tmp_path, monkeypatch, capsys):
     out2 = capsys.readouterr().out
     assert out2.count("skipped") >= 3
     assert (tmp_path / ".gitignore").read_text() == gitignore
+
+
+def test_safe_destination_rejects_mocked_symlink_on_every_platform(tmp_path, monkeypatch):
+    mod = load_script("tt-setup.py", tmp_path)
+    monkeypatch.setattr(mod.os.path, "lexists", lambda _path: True)
+    monkeypatch.setattr(
+        mod.os,
+        "lstat",
+        lambda _path: type("Stat", (), {"st_mode": mod.stat.S_IFLNK})(),
+    )
+    with pytest.raises(RuntimeError, match="symlink"):
+        mod.assert_safe_destination(tmp_path / "target")
 
 
 def test_setup_explicit_prompt_modes_update_only_prompt_setting(tmp_path, capsys):

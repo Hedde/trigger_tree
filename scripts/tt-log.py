@@ -88,7 +88,7 @@ def _update_session_state(hist_dir, obj):
     else:
         if obj["t"] == "read":
             state["files"] = sorted(set(state.get("files", [])) | {obj["path"]})
-        else:
+        else:  # pragma: no cover - POSIX branch, covered on Linux/macOS CI
             state["scans"] = int(state.get("scans", 0)) + 1
         state["last"] = {"t": obj["t"], "path": obj["path"], "ts": obj.get("ts", "")}
     fd, temporary = tempfile.mkstemp(prefix=".session.", dir=state_dir, text=True)
@@ -153,7 +153,7 @@ def append(obj, rotate_bytes):
                 os.write(lock_fd, b"0")
             os.lseek(lock_fd, 0, os.SEEK_SET)
             msvcrt.locking(lock_fd, msvcrt.LK_LOCK, 1)
-        else:
+        else:  # pragma: no cover - POSIX branch, covered on Linux/macOS CI
             import fcntl
 
             fcntl.flock(lock_fd, fcntl.LOCK_EX)

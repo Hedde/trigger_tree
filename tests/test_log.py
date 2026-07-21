@@ -140,6 +140,15 @@ def test_secure_append_rejects_non_directory_and_non_regular_fd(tmp_path, monkey
     mod.append({"t": "prompt"}, 100)
 
 
+def test_secure_append_rejects_nonregular_history_path_portably(tmp_path):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    (telemetry / "history.jsonl").mkdir()
+    mod = load_script("tt-log.py", tmp_path)
+    mod.append({"t": "prompt"}, 100)
+    assert (telemetry / "history.jsonl").is_dir()
+
+
 def test_secure_append_permission_hardening_is_best_effort(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
     real_chmod = mod.os.chmod
