@@ -164,7 +164,7 @@ def append(obj, rotate_bytes):
 
             os.lseek(lock_fd, 0, os.SEEK_SET)
             msvcrt.locking(lock_fd, msvcrt.LK_UNLCK, 1)
-        else:
+        else:  # pragma: no cover - POSIX branch, covered on Linux/macOS CI
             import fcntl
 
             fcntl.flock(lock_fd, fcntl.LOCK_UN)
