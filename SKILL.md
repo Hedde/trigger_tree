@@ -22,7 +22,7 @@ Only when the stats JSON reports `maturity: "mature"` may untouched files be pre
 as **dead-path candidates**. During `cold-start` and `warming` the measurement is simply
 too young to judge.
 
-Scripts live in `${CLAUDE_SKILL_DIR}/scripts/`. Project data lives in
+Scripts live in `${CLAUDE_PLUGIN_ROOT}/scripts/`. Project data lives in
 `${CLAUDE_PROJECT_DIR}/.trigger-tree/`.
 
 ## `$1` = "help" or empty
@@ -49,7 +49,7 @@ Show exactly this, nothing above or below it:
 
 ## `$1` = "status"
 
-1. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-stats.py"` and read the JSON.
+1. Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-stats.py"` and read the JSON.
 2. Show only this block:
 
 > **🌳 trigger-tree status** _(period: <observed_from> → <observed_to>, <sessions> sessions)_
@@ -65,17 +65,17 @@ Show exactly this, nothing above or below it:
 
 ## `$1` = "watch"
 
-1. Silently run `"${CLAUDE_SKILL_DIR}/scripts/tt-open.sh" $2` (`$2` empty, `demo` or `replay`).
+1. Silently run `"${CLAUDE_PLUGIN_ROOT}/scripts/tt-open.sh" $2` (`$2` empty, `demo` or `replay`).
 2. Answer with exactly the confirmation line the script prints (it reports tmux split /
    new window / used terminal). If the script fails, report the cause in one line (on
    first use macOS may ask for Automation permission; mention that if the error points to it).
 
 ## `$1` = "insights"
 
-1. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-stats.py"` and read the JSON.
+1. Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-stats.py"` and read the JSON.
 2. If `maturity` is `cold-start`: answer in one line —
    `🌳 Not enough data yet (<reads> reads, <sessions> sessions) — check back after a few working sessions.` Stop.
-3. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-report.py"` — it writes
+3. Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-report.py"` — it writes
    `.trigger-tree/report.html` and prints the path.
 4. Publish that file with the Artifact tool (favicon `🌳`, description "trigger-tree
    documentation telemetry report"). No Artifact tool available → use the local path
@@ -114,7 +114,7 @@ SKILL.md counts as touched.
 
 ## `$1` = "suggestions"
 
-Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-suggestions.py"` (fall back to
+Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-suggestions.py"` (fall back to
 `python` if needed) and show its concise output verbatim. The script keeps full stats
 off stdout, explains its evidence scope, prints at most five deterministic router
 edits, and changes nothing. Apply only numbers the user explicitly confirms, then
@@ -122,21 +122,21 @@ suggest recording the change with `/tt note`.
 
 ## `$1` = "tips"
 
-Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-tips.py" --client claude`
+Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-tips.py" --client claude`
 (fall back to `python` if needed) and show its concise output verbatim. These are
 maintenance recommendations only; do not edit memory or instruction files automatically.
 
 ## `$1` = "note"
 
 1. Take everything after the subcommand as the note text. Silently run:
-   `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-log.py" note "<text>"`
+   `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-log.py" note "<text>"`
    (the CLAUDE_SESSION_ID environment variable is picked up automatically when present).
 2. Answer with exactly one line: `🌳 Noted: "<text>" — it will show up in the trend timeline.`
    Empty text → `Usage: /tt note <text>` in one line.
 
 ## `$1` = "setup"
 
-1. Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-setup.py"`. If `$2` is
+1. Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-setup.py"`. If `$2` is
    `truncate`, `hash`, or `off`, append `--prompt-mode "$2"`. The default creates
    truncated local previews; an existing config is preserved unless a mode is explicit.
 2. Show the script's summary lines verbatim (they report created/updated/skipped per
@@ -144,7 +144,7 @@ maintenance recommendations only; do not edit memory or instruction files automa
 
 ## `$1` = "doctor"
 
-Silently run `python3 "${CLAUDE_SKILL_DIR}/scripts/tt-doctor.py"` (fall back to
+Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-doctor.py"` (fall back to
 `python` if needed). Show its output verbatim. A failed check is a diagnostic result,
 not a skill error: still show the complete output.
 

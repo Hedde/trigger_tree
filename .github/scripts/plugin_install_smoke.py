@@ -82,6 +82,12 @@ def main() -> None:
         if "${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py" not in hooks:
             raise SystemExit("shared hooks do not use the cross-client plugin root")
 
+        command_contract = (install_path / "SKILL.md").read_text()
+        if "CLAUDE_SKILL_DIR" in command_contract:
+            raise SystemExit("Claude command contract resolves scripts from the skill directory")
+        if "${CLAUDE_PLUGIN_ROOT}/scripts/tt-open.sh" not in command_contract:
+            raise SystemExit("Claude watch command does not resolve from the plugin root")
+
         print(f"Installed trigger-tree v{manifest['version']} in an isolated Claude config")
 
 

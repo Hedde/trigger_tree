@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.1 — 2026-07-21
+
+- Fixes every Claude `/tt` subcommand resolving scripts relative to the nested command
+  skill instead of the plugin root. `/tt watch` now opens directly without a failed
+  command and filesystem search first.
+- Extends source and isolated-install regression checks so every documented command
+  references a real packaged script through `CLAUDE_PLUGIN_ROOT`.
+
 ## 1.6.0 — 2026-07-21
 
 - Distinguishes injected instruction context from thermal activity: `CLAUDE.md`,

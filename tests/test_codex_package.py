@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 from conftest import REPO
@@ -52,3 +53,20 @@ def test_codex_skill_has_valid_frontmatter_and_no_placeholders():
     assert "description:" in text.split("---", 2)[1]
     assert "[TODO:" not in text
     assert "official Codex lifecycle hooks" in text
+
+
+def test_claude_command_contract_uses_plugin_root_and_only_real_scripts():
+    text = (ROOT / "SKILL.md").read_text()
+    assert "CLAUDE_SKILL_DIR" not in text
+    references = re.findall(r"\$\{CLAUDE_PLUGIN_ROOT\}/scripts/([\w.-]+)", text)
+    assert set(references) == {
+        "tt-doctor.py",
+        "tt-log.py",
+        "tt-open.sh",
+        "tt-report.py",
+        "tt-setup.py",
+        "tt-stats.py",
+        "tt-suggestions.py",
+        "tt-tips.py",
+    }
+    assert all((ROOT / "scripts" / name).is_file() for name in references)
