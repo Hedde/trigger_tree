@@ -8,8 +8,8 @@ ROOT = Path(REPO)
 
 
 def test_codex_manifest_is_complete_and_references_real_components():
-    manifest = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())
-    claude = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())
+    manifest = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    claude = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     assert manifest["name"] == claude["name"] == "trigger-tree"
     assert manifest["version"] == claude["version"]
     assert manifest["skills"] == "./skills/"
@@ -29,7 +29,9 @@ def test_codex_manifest_is_complete_and_references_real_components():
 
 
 def test_codex_marketplace_installs_repository_root_from_git():
-    market = json.loads((ROOT / ".agents" / "plugins" / "marketplace.json").read_text())
+    market = json.loads(
+        (ROOT / ".agents" / "plugins" / "marketplace.json").read_text(encoding="utf-8")
+    )
     assert market["name"] == "trigger-tree"
     assert market["interface"]["displayName"] == "trigger-tree"
     assert len(market["plugins"]) == 1
@@ -48,7 +50,7 @@ def test_codex_marketplace_installs_repository_root_from_git():
 
 
 def test_codex_skill_has_valid_frontmatter_and_no_placeholders():
-    text = (ROOT / "skills" / "trigger-tree" / "SKILL.md").read_text()
+    text = (ROOT / "skills" / "trigger-tree" / "SKILL.md").read_text(encoding="utf-8")
     assert text.startswith("---\nname: trigger-tree\n")
     assert "description:" in text.split("---", 2)[1]
     assert "[TODO:" not in text
@@ -57,7 +59,7 @@ def test_codex_skill_has_valid_frontmatter_and_no_placeholders():
 
 
 def test_claude_command_contract_uses_plugin_root_and_only_real_scripts():
-    text = (ROOT / "SKILL.md").read_text()
+    text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
     assert "CLAUDE_SKILL_DIR" not in text
     references = re.findall(r"\$\{CLAUDE_PLUGIN_ROOT\}/scripts/([\w.-]+)", text)
     assert set(references) == {

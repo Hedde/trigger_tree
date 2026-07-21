@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.0 — 2026-07-21
+## 1.7.1 — 2026-07-21
 
 - Makes insights proposals evidence-thresholded rather than quota-shaped: zero is a
   valid result, and every proposed link must be re-verified against two existing files
