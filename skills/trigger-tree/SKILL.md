@@ -10,7 +10,8 @@ Use the scripts under the plugin root. Resolve it by walking two directories up 
 
 - Status: run `python3 scripts/tt-stats.py` and summarize current heat, lifetime reads,
   untouched paths, and maturity.
-- Live dashboard: run `scripts/tt-open.sh`, optionally with `demo` or `replay`.
+- Live dashboard: run `TT_CLIENT=codex scripts/tt-open.sh`, optionally with `demo` or
+  `replay`, so the detached dashboard loads only Codex-specific tips.
 - Insights: run `python3 scripts/tt-report.py` and link the generated local HTML report.
 - Suggestions: run `python3 scripts/tt-suggestions.py` and return its output verbatim.
 - Tips: run `python3 scripts/tt-tips.py --client codex` and return its output verbatim.

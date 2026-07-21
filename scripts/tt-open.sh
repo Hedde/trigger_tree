@@ -36,7 +36,11 @@ if [ -z "$CLIENT" ]; then
   elif [ -n "${CODEX_HOME:-}" ] || [ -n "${PLUGIN_ROOT:-}" ]; then
     CLIENT="codex"
   else
-    CLIENT="auto"
+    case "$SCRIPT_DIR" in
+      */.claude/plugins/*) CLIENT="claude" ;;
+      */.codex/plugins/*) CLIENT="codex" ;;
+      *) CLIENT="auto" ;;
+    esac
   fi
 fi
 

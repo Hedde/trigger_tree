@@ -64,7 +64,9 @@ Show exactly this, nothing above or below it:
 
 ## `$1` = "watch"
 
-1. Silently run `"${CLAUDE_PLUGIN_ROOT}/scripts/tt-open.sh" $2` (`$2` empty, `demo` or `replay`).
+1. Silently run `TT_CLIENT=claude "${CLAUDE_PLUGIN_ROOT}/scripts/tt-open.sh" $2`
+   (`$2` empty, `demo` or `replay`). The explicit client marker is required so the
+   detached dashboard can load Claude-specific maintenance tips.
 2. Answer with exactly the confirmation line the script prints (it reports tmux split /
    new window / used terminal). If the script fails, report the cause in one line (on
    first use macOS may ask for Automation permission; mention that if the error points to it).

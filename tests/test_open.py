@@ -46,3 +46,29 @@ def test_launcher_passes_explicit_or_detected_client(tmp_path):
         dryrun(tmp_path, CLAUDE_PLUGIN_ROOT="/plugin").stdout.rstrip().endswith("--client claude")
     )
     assert dryrun(tmp_path, CODEX_HOME="/codex").stdout.rstrip().endswith("--client codex")
+
+
+def test_installed_cache_path_is_a_client_detection_fallback(tmp_path):
+    source = pathlib.Path(SCRIPTS) / "tt-open.sh"
+    for cache_dir, expected in (
+        (".claude/plugins/cache", "claude"),
+        (".codex/plugins/cache", "codex"),
+    ):
+        scripts = tmp_path / cache_dir / "trigger-tree/1.6.4/scripts"
+        scripts.mkdir(parents=True)
+        manifest_dir = scripts.parent / ".claude-plugin"
+        manifest_dir.mkdir()
+        (manifest_dir / "plugin.json").write_text('{"version": "1.6.4"}')
+        launcher = scripts / "tt-open.sh"
+        shutil.copy(source, launcher)
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if key not in ("CLAUDE_PLUGIN_ROOT", "CODEX_HOME", "PLUGIN_ROOT", "TT_CLIENT")
+        }
+        env.update(CLAUDE_PROJECT_DIR=str(tmp_path), TT_OPEN_DRYRUN="1")
+        result = subprocess.run(
+            [shutil.which("bash") or "bash", launcher], env=env, capture_output=True, text=True
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.rstrip().endswith(f"--client {expected}")

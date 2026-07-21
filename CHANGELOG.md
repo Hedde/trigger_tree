@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.4 — 2026-07-21
+
+- Fixes empty dashboard tips by passing Claude/Codex identity explicitly from each
+  command contract into the detached watcher process.
+- Adds installed-cache-path detection as a fallback plus regression coverage for both
+  Claude and Codex launch paths.
+
 ## 1.6.3 — 2026-07-21
 
 - Keeps the live dashboard footer visible when a busy tree overflows the terminal:

@@ -53,6 +53,7 @@ def test_codex_skill_has_valid_frontmatter_and_no_placeholders():
     assert "description:" in text.split("---", 2)[1]
     assert "[TODO:" not in text
     assert "official Codex lifecycle hooks" in text
+    assert "TT_CLIENT=codex scripts/tt-open.sh" in text
 
 
 def test_claude_command_contract_uses_plugin_root_and_only_real_scripts():
@@ -70,3 +71,4 @@ def test_claude_command_contract_uses_plugin_root_and_only_real_scripts():
         "tt-tips.py",
     }
     assert all((ROOT / "scripts" / name).is_file() for name in references)
+    assert 'TT_CLIENT=claude "${CLAUDE_PLUGIN_ROOT}/scripts/tt-open.sh"' in text
