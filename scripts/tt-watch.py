@@ -153,10 +153,10 @@ def terminal_safe(value):
 def detect_client(explicit="auto"):
     if explicit in ("claude", "codex"):
         return explicit
-    if os.environ.get("CLAUDE_PLUGIN_ROOT"):
-        return "claude"
     if os.environ.get("CODEX_HOME") or os.environ.get("PLUGIN_ROOT"):
         return "codex"
+    if os.environ.get("CLAUDE_PLUGIN_ROOT"):
+        return "claude"
     return None
 
 
@@ -238,11 +238,15 @@ class Tail:
         return events
 
 
-def load_all_events():
-    events = []
+def iter_all_events():
+    """Stream archived history in order without retaining a second full copy."""
     for path in all_history_files():
-        events.extend(Tail(path, from_start=True).poll())
-    return events
+        yield from Tail(path, from_start=True).poll()
+
+
+def load_all_events():
+    """Materialize history only for accelerated replay, which needs indexing."""
+    return list(iter_all_events())
 
 
 class App:
@@ -274,6 +278,20 @@ class App:
         """Make the live tree reflect disk; historical counters remain intact."""
         self.files = sorted(set(files))
 
+    def _trim_buckets(self):
+        """Bound both browseable buckets and per-session references to them."""
+        if len(self.buckets) <= BUCKET_LIMIT:
+            return
+        evicted_count = len(self.buckets) - BUCKET_LIMIT
+        evicted = self.buckets[:evicted_count]
+        del self.buckets[:evicted_count]
+        for bucket in evicted:
+            session = bucket["session"]
+            if self._current.get(session) is bucket:
+                del self._current[session]
+        if self.selected is not None:
+            self.selected = max(0, self.selected - evicted_count)
+
     def feed(self, ev, live=True):
         t = ev.get("t")
         if live:
@@ -294,11 +312,7 @@ class App:
             self.buckets.append(bucket)
             self._current[s_id] = bucket
             self.total_prompts += 1
-            if len(self.buckets) > BUCKET_LIMIT:
-                evicted = len(self.buckets) - BUCKET_LIMIT
-                del self.buckets[:evicted]
-                if self.selected is not None:
-                    self.selected = max(0, self.selected - evicted)
+            self._trim_buckets()
             if live:  # a typed prompt is instantly visible: the pipeline is alive
                 txt = bucket["prompt"][:44] + ("…" if len(bucket["prompt"]) > 44 else "")
                 self.ticker.appendleft((time.time(), "▸", f'"{txt}"', "prompt"))
@@ -314,6 +328,7 @@ class App:
                 }
                 self.buckets.append(bucket)
                 self._current[s_id] = bucket
+                self._trim_buckets()
             bucket["events"].append(
                 {
                     "t": t,
@@ -908,7 +923,7 @@ def main():
     if args.replay:
         replay_events = load_all_events()
     else:
-        for ev in load_all_events():
+        for ev in iter_all_events():
             app.feed(ev, live=False)  # historic counts, no flashing
     rng = random.Random()
     demo = demo_event(app.files or ["CLAUDE.md"], rng) if args.demo else None

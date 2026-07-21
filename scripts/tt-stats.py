@@ -20,6 +20,7 @@ import json
 import math
 import os
 import re
+import stat
 import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -42,6 +43,8 @@ HEAT_HALF_LIFE_DAYS = 30.0
 HEAT_WINDOWS_DAYS = (7, 30, 90)
 ROUTER_NAMES = ("README.md", "_index.md", "index.md", "CLAUDE.md")
 TREND_MIN_EVENTS = 10
+MAX_CO_READ_PATHS = 200
+EVENT_TYPES = {"session", "prompt", "read", "scan", "skill", "note", "outcome"}
 
 
 def _conf_texts():
@@ -104,10 +107,20 @@ def inventory():
         walker = os.walk(top) if base != "." else [(top, [], os.listdir(top))]
         for dirpath, _, files in walker:
             for f in files:
-                rel = os.path.relpath(os.path.join(dirpath, f), ROOT).replace(os.sep, "/")
-                if WATCH.search(rel):
+                full_path = os.path.join(dirpath, f)
+                rel = os.path.relpath(full_path, ROOT).replace(os.sep, "/")
+                if WATCH.search(rel) and safe_regular_file(full_path):
                     seen.add(rel)
     return sorted(seen)
+
+
+def safe_regular_file(path):
+    """Accept only real regular files; never follow project-controlled symlinks."""
+    try:
+        mode = os.lstat(path).st_mode
+    except OSError:
+        return False
+    return stat.S_ISREG(mode)
 
 
 def history_files(explicit=None):
@@ -117,12 +130,25 @@ def history_files(explicit=None):
     return sorted(glob.glob(os.path.join(ROOT, ".trigger-tree", "history*.jsonl")))
 
 
+def valid_event(event):
+    """Reject structurally incomplete telemetry before aggregation can crash."""
+    event_type = event.get("t")
+    if event_type not in EVENT_TYPES:
+        return False
+    if "ts" in event and not isinstance(event["ts"], str):
+        return False
+    required = (
+        "path" if event_type in ("read", "scan") else "skill" if event_type == "skill" else None
+    )
+    return required is None or isinstance(event.get(required), str) and bool(event[required])
+
+
 def load_events_with_diagnostics(paths):
     events = []
     seen_tool_calls = set()
     diagnostics = {"legacy_migrated": 0, "future_rejected": 0, "corrupt_lines": 0}
     for path in paths:
-        if not os.path.isfile(path):
+        if not safe_regular_file(path):
             continue
         with open(path, encoding="utf-8") as fh:
             for line in fh:
@@ -143,6 +169,9 @@ def load_events_with_diagnostics(paths):
                     diagnostics["legacy_migrated"] += 1
                 elif version != SCHEMA_VERSION:
                     diagnostics["future_rejected"] += 1
+                    continue
+                if not valid_event(event):
+                    diagnostics["corrupt_lines"] += 1
                     continue
                 # Session resume/compaction can replay hook delivery around a boundary.
                 # Claude's tool_use_id is stable for that call, so count it once even
@@ -303,10 +332,10 @@ def jaccard(a, b):
 def detect_client(explicit="auto"):
     if explicit in ("claude", "codex"):
         return explicit
-    if os.environ.get("CLAUDE_PLUGIN_ROOT"):
-        return "claude"
     if os.environ.get("CODEX_HOME") or os.environ.get("PLUGIN_ROOT"):
         return "codex"
+    if os.environ.get("CLAUDE_PLUGIN_ROOT"):
+        return "claude"
     return None
 
 
@@ -455,8 +484,13 @@ def main():
     clusters.sort(key=lambda c: -c["count"])
 
     co_read = Counter()
+    co_read_skipped_buckets = 0
     for b in buckets:
-        for a, c in combinations(sorted(b["paths"]), 2):
+        paths = sorted(b["paths"])
+        if len(paths) > MAX_CO_READ_PATHS:
+            co_read_skipped_buckets += 1
+            continue
+        for a, c in combinations(paths, 2):
             co_read[(a, c)] += 1
 
     read_paths = set(per_file)
@@ -837,6 +871,10 @@ def main():
         "notes": notes,
         "clusters": clusters[:12],
         "co_read_top": [{"pair": list(pair), "count": n} for pair, n in co_read.most_common(15)],
+        "co_read_diagnostics": {
+            "max_paths_per_prompt": MAX_CO_READ_PATHS,
+            "oversized_prompts_skipped": co_read_skipped_buckets,
+        },
     }
     json.dump(out, sys.stdout, indent=1)
     print()

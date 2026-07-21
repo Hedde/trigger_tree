@@ -10,8 +10,10 @@ import html
 import json
 import math
 import os
+import stat
 import subprocess
 import sys
+import tempfile
 
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -70,6 +72,30 @@ def agent_label(file_row):
     )[:2]
     suffix = ", ".join(f"{esc(name)} {count}" for name, count in top_subagents)
     return f"main {main} · sub {sub}" + (f" ({suffix})" if suffix else "")
+
+
+def write_report(content):
+    """Atomically write a private report without following project-controlled links."""
+    out_dir = os.path.join(ROOT, ".trigger-tree")
+    if os.path.lexists(out_dir):
+        mode = os.lstat(out_dir).st_mode
+        if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
+            raise RuntimeError("refusing non-directory or symlinked .trigger-tree")
+    else:
+        os.makedirs(out_dir, mode=0o700)
+    out_path = os.path.join(out_dir, "report.html")
+    fd, temporary = tempfile.mkstemp(prefix=".report.", dir=out_dir, text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, out_path)
+    finally:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+    return out_path
 
 
 def main():
@@ -378,12 +404,15 @@ def main():
                 f"<td>{c['count']}</td></tr>"
             )
         parts.append("</table></div>")
+    skipped_co_reads = s.get("co_read_diagnostics", {}).get("oversized_prompts_skipped", 0)
+    if skipped_co_reads:
+        limit = s["co_read_diagnostics"]["max_paths_per_prompt"]
+        parts.append(
+            f"<p class=muted>Co-read pairs skipped for {skipped_co_reads} oversized prompt(s) "
+            f"with more than {limit} paths; task clusters and read counts remain complete.</p>"
+        )
 
-    out_dir = os.path.join(ROOT, ".trigger-tree")
-    os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "report.html")
-    with open(out_path, "w", encoding="utf-8") as fh:
-        fh.write("\n".join(parts))
+    out_path = write_report("\n".join(parts))
     print(out_path)
 
 

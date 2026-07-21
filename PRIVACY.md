@@ -36,7 +36,10 @@ anything.
 - No network requests of any kind (the code is python3 standard library only — you
   can audit every line in this repository).
 - No telemetry to the plugin author, Anthropic, or anyone else.
-- No reading of file *contents* — only paths and event metadata are logged.
+- Telemetry hooks store paths and event metadata, never documentation file contents.
+  Local analysis commands read selected documentation and instruction content to derive
+  routing, import, protection, and maintenance signals; that content is never copied into
+  telemetry or uploaded.
 - No shell commands, argument values other than matching documentation paths, search
   patterns, or Bash output are logged. Runtime wrappers pass stdout, stderr, and exit
   status through unchanged.

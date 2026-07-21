@@ -470,6 +470,46 @@ def test_bucket_retention_keeps_last_20_but_totals_aggregate_all():
     assert len(app.buckets[-1]["events"]) <= mod.EVENTS_PER_BUCKET  # runaway tasks trimmed
 
 
+def test_bucket_retention_drops_evicted_session_references():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md"])
+    for i in range(1_000):
+        app.feed({"t": "prompt", "prompt": f"task {i}", "session": f"S{i}"}, live=False)
+        app.feed({"t": "read", "path": "docs/a.md", "session": f"S{i}"}, live=False)
+    assert len(app.buckets) == mod.BUCKET_LIMIT
+    assert len(app._current) == mod.BUCKET_LIMIT
+    assert set(app._current) == {f"S{i}" for i in range(980, 1_000)}
+
+    # A later event for an evicted session creates a bounded synthetic bucket.
+    app.feed({"t": "read", "path": "docs/a.md", "session": "S0"}, live=False)
+    assert len(app.buckets) == len(app._current) == mod.BUCKET_LIMIT
+    assert app.buckets[-1]["prompt"] == "(session start)"
+
+
+def test_history_iteration_is_lazy_and_materialization_is_replay_only(tmp_path, monkeypatch):
+    mod = load_script("tt-watch.py", FIXTURE)
+    paths = [str(tmp_path / "one.jsonl"), str(tmp_path / "two.jsonl")]
+    calls = []
+
+    class FakeTail:
+        def __init__(self, path, from_start=False):
+            assert from_start
+            self.path = path
+
+        def poll(self):
+            calls.append(self.path)
+            return [{"path": self.path}]
+
+    monkeypatch.setattr(mod, "all_history_files", lambda: paths)
+    monkeypatch.setattr(mod, "Tail", FakeTail)
+    stream = mod.iter_all_events()
+    assert calls == []
+    assert next(stream) == {"path": paths[0]}
+    assert calls == [paths[0]]
+    assert list(stream) == [{"path": paths[1]}]
+    assert mod.load_all_events() == [{"path": paths[0]}, {"path": paths[1]}]
+
+
 def test_arrow_key_normalizers():
     mod = load_script("tt-watch.py", FIXTURE)
     assert mod.normalize_escape("[D") == "[" and mod.normalize_escape("[C") == "]"
@@ -797,6 +837,8 @@ def test_client_detection_and_rotating_dashboard_tips(monkeypatch):
     assert mod.detect_client("codex") == "codex"
     monkeypatch.delenv("CLAUDE_PLUGIN_ROOT")
     monkeypatch.setenv("CODEX_HOME", "/codex")
+    assert mod.detect_client() == "codex"
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", "/compat")
     assert mod.detect_client() == "codex"
     tips = mod.load_tips("claude")
     assert tips and "/memory" in tips[0]

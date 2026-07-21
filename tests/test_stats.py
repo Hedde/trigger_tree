@@ -1,7 +1,9 @@
 import io
 import json
+import os
 import sys
 
+import pytest
 from conftest import FIXTURE, load_script
 
 
@@ -43,6 +45,8 @@ def test_client_detection_and_prompt_filters(monkeypatch):
     assert mod.detect_client() == "claude"
     monkeypatch.delenv("CLAUDE_PLUGIN_ROOT")
     monkeypatch.setenv("CODEX_HOME", "/codex")
+    assert mod.detect_client() == "codex"
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", "/compat")
     assert mod.detect_client() == "codex"
     assert mod.detect_client("claude") == "claude"
 
@@ -176,6 +180,26 @@ def test_load_events_skips_torn_lines(tmp_path):
     assert all(event["schema_version"] == 1 and event["migrated_from"] == 0 for event in events)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="symlink creation needs elevated rights on Windows")
+def test_inventory_and_history_never_follow_symlinks(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "real.md").write_text("real")
+    outside_doc = tmp_path / "outside.md"
+    outside_doc.write_text("external")
+    (tmp_path / "docs" / "linked.md").symlink_to(outside_doc)
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    outside_history = tmp_path / "outside.jsonl"
+    outside_history.write_text('{"t":"read","path":"docs/real.md"}\n')
+    (telemetry / "history.jsonl").symlink_to(outside_history)
+
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+
+    assert mod.inventory() == ["docs/real.md"]
+    assert stats["totals"]["reads"] == 0
+
+
 def test_history_schema_migrates_legacy_and_rejects_future(tmp_path):
     mod = load_script("tt-stats.py", tmp_path)
     path = tmp_path / "history.jsonl"
@@ -195,6 +219,49 @@ def test_history_schema_migrates_legacy_and_rejects_future(tmp_path):
     assert [event["session"] for event in events] == ["legacy", "current"]
     assert events[0]["migrated_from"] == 0
     assert diagnostics == {"legacy_migrated": 1, "future_rejected": 1, "corrupt_lines": 2}
+
+
+def test_history_schema_rejects_structurally_invalid_current_events(tmp_path):
+    mod = load_script("tt-stats.py", tmp_path)
+    path = tmp_path / "history.jsonl"
+    path.write_text(
+        "\n".join(
+            json.dumps(event)
+            for event in (
+                {"schema_version": 1, "t": "read", "session": "S"},
+                {"schema_version": 1, "t": "scan", "path": ""},
+                {"schema_version": 1, "t": "skill"},
+                {"schema_version": 1, "t": "session", "ts": 42},
+                {"schema_version": 1, "t": "invented"},
+                {"schema_version": 1, "t": "read", "path": "docs/valid.md"},
+            )
+        )
+        + "\n"
+    )
+
+    events, diagnostics = mod.load_events_with_diagnostics([str(path)])
+
+    assert events == [{"schema_version": 1, "t": "read", "path": "docs/valid.md"}]
+    assert diagnostics["corrupt_lines"] == 5
+
+
+def test_co_read_pairs_skip_oversized_prompt_buckets(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    events = [{"t": "prompt", "session": "S", "prompt": "Review all docs"}]
+    for index in range(201):
+        path = f"docs/{index}.md"
+        (tmp_path / path).write_text("x")
+        events.append({"t": "read", "session": "S", "path": path})
+    write_history(tmp_path, events)
+
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+
+    assert stats["co_read_top"] == []
+    assert stats["co_read_diagnostics"] == {
+        "max_paths_per_prompt": 200,
+        "oversized_prompts_skipped": 1,
+    }
 
 
 def test_recursive_claude_imports_are_always_loaded_not_cold(tmp_path, monkeypatch):

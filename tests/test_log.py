@@ -78,6 +78,45 @@ def test_session_summary_migrates_existing_rotated_history_without_reset(tmp_pat
     }
 
 
+def test_fresh_session_initializes_summary_without_scanning_history(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    monkeypatch.setattr(
+        mod,
+        "_session_state_from_history",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("fresh session scanned history")),
+    )
+    run_main(mod, monkeypatch, ["session"], '{"session_id":"NEW","source":"startup"}')
+    run_main(
+        mod,
+        monkeypatch,
+        ["read"],
+        '{"session_id":"NEW","tool_name":"Read","tool_input":{"file_path":"docs/a.md"}}',
+    )
+    state_path = mod._session_state_path(str(tmp_path / ".trigger-tree"), "NEW")
+    state = json.loads(open(state_path, encoding="utf-8").read())
+    assert state["files"] == ["docs/a.md"]
+    assert state["scans"] == 0
+
+
+def test_resumed_session_without_cache_still_migrates_history(tmp_path):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    (telemetry / "history-old.jsonl").write_text(
+        json.dumps(
+            {"t": "read", "session": "S", "path": "docs/old.md", "ts": "2026-01-01T00:00:00Z"}
+        )
+        + "\n"
+    )
+    mod = load_script("tt-log.py", tmp_path)
+    mod.append(
+        {"t": "session", "session": "S", "source": "compact", "ts": "2026-01-02T00:00:00Z"},
+        1000,
+    )
+    state_path = mod._session_state_path(str(telemetry), "S")
+    state = json.loads(open(state_path, encoding="utf-8").read())
+    assert state["files"] == ["docs/old.md"]
+
+
 def test_session_summary_skips_history_that_disappears(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
     missing = str(tmp_path / "history-gone.jsonl")
@@ -94,6 +133,17 @@ def test_session_summary_atomic_cleanup_and_nonregular_history_fd(tmp_path, monk
     telemetry = tmp_path / ".trigger-tree"
     telemetry.mkdir()
     event = {"t": "read", "session": "S", "path": "docs/a.md", "ts": mod.now_ts()}
+    state_dir = telemetry / "sessions"
+    real_chmod = mod.os.chmod
+
+    def deny_state_dir_chmod(path, mode):
+        if os.fspath(path) == str(state_dir):
+            raise OSError("unsupported")
+        return real_chmod(path, mode)
+
+    monkeypatch.setattr(mod.os, "chmod", deny_state_dir_chmod)
+    mod._update_session_state(str(telemetry), event)
+    monkeypatch.setattr(mod.os, "chmod", real_chmod)
     real_replace = mod.os.replace
     monkeypatch.setattr(mod.os, "replace", lambda *_args: (_ for _ in ()).throw(OSError("full")))
     with pytest.raises(OSError):
@@ -125,6 +175,26 @@ def test_history_symlink_is_never_followed(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
     run_main(mod, monkeypatch, ["prompt"], '{"session_id":"S","prompt":"secret"}')
     assert victim.read_text() == "untouched\n"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlink creation needs elevated rights on Windows")
+def test_session_cache_and_lock_symlinks_are_never_followed(tmp_path):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (telemetry / "sessions").symlink_to(outside, target_is_directory=True)
+    mod = load_script("tt-log.py", tmp_path)
+
+    mod.append({"t": "session", "session": "S", "source": "startup"}, 1000)
+    assert list(outside.iterdir()) == []
+
+    (telemetry / "write.lock").unlink()
+    victim = tmp_path / "lock-victim"
+    victim.write_text("untouched")
+    (telemetry / "write.lock").symlink_to(victim)
+    mod.append({"t": "prompt", "session": "S"}, 1000)
+    assert victim.read_text() == "untouched"
 
 
 def test_secure_append_rejects_non_directory_and_non_regular_fd(tmp_path, monkeypatch):
@@ -225,9 +295,17 @@ def test_session_configures_runtime_shell_capture(tmp_path, monkeypatch):
     run_main(mod, monkeypatch, ["session"], json.dumps({"session_id": "S"}))
 
     configured = env_file.read_text()
-    assert "export TT_RUNTIME_BASH_READS=1" in configured
+    assert "TT_RUNTIME_BASH_READS" not in configured
     assert "export TT_SHELL_SESSION=S" in configured
+    assert "export TT_SHELL_WATCH_SUFFIX=.md" in configured
     assert "tt-shell-capture.sh" in configured
+
+
+def test_watch_suffix_hint_requires_one_shared_literal_extension(tmp_path):
+    mod = load_script("tt-log.py", tmp_path)
+    assert mod.watch_suffix_hint(r"^docs/.*\.md$|^AGENTS\.md$") == ".md"
+    assert mod.watch_suffix_hint(r"^docs/.*\.(md|txt)$") == ""
+    assert mod.watch_suffix_hint(r"^docs/.*$") == ""
 
 
 @pytest.mark.parametrize("shell", ["bash", "zsh"])
@@ -243,8 +321,67 @@ def test_runtime_shell_capture_sources_safely_with_reader_alias(shell):
         args = [executable, "-O", "expand_aliases", "-c", f"alias cat='cat -n'; source {source}"]
     else:
         args = [executable, "-c", f"alias cat='cat -n'; source {source}"]
+    args[-1] += '; test "$TT_RUNTIME_BASH_READS" = 1'
     result = subprocess.run(args, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_runtime_shell_capture_leaves_unsupported_shell_fallback_active():
+    executable = shutil.which("dash")
+    if not executable:
+        pytest.skip("dash is unavailable")
+    capture = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "scripts", "tt-shell-capture.sh"
+    )
+    command = f'. {shlex.quote(capture)}; test -z "${{TT_RUNTIME_BASH_READS:-}}"'
+    result = subprocess.run([executable, "-c", command], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_runtime_capture_skips_python_for_irrelevant_reader_files(tmp_path):
+    (tmp_path / "irrelevant.txt").write_text("x")
+    (tmp_path / "watched.md").write_text("x")
+    calls = tmp_path / "python-calls"
+    capture = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "scripts", "tt-shell-capture.sh"
+    )
+    command = (
+        f"python3() {{ echo called >> {shlex.quote(str(calls))}; }}; "
+        f"source {shlex.quote(capture)}; "
+        "cat irrelevant.txt >/dev/null; cat watched.md >/dev/null"
+    )
+    env = dict(
+        os.environ,
+        TT_SHELL_LOGGER="unused",
+        TT_SHELL_WATCH_SUFFIX=".md",
+    )
+
+    result = subprocess.run([shutil.which("bash") or "bash", "-c", command], cwd=tmp_path, env=env)
+
+    assert result.returncode == 0
+    assert calls.read_text().splitlines() == ["called"]
+
+
+def test_runtime_shell_read_resolves_relative_path_from_actual_cwd(tmp_path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "nested.md").write_text("content")
+    capture = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "scripts", "tt-shell-capture.sh"
+    )
+    logger = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "tt-log.py")
+    command = f"source {shlex.quote(capture)}; cd docs; cat nested.md >/dev/null"
+    env = dict(
+        os.environ,
+        TT_PROJECT_DIR=str(tmp_path),
+        TT_SHELL_LOGGER=logger,
+        TT_SHELL_SESSION="S",
+    )
+    result = subprocess.run([shutil.which("bash") or "bash", "-c", command], cwd=tmp_path, env=env)
+    assert result.returncode == 0
+    assert [(event["t"], event["path"]) for event in read_history(tmp_path)] == [
+        ("read", "docs/nested.md")
+    ]
 
 
 def test_session_capture_setup_failure_never_breaks_logging(tmp_path, monkeypatch):

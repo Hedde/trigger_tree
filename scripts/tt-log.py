@@ -74,22 +74,43 @@ def _session_state_path(hist_dir, session):
 
 def _update_session_state(hist_dir, obj):
     """Keep statusline work bounded and independent from history rotation."""
-    if obj.get("t") not in ("read", "scan") or not obj.get("session"):
+    if obj.get("t") not in ("session", "read", "scan") or not obj.get("session"):
         return
     state_dir = os.path.join(hist_dir, "sessions")
-    os.makedirs(state_dir, mode=0o700, exist_ok=True)
+    if os.path.lexists(state_dir):
+        mode = os.lstat(state_dir).st_mode
+        if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
+            return
+    else:
+        os.makedirs(state_dir, mode=0o700)
+    try:
+        os.chmod(state_dir, 0o700)
+    except OSError:
+        pass
     path = _session_state_path(hist_dir, obj["session"])
+    seeded_from_history = False
     try:
         state = json.loads(open(path, encoding="utf-8").read())
     except (OSError, ValueError):
-        # Upgrade path: seed once from all rotated/current history. The event being
-        # appended is already present in the current file, so do not count it twice.
-        state = _session_state_from_history(hist_dir, obj["session"])
+        if obj["t"] == "session" and obj.get("source") == "startup":
+            # A fresh SessionStart cannot have earlier reads. Create its empty cache
+            # now so the first read never scans every archive while holding the lock.
+            state = {"files": [], "scans": 0, "last": None}
+        else:
+            # Resume/compaction and pre-cache upgrades may already have history.
+            state = _session_state_from_history(hist_dir, obj["session"])
+            seeded_from_history = True
+    if obj["t"] == "session":
+        pass
+    elif seeded_from_history:
+        # The caller appends before updating the cache, so migration already saw
+        # this event in history and must not apply it a second time.
+        pass
+    elif obj["t"] == "read":
+        state["files"] = sorted(set(state.get("files", [])) | {obj["path"]})
+        state["last"] = {"t": obj["t"], "path": obj["path"], "ts": obj.get("ts", "")}
     else:
-        if obj["t"] == "read":
-            state["files"] = sorted(set(state.get("files", [])) | {obj["path"]})
-        else:  # pragma: no cover - POSIX branch, covered on Linux/macOS CI
-            state["scans"] = int(state.get("scans", 0)) + 1
+        state["scans"] = int(state.get("scans", 0)) + 1
         state["last"] = {"t": obj["t"], "path": obj["path"], "ts": obj.get("ts", "")}
     fd, temporary = tempfile.mkstemp(prefix=".session.", dir=state_dir, text=True)
     try:
@@ -140,6 +161,10 @@ def append(obj, rotate_bytes):
     except OSError:
         pass
     lock_path = os.path.join(hist_dir, "write.lock")
+    if os.path.lexists(lock_path):
+        mode = os.lstat(lock_path).st_mode
+        if stat.S_ISLNK(mode) or not stat.S_ISREG(mode):
+            return
     flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
     lock_fd = os.open(lock_path, flags, 0o600)
     if not stat.S_ISREG(os.fstat(lock_fd).st_mode):
@@ -286,16 +311,17 @@ def bash_read_paths(command, watch_regex):
     return found
 
 
-def reader_arg_paths(tool, arguments, watch_regex):
+def reader_arg_paths(tool, arguments, watch_regex, base_dir=None):
     """Filter expanded reader argv down to existing watched file paths."""
     if tool == "sed" and any(
         token == "--in-place" or token.startswith("--in-place=") or re.match(r"^-i", token)
         for token in arguments
     ):
         return []
+    base_dir = ROOT if base_dir is None else base_dir
     found = []
     for token in arguments:
-        candidate = token if os.path.isabs(token) else os.path.join(ROOT, token)
+        candidate = token if os.path.isabs(token) else os.path.join(base_dir, token)
         if not os.path.isfile(candidate):
             continue
         rel = rel_path(os.path.abspath(candidate))
@@ -304,16 +330,22 @@ def reader_arg_paths(tool, arguments, watch_regex):
     return found
 
 
-def configure_shell_capture(session):
+def watch_suffix_hint(pattern):
+    """Return one safe extension hint only when every regex branch shares it."""
+    suffixes = {f".{value}" for value in re.findall(r"\\\.([A-Za-z0-9]+)\$", pattern)}
+    return suffixes.pop() if len(suffixes) == 1 else ""
+
+
+def configure_shell_capture(session, watch_regex):
     """Persist runtime reader wrappers into Claude Code's Bash preamble."""
     env_file = os.environ.get("CLAUDE_ENV_FILE")
     shell_capture = os.path.join(SCRIPT_DIR, "tt-shell-capture.sh")
     if not env_file or not os.path.isfile(shell_capture):
         return
     values = {
-        "TT_RUNTIME_BASH_READS": "1",
         "TT_SHELL_LOGGER": os.path.join(SCRIPT_DIR, "tt-log.py"),
         "TT_SHELL_SESSION": session,
+        "TT_SHELL_WATCH_SUFFIX": watch_suffix_hint(watch_regex),
     }
     try:
         with open(env_file, "a", encoding="utf-8") as fh:
@@ -422,7 +454,7 @@ def main():
         if tool not in ("cat", "head", "tail", "sed", "awk", "get-content", "gc", "type"):
             return
         session = os.environ.get("TT_SHELL_SESSION") or os.environ.get("CLAUDE_SESSION_ID", "?")
-        for path in reader_arg_paths(tool, sys.argv[3:], cfg["TT_WATCH_REGEX"]):
+        for path in reader_arg_paths(tool, sys.argv[3:], cfg["TT_WATCH_REGEX"], os.getcwd()):
             append(
                 {
                     "t": "read",
@@ -460,7 +492,7 @@ def main():
         return entry
 
     if event == "session":
-        configure_shell_capture(session)
+        configure_shell_capture(session, cfg["TT_WATCH_REGEX"])
         append(
             {
                 "t": "session",

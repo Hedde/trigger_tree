@@ -31,10 +31,10 @@ esac
 
 CLIENT="${TT_CLIENT:-}"
 if [ -z "$CLIENT" ]; then
-  if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
-    CLIENT="claude"
-  elif [ -n "${CODEX_HOME:-}" ] || [ -n "${PLUGIN_ROOT:-}" ]; then
+  if [ -n "${CODEX_HOME:-}" ] || [ -n "${PLUGIN_ROOT:-}" ]; then
     CLIENT="codex"
+  elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+    CLIENT="claude"
   else
     case "$SCRIPT_DIR" in
       */.claude/plugins/*) CLIENT="claude" ;;
@@ -43,6 +43,23 @@ if [ -z "$CLIENT" ]; then
     esac
   fi
 fi
+
+make_launcher() {
+  LAUNCH="$(mktemp -t tt-watch)"
+  # shellcheck disable=SC2016  # $status/$0 must stay literal in the generated script
+  {
+    printf '#!/bin/bash\n%s\n' "$CMD"
+    printf 'status=$?\n'
+    printf 'if [ $status -eq 143 ] || [ $status -eq 130 ]; then\n'
+    printf '  echo; echo "tt-watch stopped: terminated from outside (signal $((status-128))) - not a crash. press Enter to close"\n'
+    printf '  read -r\n'
+    printf 'elif [ $status -ne 0 ]; then\n'
+    printf '  echo; echo "tt-watch crashed with status $status - press Enter to close"\n'
+    printf '  read -r\nfi\n'
+    printf 'rm -f "$0"\n'
+  } > "$LAUNCH"
+  chmod +x "$LAUNCH"
+}
 
 # Build a shell-safe command. Repository names can legally contain spaces,
 # apostrophes and shell metacharacters; the split must still tail that exact repo.
@@ -72,20 +89,7 @@ case "$PLATFORM" in
       # iTerm2's AppleScript `command` is exec-style (no shell), so a compound
       # `cd ... && ...` dies instantly and the pane closes. Hand it a launcher
       # script instead, which also keeps the pane open on failure.
-      LAUNCH="$(mktemp -t tt-watch)"
-      # shellcheck disable=SC2016  # $status/$0 must stay literal in the generated script
-      {
-        printf '#!/bin/bash\n%s\n' "$CMD"
-        printf 'status=$?\n'
-        printf 'if [ $status -eq 143 ] || [ $status -eq 130 ]; then\n'
-        printf '  echo; echo "tt-watch stopped: terminated from outside (signal $((status-128))) - not a crash. press Enter to close"\n'
-        printf '  read -r\n'
-        printf 'elif [ $status -ne 0 ]; then\n'
-        printf '  echo; echo "tt-watch crashed with status $status - press Enter to close"\n'
-        printf '  read -r\nfi\n'
-        printf 'rm -f "$0"\n'
-      } > "$LAUNCH"
-      chmod +x "$LAUNCH"
+      make_launcher
       # Target the exact session that invoked us (ITERM_SESSION_ID), so two Claude
       # sessions in different projects each get their own split — never the
       # frontmost window by accident.
@@ -124,10 +128,11 @@ OSA
       fi
       exit 0
     fi
+    make_launcher
     osascript \
       -e 'tell application "Terminal"' \
       -e 'activate' \
-      -e "do script \"$CMD\"" \
+      -e "do script \"$LAUNCH\"" \
       -e 'end tell' >/dev/null
     echo "trigger-tree $V watcher opened in a new Terminal window."
     exit 0

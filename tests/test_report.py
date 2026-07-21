@@ -1,6 +1,9 @@
+import json
 import os
+import stat
 import sys
 
+import pytest
 from conftest import FIXTURE, load_script
 
 
@@ -61,6 +64,49 @@ def test_report_on_empty_project(tmp_path, monkeypatch, capsys):
     assert "Measurement just started" in html
     assert "docs/a.md" in html  # untouched listing
     assert "not a removal recommendation" in html
+    if os.name != "nt":
+        assert stat.S_IMODE(os.stat(out_path).st_mode) == 0o600
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlink creation needs elevated rights on Windows")
+def test_report_replaces_symlink_without_touching_victim(tmp_path, monkeypatch, capsys):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x")
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    victim = tmp_path / "victim"
+    victim.write_text("untouched\n")
+    (telemetry / "report.html").symlink_to(victim)
+
+    mod = load_script("tt-report.py", tmp_path)
+    out_path = run_report(mod, monkeypatch, capsys, tmp_path)
+
+    assert victim.read_text() == "untouched\n"
+    assert not os.path.islink(out_path)
+    assert "<title>trigger-tree Report</title>" in open(out_path, encoding="utf-8").read()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlink creation needs elevated rights on Windows")
+def test_report_refuses_symlinked_telemetry_directory(tmp_path, monkeypatch, capsys):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (tmp_path / ".trigger-tree").symlink_to(outside)
+    mod = load_script("tt-report.py", tmp_path)
+
+    with pytest.raises(RuntimeError, match="symlinked .trigger-tree"):
+        run_report(mod, monkeypatch, capsys, tmp_path)
+    assert not (outside / "report.html").exists()
+
+
+def test_privacy_policy_matches_local_content_analysis():
+    repo = os.path.dirname(os.path.dirname(__file__))
+    privacy = open(os.path.join(repo, "PRIVACY.md"), encoding="utf-8").read()
+    assert "Telemetry hooks store paths and event metadata" in privacy
+    assert "Local analysis commands read selected documentation and instruction content" in privacy
+    assert "never copied into\n  telemetry or uploaded" in privacy
+    assert "No reading of file *contents*" not in privacy
 
 
 def test_report_when_nothing_untouched(tmp_path, monkeypatch, capsys):
@@ -112,6 +158,24 @@ def test_report_folds_large_review_queue_and_emits_caveat_once(tmp_path, monkeyp
 
     assert "<summary>and 5 more</summary>" in html
     assert html.count("Low reads can mean rare-but-critical") == 1
+
+
+def test_report_discloses_bounded_co_read_analysis(tmp_path, monkeypatch, capsys):
+    (tmp_path / "docs").mkdir()
+    events = ['{"t":"prompt","session":"S","prompt":"Review all docs"}']
+    for index in range(201):
+        path = f"docs/{index}.md"
+        (tmp_path / path).write_text("x")
+        events.append(json.dumps({"t": "read", "session": "S", "path": path}))
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    (telemetry / "history.jsonl").write_text("\n".join(events) + "\n")
+
+    mod = load_script("tt-report.py", tmp_path)
+    html = open(run_report(mod, monkeypatch, capsys, tmp_path), encoding="utf-8").read()
+
+    assert "Co-read pairs skipped for 1 oversized prompt" in html
+    assert "task clusters and read counts remain complete" in html
 
 
 def test_experimental_outcome_view_renders_with_causal_warning(tmp_path, monkeypatch, capsys):

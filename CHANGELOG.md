@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.8.1 — 2026-07-21
+
+- Prevents report and session-cache symlink escapes: HTML reports are written through
+  private atomic files, project-controlled symlink parents are refused, and lock/cache
+  paths no longer follow links outside the repository.
+- Keeps runtime shell capture correct and cheap: reads after `cd` resolve from the real
+  working directory, unsupported POSIX shells retain fallback telemetry, and irrelevant
+  reader commands avoid starting Python when the watched extension is known.
+- Uses safe launcher files for Terminal.app paths containing quotes, and consistently
+  prefers Codex-native client markers over Claude compatibility aliases.
+- Rejects structurally corrupt current-schema events instead of crashing reports, and
+  excludes symlinked documentation and history files from local analysis.
+- Bounds co-read pair generation and watcher prompt state, streams watcher startup
+  history, and avoids rescanning every archive for genuinely new sessions.
+- Clarifies that hooks store paths and metadata while selected documentation content is
+  read only for local analysis and is never stored in telemetry or uploaded.
+
 ## 1.8.0 — 2026-07-21
 
 - Reconciles every current-coverage denominator: the inventory is explicitly split
