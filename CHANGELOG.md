@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.8.1 — 2026-07-21
+## 1.8.2 — 2026-07-21
 
 - Prevents report and session-cache symlink escapes: HTML reports are written through
   private atomic files, project-controlled symlink parents are refused, and lock/cache
@@ -9,7 +9,8 @@
   working directory, unsupported POSIX shells retain fallback telemetry, and irrelevant
   reader commands avoid starting Python when the watched extension is known.
 - Uses safe launcher files for Terminal.app paths containing quotes, and consistently
-  prefers Codex-native client markers over Claude compatibility aliases.
+  prefers Codex-native client markers over Claude compatibility aliases. Launcher
+  creation uses one portable template across BSD/macOS and GNU/Linux `mktemp`.
 - Rejects structurally corrupt current-schema events instead of crashing reports, and
   excludes symlinked documentation and history files from local analysis.
 - Bounds co-read pair generation and watcher prompt state, streams watcher startup

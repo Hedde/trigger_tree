@@ -45,7 +45,7 @@ if [ -z "$CLIENT" ]; then
 fi
 
 make_launcher() {
-  LAUNCH="$(mktemp -t tt-watch)"
+  LAUNCH="$(mktemp "${TMPDIR:-/tmp}/tt-watch.XXXXXX")"
   # shellcheck disable=SC2016  # $status/$0 must stay literal in the generated script
   {
     printf '#!/bin/bash\n%s\n' "$CMD"

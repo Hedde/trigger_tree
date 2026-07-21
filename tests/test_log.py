@@ -326,6 +326,7 @@ def test_runtime_shell_capture_sources_safely_with_reader_alias(shell):
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX shell paths differ under Git for Windows")
 def test_runtime_shell_capture_leaves_unsupported_shell_fallback_active():
     executable = shutil.which("dash")
     if not executable:
