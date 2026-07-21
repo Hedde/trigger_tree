@@ -589,7 +589,10 @@ class App:
         folder_activity = {}
         folder_heat = {}
         for folder, files in folders.items():
-            current_heat = sum(heat_scores[f] for f in files)
+            # Injected instructions are context, not thermal evidence. They may
+            # remain visible in focus/name views but must not influence hot/cold
+            # folder ordering or make a cold inventory claim about themselves.
+            current_heat = sum(heat_scores[f] for f in files if not ALWAYS_LOADED.search(f))
             folder_heat[folder] = current_heat
             # Timestamp-less legacy reads have no honest heat. Keep their folder
             # visible and deterministically ordered by lifetime count instead.
@@ -609,6 +612,12 @@ class App:
             ]
             if self.sort_mode in ("cold", "name"):
                 candidates = list(folders)
+                if self.sort_mode == "cold":
+                    candidates = [
+                        folder
+                        for folder in candidates
+                        if any(not ALWAYS_LOADED.search(path) for path in folders[folder])
+                    ]
             elif self.sort_mode == "hot":
                 candidates = [
                     folder for folder in folders if any(counts[f] for f in folders[folder])
@@ -668,11 +677,12 @@ class App:
             elif not browsing and self.sort_mode == "name":
                 files = sorted(files, reverse=self.name_desc)
             if not browsing:
-                shown = (
-                    files
-                    if self.sort_mode in ("cold", "name")
-                    else [f for f in files if counts[f] or self._glow(f, now) > 0]
-                )
+                if self.sort_mode == "cold":
+                    shown = [f for f in files if not ALWAYS_LOADED.search(f)]
+                elif self.sort_mode == "name":
+                    shown = files
+                else:
+                    shown = [f for f in files if counts[f] or self._glow(f, now) > 0]
             elif hide_quiet:
                 shown = [f for f in files if counts[f] or self._glow(f, now) > 0]
             else:

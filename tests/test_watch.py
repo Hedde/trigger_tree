@@ -125,6 +125,29 @@ def test_injected_files_are_labeled_and_stat_columns_align():
     assert claude.index("injected") == nested.index("·····")
 
 
+def test_cold_sort_excludes_injected_instructions_from_files_and_folders():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(
+        [
+            "CLAUDE.md",
+            "AGENTS.md",
+            ".claude/skills/security/SKILL.md",
+            "docs/CLAUDE.md",
+            "docs/untouched.md",
+            "docs/cold.md",
+        ]
+    )
+    app.feed(
+        {"t": "read", "path": "docs/cold.md", "session": "S", "ts": "2025-01-01T00:00:00Z"},
+        live=False,
+    )
+    app.set_sort("cold")
+    frame = plain(app.render(mod.timestamp_epoch("2026-07-21T00:00:00Z"), 120, 40))
+    assert "untouched.md" in frame and "cold.md" in frame
+    assert "CLAUDE.md" not in frame and "AGENTS.md" not in frame
+    assert ".claude/skills/" not in frame and "SKILL.md" not in frame
+
+
 def test_dashboard_prompt_settings_are_interactive_and_atomic(tmp_path, monkeypatch):
     mod = load_script("tt-watch.py", tmp_path)
     app = mod.App([])

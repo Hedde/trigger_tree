@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.5 — 2026-07-21
+
+- Excludes injected instruction files and injected-only folders from cold sorting;
+  always-loaded context remains visible in focus/name views without being mislabeled
+  as untouched or cold.
+- Preserves the explicit Claude/Codex tip identity and cache-path fallback from the
+  unreleased 1.6.4 candidate.
+
 ## 1.6.4 — 2026-07-21
 
 - Fixes empty dashboard tips by passing Claude/Codex identity explicitly from each
