@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 
+import pytest
 from conftest import REPO
 
 
@@ -32,6 +33,7 @@ def test_codex_hooks_use_the_adapter_and_remain_silent():
                 assert hook["timeout"] == 5
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Unix hook command requires /bin/sh")
 def test_unix_hook_selects_one_available_interpreter_without_retry(tmp_path):
     manifest = json.load(open(os.path.join(REPO, "hooks", "hooks.json"), encoding="utf-8"))
     command = manifest["hooks"]["SessionStart"][0]["hooks"][0]["command"]

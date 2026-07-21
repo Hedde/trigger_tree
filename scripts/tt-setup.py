@@ -64,9 +64,9 @@ def atomic_write(path, content, mode=0o644):
     assert_safe_destination(parent, allow_directory=True)
     fd, temporary = tempfile.mkstemp(prefix=".trigger-tree-", dir=parent)
     try:
-        os.fchmod(fd, mode)
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(content)
+        os.chmod(temporary, mode)
         os.replace(temporary, path)
     finally:
         try:

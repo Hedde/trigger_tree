@@ -30,6 +30,7 @@ def test_rel_path(tmp_path):
     assert mod.rel_path("/elsewhere/x.md") == "/elsewhere/x.md"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Windows does not implement POSIX permission bits")
 def test_history_is_private(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
     run_main(mod, monkeypatch, ["prompt"], '{"session_id":"S","prompt":"hello"}')

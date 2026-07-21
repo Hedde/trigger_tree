@@ -113,6 +113,7 @@ def test_setup_refuses_symlink_write_destinations(tmp_path, relative):
     assert victim.read_text() == "untouched\n"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Windows does not implement POSIX permission bits")
 def test_setup_permissions_and_security_disclosure_are_consistent(tmp_path):
     mod = load_script("tt-setup.py", tmp_path)
     mod.main([])
