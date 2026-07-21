@@ -84,7 +84,6 @@ Work normally for a few sessions — the hooks log silently — then:
 ```
 /tt status         # snapshot: current heat, lifetime reads, untouched paths
 /tt insights       # full heat/cold map report + HTML
-/tt tips           # Claude-specific memory and instruction maintenance tips
 ```
 
 ### Codex
@@ -126,7 +125,6 @@ outcome in natural language; the bundled `trigger-tree` skill runs the same loca
 | **`/tt watch demo`** | Dashboard with synthetic events — see it without waiting |
 | **`/tt insights`** | Heat/cold map analysis: untouched paths, hunting, trend, task clusters + HTML report |
 | **`/tt suggestions`** | Concise scope + max 5 evidence-backed fixes; full stats stay off stdout |
-| **`/tt tips`** | Client-aware instruction maintenance: Claude memory/rules or Codex AGENTS.md |
 | **`/tt note <text>`** | Annotate the timeline ("sharpened UX router") — visible in the trend |
 | **`/tt doctor`** | Verify hooks, privacy, statusline, and live telemetry with actionable fixes |
 | **`/tt setup [truncate\|hash\|off]`** | Wire the project and choose recognizable local previews or privacy-first markers |
@@ -229,6 +227,9 @@ instead of leaving unused space. Sorting is explicit: `f` restores recent-focus,
 are labeled `injected` instead of being misrepresented as cold. The current mode is
 always printed in the footer. Press `s` to change prompt privacy inside the dashboard;
 changes apply to future prompts and are written atomically to the gitignored project config.
+The live dashboard also rotates one quiet maintenance tip every 30 seconds. Tips are
+repository-aware and client-specific: Claude sees memory/rules guidance, while Codex sees
+AGENTS.md and verification guidance. The telemetry statusline itself remains stable.
 The controls occupy their own persistent legend row (with a compact form for narrow
 panes), separate from prompt navigation and the live heartbeat, so the keys remain
 discoverable instead of disappearing at the right edge.

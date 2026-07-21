@@ -29,12 +29,24 @@ case "$MODE" in
   *) echo "usage: tt-open.sh [demo|replay]" >&2; exit 1 ;;
 esac
 
+CLIENT="${TT_CLIENT:-}"
+if [ -z "$CLIENT" ]; then
+  if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+    CLIENT="claude"
+  elif [ -n "${CODEX_HOME:-}" ] || [ -n "${PLUGIN_ROOT:-}" ]; then
+    CLIENT="codex"
+  else
+    CLIENT="auto"
+  fi
+fi
+
 # Build a shell-safe command. Repository names can legally contain spaces,
 # apostrophes and shell metacharacters; the split must still tail that exact repo.
 printf -v Q_ROOT '%q' "$ROOT"
 printf -v Q_PY '%q' "$PY"
 printf -v Q_WATCH '%q' "$SCRIPT_DIR/tt-watch.py"
-CMD="cd $Q_ROOT && CLAUDE_PROJECT_DIR=$Q_ROOT $Q_PY $Q_WATCH $FLAG"
+printf -v Q_CLIENT '%q' "$CLIENT"
+CMD="cd $Q_ROOT && CLAUDE_PROJECT_DIR=$Q_ROOT $Q_PY $Q_WATCH $FLAG --client $Q_CLIENT"
 
 # Testable without opening a window.
 if [ "${TT_OPEN_DRYRUN:-}" = "1" ]; then

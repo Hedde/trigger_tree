@@ -1,6 +1,6 @@
 ---
 name: tt
-description: See which docs your AI actually discovers with local, zero-token telemetry. Subcommands; /tt status, /tt watch [demo|replay], /tt insights, /tt suggestions, /tt tips, /tt note <text>, /tt doctor, /tt setup, /tt help.
+description: See which docs your AI actually discovers with local, zero-token telemetry. Subcommands; /tt status, /tt watch [demo|replay], /tt insights, /tt suggestions, /tt note <text>, /tt doctor, /tt setup, /tt help.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Artifact
 arguments:
@@ -39,7 +39,6 @@ Show exactly this, nothing above or below it:
 > | `/tt watch replay` | Dashboard replaying the real history, accelerated |
 > | `/tt insights` | Analysis report: heat/cold map, untouched paths, hunting, trend + HTML |
 > | `/tt suggestions` | Max 5 prioritized, concrete router fixes — apply after confirmation |
-> | `/tt tips` | Concise Claude-specific instruction and memory maintenance tips |
 > | `/tt note <text>` | Annotate the timeline (e.g. "sharpened UX router") — shows up in the trend |
 > | `/tt doctor` | Verify hooks, privacy, statusline, and telemetry with actionable fixes |
 > | `/tt setup [truncate\|hash\|off]` | Wire the project; choose recognizable previews or privacy-first prompt markers |

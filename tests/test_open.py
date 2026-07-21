@@ -6,8 +6,9 @@ import subprocess
 from conftest import SCRIPTS
 
 
-def dryrun(project, mode=""):
+def dryrun(project, mode="", **extra_env):
     env = dict(os.environ, CLAUDE_PROJECT_DIR=str(project), TT_OPEN_DRYRUN="1")
+    env.update(extra_env)
     args = [shutil.which("bash") or "bash", os.path.join(SCRIPTS, "tt-open.sh")]
     if mode:
         args.append(mode)
@@ -33,7 +34,15 @@ def test_launcher_binds_split_to_exact_repo_even_with_shell_characters(tmp_path)
 
 
 def test_launcher_modes_and_invalid_mode(tmp_path):
-    assert dryrun(tmp_path, "demo").stdout.rstrip().endswith("--demo")
-    assert dryrun(tmp_path, "replay").stdout.rstrip().endswith("--replay")
+    assert "--demo --client" in dryrun(tmp_path, "demo").stdout
+    assert "--replay --client" in dryrun(tmp_path, "replay").stdout
     invalid = dryrun(tmp_path, "stale")
     assert invalid.returncode == 1 and "usage:" in invalid.stderr
+
+
+def test_launcher_passes_explicit_or_detected_client(tmp_path):
+    assert dryrun(tmp_path, TT_CLIENT="codex").stdout.rstrip().endswith("--client codex")
+    assert (
+        dryrun(tmp_path, CLAUDE_PLUGIN_ROOT="/plugin").stdout.rstrip().endswith("--client claude")
+    )
+    assert dryrun(tmp_path, CODEX_HOME="/codex").stdout.rstrip().endswith("--client codex")

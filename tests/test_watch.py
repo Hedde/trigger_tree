@@ -763,6 +763,35 @@ def test_heat_state_is_bounded_by_files_not_read_events():
     assert app.heat_scores(base + 9_999)["docs/a.md"] > 9_000
 
 
+def test_client_detection_and_rotating_dashboard_tips(monkeypatch):
+    mod = load_script("tt-watch.py", FIXTURE)
+    monkeypatch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    monkeypatch.delenv("PLUGIN_ROOT", raising=False)
+    assert mod.detect_client() is None
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", "/plugin")
+    assert mod.detect_client() == "claude"
+    assert mod.detect_client("codex") == "codex"
+    monkeypatch.delenv("CLAUDE_PLUGIN_ROOT")
+    monkeypatch.setenv("CODEX_HOME", "/codex")
+    assert mod.detect_client() == "codex"
+    tips = mod.load_tips("claude")
+    assert tips and "/memory" in tips[0]
+    assert mod.load_tips(None) == []
+    monkeypatch.setattr(mod.importlib.util, "spec_from_file_location", lambda *_args: None)
+    assert mod.load_tips("codex") == []
+
+    app = mod.App(["docs/a.md"], ["first dashboard tip", "second dashboard tip"])
+    first = plain(app.render(0, width=100, height=30))
+    second = plain(app.render(mod.TIP_ROTATE_SECS, width=100, height=30))
+    assert "tip: first dashboard tip" in first
+    assert "tip: second dashboard tip" in second
+    assert "…" in plain(app.render(0, width=20, height=30))
+    app.feed({"t": "prompt", "prompt": "history", "session": "S"}, live=False)
+    app.select_prev()
+    assert "tip:" not in plain(app.render(0, width=100, height=30))
+
+
 def test_main_exits_on_keyboard_interrupt(monkeypatch, capsys):
     mod = load_script("tt-watch.py", FIXTURE)
     monkeypatch.setattr(sys, "argv", ["tt-watch.py"])  # no --seconds: only KI can stop it

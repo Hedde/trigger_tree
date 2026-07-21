@@ -46,6 +46,12 @@ def test_main_labels_selected_client(tmp_path, capsys):
     assert "Claude" not in out
 
 
+def test_tips_for_dispatches_with_resolved_project(tmp_path):
+    mod = load_script("tt-tips.py", tmp_path)
+    assert mod.tips_for("claude", tmp_path)[0].startswith("Run /memory")
+    assert "AGENTS.md" in mod.tips_for("codex", tmp_path)[0]
+
+
 def test_unreadable_markdown_is_handled_conservatively(tmp_path):
     mod = load_script("tt-tips.py", tmp_path)
     broken = tmp_path / "broken.md"

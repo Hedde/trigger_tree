@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.2 — 2026-07-21
+
+- Moves maintenance tips into the live dashboard as a quiet, deterministic line that
+  rotates every 30 seconds; Claude and Codex receive only their own relevant guidance.
+- Keeps `/tt tips` available for direct use but removes it from the prominent command
+  overview. The statusline remains stable and dedicated to current telemetry.
+- Passes client identity through every terminal launcher and adds regression coverage
+  for detection, rotation, prompt-history suppression, and launcher quoting.
+
 ## 1.6.1 — 2026-07-21
 
 - Fixes every Claude `/tt` subcommand resolving scripts relative to the nested command

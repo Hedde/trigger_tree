@@ -16,6 +16,7 @@ amber → red spectrum. Quit with q or Ctrl+C. 256-color ANSI, stdlib only.
 
 import argparse
 import glob as globmod
+import importlib.util
 import json
 import math
 import os
@@ -90,6 +91,7 @@ INVENTORY_SYNC_SECS = 5.0  # disk discovery is useful, but a full walk need not 
 HEAT_HALF_LIFE_DAYS = 30.0
 HEAT_DEAD_THRESHOLD = 0.05
 INJECTED = 141
+TIP_ROTATE_SECS = 30.0
 
 
 def prompt_mode():
@@ -146,6 +148,29 @@ def terminal_safe(value):
         for ch in text
         if unicodedata.category(ch) not in ("Cc", "Cs") and ch not in bidi_controls
     )
+
+
+def detect_client(explicit="auto"):
+    if explicit in ("claude", "codex"):
+        return explicit
+    if os.environ.get("CLAUDE_PLUGIN_ROOT"):
+        return "claude"
+    if os.environ.get("CODEX_HOME") or os.environ.get("PLUGIN_ROOT"):
+        return "codex"
+    return None
+
+
+def load_tips(client):
+    if client not in ("claude", "codex"):
+        return []
+    path = os.path.join(SCRIPT_DIR, "tt-tips.py")
+    try:
+        spec = importlib.util.spec_from_file_location("trigger_tree_tips", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.tips_for(client, ROOT)
+    except (AttributeError, OSError, ImportError):
+        return []
 
 
 def c256(n, text, bold=False):
@@ -221,7 +246,7 @@ def load_all_events():
 
 
 class App:
-    def __init__(self, files):
+    def __init__(self, files, tips=None):
         self.files = list(files)
         self.counts = Counter()
         # path -> (decayed score at reference timestamp, reference timestamp).
@@ -243,6 +268,7 @@ class App:
         self.name_desc = False
         self.settings_open = False
         self.settings_message = ""
+        self.tips = list(tips or [])
 
     def sync_inventory(self, files):
         """Make the live tree reflect disk; historical counters remain intact."""
@@ -472,6 +498,15 @@ class App:
         scale = separator.join(c256(color, label, bold=True) for color, label in labels)
         return c256(DIM, " heat: ") + scale + c256(DEAD, " · · untouched")
 
+    def _tip_line(self, now, width):
+        if not self.tips:
+            return None
+        tip = self.tips[int(now // TIP_ROTATE_SECS) % len(self.tips)]
+        room = max(12, width - 9)
+        if len(tip) > room:
+            tip = tip[: room - 1] + "…"
+        return c256(DIM, " tip: ") + c256(COOL, tip)
+
     def render(self, now, width, height):
         spin = SPINNER[int(now * 10) % len(SPINNER)]
         header = [
@@ -602,7 +637,8 @@ class App:
                 focus_summary = "   … " + " · ".join(summary) + " hidden"
 
         ticker_lines = min(3, len(self.ticker))
-        fixed = len(header) + 2 + ticker_lines + 3  # footer + heat/sort legends + hint
+        tip_line = None if browsing else self._tip_line(now, width)
+        fixed = len(header) + 2 + ticker_lines + 3 + bool(tip_line)
         budget = max(4, height - fixed)
         total = sum((1 if d else 0) + len(fs) for d, fs in folders.items())
         hide_quiet = total > budget
@@ -738,6 +774,8 @@ class App:
                     )
                 )
             lines.append(c256(AMBER, self._sort_legend(width), bold=True))
+            if tip_line:
+                lines.append(tip_line)
             lines.append(c256(DEAD, f"   ←/→ prompts · q quit · {beat}"))
         return [ln[: width * 4] for ln in lines[:height]]  # *4: ANSI codes don't count
 
@@ -846,9 +884,10 @@ def main():
     ap.add_argument("--demo", action="store_true", help="synthetic events (writes nothing)")
     ap.add_argument("--replay", action="store_true", help="replay the real history, accelerated")
     ap.add_argument("--seconds", type=float, default=0, help="exit automatically after N seconds")
+    ap.add_argument("--client", choices=("auto", "claude", "codex"), default="auto")
     args = ap.parse_args()
 
-    app = App(inventory())
+    app = App(inventory(), load_tips(detect_client(args.client)))
     tail = Tail(HIST)
     replay_events, replay_i = [], 0
     if args.replay:

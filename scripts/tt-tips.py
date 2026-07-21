@@ -83,6 +83,11 @@ def codex_tips(root):
     return tips[:4]
 
 
+def tips_for(client, root):
+    root = Path(root).resolve()
+    return claude_tips(root) if client == "claude" else codex_tips(root)
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--client", required=True, choices=("claude", "codex"))
@@ -92,8 +97,7 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
-    root = Path(args.project).resolve()
-    tips = claude_tips(root) if args.client == "claude" else codex_tips(root)
+    tips = tips_for(args.client, args.project)
     print(f"🌳 {args.client.title()} maintenance tips — review only; nothing was changed.")
     for number, tip in enumerate(tips, 1):
         print(f"{number}. {tip}")
