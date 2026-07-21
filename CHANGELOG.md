@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.8.0 — 2026-07-21
+
+- Reconciles every current-coverage denominator: the inventory is explicitly split
+  into evaluable and always-loaded files, and touched plus untouched always equals the
+  evaluable total.
+- Separates retired telemetry paths from current heat, coverage, and health while
+  retaining their historical reads and per-agent attribution; folder summaries add a
+  measured retired-read share and median current-file age.
+- Classifies a discovered folder router as a router even when its filename starts with
+  an underscore, reports unread routers directly, and uses one full reference graph for
+  both inbound counts and displayed samples.
+- Compresses untouched review into one ranked table with folded detail and one caveat,
+  hides redundant heat windows and empty folder rows, labels small trend samples, and
+  exposes main-versus-subagent reads in the current heat table.
+- Filters client-injected envelopes and command-only noise from task-cluster examples,
+  falling back to the latest real user prompt or no example at all.
+
 ## 1.7.1 — 2026-07-21
 
 - Makes insights proposals evidence-thresholded rather than quota-shaped: zero is a

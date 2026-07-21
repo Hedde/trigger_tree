@@ -93,7 +93,7 @@ def build_suggestions(stats):
     for path in stats.get("unknown_reads", []):
         add(
             ("unknown", path),
-            f"Fix the router reference to {path} — telemetry saw a read for a missing or renamed file.",
+            f"Review inventory configuration for {path} — the file exists and was read, but is outside the current documentation inventory.",
         )
     return suggestions
 

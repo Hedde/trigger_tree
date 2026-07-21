@@ -31,10 +31,10 @@ def test_full_report_on_fixture(monkeypatch, capsys):
         "30-day half-life",
         "Lifetime",
         "Skill usage",
-        "Review candidates (untouched paths)",
+        "Untouched review",
         "Folder heat",
         "router gap",
-        "referenced from",
+        "Inbound refs",
         "Trend",
         "sharpened UX router",
         "Task clusters",
@@ -43,7 +43,7 @@ def test_full_report_on_fixture(monkeypatch, capsys):
         "Documentation health",
         "provisional",
         "no index file",
-        "template — intentional archive",
+        "Unread routers",
         "Folder-router coverage",
         "Search activity inside doc folders",
         "not its cause",
@@ -74,6 +74,44 @@ def test_report_when_nothing_untouched(tmp_path, monkeypatch, capsys):
     mod = load_script("tt-report.py", tmp_path)
     html = open(run_report(mod, monkeypatch, capsys, tmp_path), encoding="utf-8").read()
     assert "None — every inventoried file has been read" in html
+
+
+def test_report_reconciles_inventory_separates_retired_and_hides_wide_windows(
+    tmp_path, monkeypatch, capsys
+):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "current.md").write_text("current")
+    (tmp_path / "CLAUDE.md").write_text("always loaded")
+    (tmp_path / ".trigger-tree").mkdir()
+    (tmp_path / ".trigger-tree" / "history.jsonl").write_text(
+        '{"t":"read","ts":"2026-07-20T09:00:00Z","session":"A",'
+        '"path":"docs/current.md","agent":"main"}\n'
+        '{"t":"read","ts":"2026-07-21T09:00:00Z","session":"A",'
+        '"path":"docs/retired.md","agent":"feature"}\n'
+    )
+
+    mod = load_script("tt-report.py", tmp_path)
+    html = open(run_report(mod, monkeypatch, capsys, tmp_path), encoding="utf-8").read()
+
+    assert "1 touched + 0 untouched = 1" in html
+    assert "1 evaluable + 1 always loaded" in html
+    assert "Retired paths" in html and "docs/retired.md" in html
+    current_table = html.split("<h2>Current heat</h2>", 1)[1].split("</table>", 1)[0]
+    assert "docs/retired.md" not in current_table
+    assert "<th>7d</th>" not in html and "<th>30d</th>" not in html
+    assert "main 1 · sub 0" in current_table
+
+
+def test_report_folds_large_review_queue_and_emits_caveat_once(tmp_path, monkeypatch, capsys):
+    (tmp_path / "docs").mkdir()
+    for index in range(25):
+        (tmp_path / "docs" / f"{index:02}.md").write_text("x")
+
+    mod = load_script("tt-report.py", tmp_path)
+    html = open(run_report(mod, monkeypatch, capsys, tmp_path), encoding="utf-8").read()
+
+    assert "<summary>and 5 more</summary>" in html
+    assert html.count("Low reads can mean rare-but-critical") == 1
 
 
 def test_experimental_outcome_view_renders_with_causal_warning(tmp_path, monkeypatch, capsys):

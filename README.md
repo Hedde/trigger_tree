@@ -201,10 +201,15 @@ Heat and read count are deliberately different signals. **Reads** are the lifeti
 evidence and never decrease. **Heat** is current attention: each timestamped read has
 weight `0.5^(age_days / 30)`, so its contribution halves every 30 days (1 today,
 0.5 after 30 days, 0.125 after 90 days, and effectively zero after a year). A new
-read reheats the file immediately. `/tt insights` also shows exact 7-, 30-, and
-90-day read windows, the last-read date, and lifetime reads. Folder heat is the sum
+read reheats the file immediately. `/tt insights` shows read windows only when the
+measurement period is long enough to distinguish them, plus the last-read date and
+lifetime reads. Folder heat is the sum
 of its file heat. Cold therefore means **inactive now**, never obsolete or safe to
 remove; untouched and protected-context classifications remain separate safeguards.
+Historical reads for paths that no longer exist are retained under **Retired paths**,
+but excluded from current heat, coverage, and health. The report also separates main
+and subagent reads, marks unread folder routers, and folds large review queues while
+keeping the complete machine-readable data in `stats.json`.
 
 Folder labels keep two signals separate: `🔍 N searches` proves the folder was
 explicitly searched, while `N unread` counts files without a Read event. Insights also

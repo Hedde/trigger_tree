@@ -60,6 +60,18 @@ def esc(s):
     return html.escape(str(s if s is not None else "—"))
 
 
+def agent_label(file_row):
+    agents = file_row.get("agents", {})
+    main = file_row.get("main_reads", agents.get("main", 0))
+    sub = file_row.get("subagent_reads", file_row.get("reads", 0) - main)
+    top_subagents = sorted(
+        ((name, count) for name, count in agents.items() if name != "main"),
+        key=lambda item: (-item[1], item[0]),
+    )[:2]
+    suffix = ", ".join(f"{esc(name)} {count}" for name, count in top_subagents)
+    return f"main {main} · sub {sub}" + (f" ({suffix})" if suffix else "")
+
+
 def main():
     stats_raw = subprocess.run(
         [sys.executable, os.path.join(SCRIPT_DIR, "tt-stats.py")] + sys.argv[1:],
@@ -70,7 +82,10 @@ def main():
     s = json.loads(stats_raw)
     t = s["totals"]
     maturity = s.get("maturity", "cold-start")
-    heated_files = sorted(s["files"], key=lambda f: (-f.get("heat", 0), -f["reads"], f["path"]))
+    heated_files = sorted(
+        (f for f in s["files"] if f.get("state", "current") == "current"),
+        key=lambda f: (-f.get("heat", 0), -f["reads"], f["path"]),
+    )
     max_heat = max((f.get("heat", 0) for f in heated_files), default=1)
 
     parts = [f"<title>trigger-tree Report</title><style>{CSS}</style>"]
@@ -96,9 +111,16 @@ def main():
         f"<div><b>{t['scans']}</b>searches</div>"
         f"<div><b>{t.get('skill_uses', 0)}</b>skill uses</div>"
         f"<div><b>{s['sessions']}</b>sessions</div>"
-        f"<div><b>{len(s['files'])}/{t['inventory_files']}</b>files touched</div>"
-        f"<div><b>{len(s['untouched'])}</b>untouched</div>"
+        f"<div><b>{t['touched_current_files']}/{t['evaluable_files']}</b>current files touched</div>"
+        f"<div><b>{t['untouched_current_files']}</b>current files untouched</div>"
         "</div>"
+    )
+    parts.append(
+        "<p class=muted>Current inventory: "
+        f"{t['inventory_files']} files = {t['evaluable_files']} evaluable + "
+        f"{t['always_loaded_files']} always loaded. Evaluable coverage reconciles as "
+        f"{t['touched_current_files']} touched + {t['untouched_current_files']} untouched = "
+        f"{t['evaluable_files']}.</p>"
     )
 
     heat_model = s.get("heat_model", {})
@@ -110,22 +132,41 @@ def main():
         f"{half_life_label}-day half-life; lifetime reads never decay. "
         "Cold means inactive now, not unimportant.</p><div class=scroll><table>"
     )
+    visible_windows = [
+        days for days in heat_model.get("windows_days", []) if days <= s.get("observed_days", 0)
+    ]
+    window_headers = "".join(f"<th>{days}d</th>" for days in visible_windows)
     parts.append(
-        "<tr><th>Path</th><th>Heat</th><th></th><th>7d</th><th>30d</th><th>90d</th>"
-        "<th>Lifetime</th><th>Last read</th></tr>"
+        "<tr><th>Path</th><th>Heat</th><th></th>"
+        + window_headers
+        + "<th>Lifetime</th><th>Agents</th><th>Last read</th></tr>"
     )
     for f in heated_files[:20]:
         heat = f.get("heat", 0)
         w = max(6, int(120 * heat / max_heat)) if heat else 6
         col = heat_color(heat, max_heat)
+        window_cells = "".join(f"<td>{f.get(f'reads_{days}d', 0)}</td>" for days in visible_windows)
         parts.append(
             f"<tr><td><code>{esc(f['path'])}</code></td><td>{heat:.3f}</td>"
             f"<td><span class=bar style='width:{w}px;background:{col}'></span></td>"
-            f"<td>{f.get('reads_7d', 0)}</td><td>{f.get('reads_30d', 0)}</td>"
-            f"<td>{f.get('reads_90d', 0)}</td><td>{f['reads']}</td>"
+            f"{window_cells}<td>{f['reads']}</td><td><small>{agent_label(f)}</small></td>"
             f"<td><small>{esc(f['last_read'])}</small></td></tr>"
         )
     parts.append("</table></div>")
+
+    if s.get("retired_files"):
+        parts.append("<h3>Retired paths</h3>")
+        parts.append(
+            "<p class=muted>These paths have telemetry history but no longer exist. They are "
+            "excluded from current heat, health, and coverage.</p><details><summary>"
+            f"{len(s['retired_files'])} retired paths</summary><ul>"
+        )
+        parts.extend(
+            f"<li><code>{esc(item['path'])}</code> · {item['reads']} historical reads · "
+            f"last {esc(item['last_read'])}</li>"
+            for item in s["retired_files"]
+        )
+        parts.append("</ul></details>")
 
     if s.get("skills"):
         parts.append("<h2>Skill usage</h2><div class=scroll><table>")
@@ -144,66 +185,90 @@ def main():
             "reads remain separate; cold means inactive now and never proves removal is safe.</p>"
         )
         parts.append("<div class=scroll><table>")
+        folder_window = max(visible_windows, default=None)
+        folder_window_header = f"<th>{folder_window}d</th>" if folder_window else ""
         parts.append(
-            "<tr><th>Folder</th><th>Heat</th><th></th><th>30d</th><th>Coverage</th>"
-            "<th>Lifetime</th><th>Last read</th></tr>"
+            "<tr><th>Folder</th><th>Heat</th><th></th>" + folder_window_header + "<th>Coverage</th>"
+            "<th>Lifetime</th><th>Retired read share</th><th>Median file age</th>"
+            "<th>Last read</th></tr>"
         )
         max_folder_heat = max((f.get("heat", 0) for f in s["folders"]), default=1)
-        for fo in sorted(s["folders"], key=lambda f: (-f.get("heat", 0), f["folder"])):
+        visible_folders = [f for f in s["folders"] if f.get("files", 0) or f.get("heat", 0)]
+        for fo in sorted(visible_folders, key=lambda f: (-f.get("heat", 0), f["folder"])):
             heat = fo.get("heat", 0)
             w = max(4, int(120 * heat / max_folder_heat)) if heat else 4
             col = heat_color(heat, max_folder_heat)
             no_index = "" if fo.get("has_index") else " <small class=muted>· no index file</small>"
+            folder_window_cell = (
+                f"<td>{fo.get(f'reads_{folder_window}d', 0)}</td>" if folder_window else ""
+            )
             parts.append(
                 f"<tr><td><code>{esc(fo['folder'])}/</code>{no_index}</td>"
                 f"<td>{heat:.3f}</td>"
                 f"<td><span class=bar style='width:{w}px;background:{col}'></span></td>"
-                f"<td>{fo.get('reads_30d', 0)}</td>"
+                f"{folder_window_cell}"
                 f"<td>{fo['touched']}/{fo['files']} ({int(fo['coverage'] * 100)}%)</td>"
-                f"<td>{fo['reads']}</td><td><small>{esc(fo.get('last_read'))}</small></td></tr>"
+                f"<td>{fo['reads']}</td><td>{int(fo.get('retired_read_share', 0) * 100)}%</td>"
+                f"<td>{esc(fo.get('median_file_age_days'))} days</td>"
+                f"<td><small>{esc(fo.get('last_read'))}</small></td></tr>"
             )
         parts.append("</table></div>")
 
-    parts.append("<h2>Review candidates (untouched paths)</h2>")
+    parts.append("<h2>Untouched review</h2>")
     parts.append(f"<div class=note>{esc(MATURITY_NOTE[maturity])}</div>")
-    if s["untouched"]:
+    candidates = sorted(
+        s.get("review_candidates", []),
+        key=lambda item: (
+            -item.get("inbound_refs", len(item.get("referenced_from", []))),
+            item["path"],
+        ),
+    )
+    if candidates:
         parts.append(
             "<p class=muted>Never read during the measurement period. This is a review queue, "
-            "not a removal recommendation. Low reads can mean rare-but-critical.</p><ul>"
+            "not a removal recommendation.</p><div class=scroll><table>"
+            "<tr><th>Path</th><th>Inbound refs</th><th>Flags</th></tr>"
         )
-        detail = {d["path"]: d["referenced_from"] for d in s.get("untouched_detail", [])}
-        for p in s["untouched"]:
-            refs = detail.get(p, [])
-            tmpl = {d["path"]: d.get("template") for d in s.get("untouched_detail", [])}
-            if tmpl.get(p):
-                info = "template — intentional archive"
-            elif refs:
-                info = "referenced from " + ", ".join(f"<code>{esc(r)}</code>" for r in refs)
-            else:
-                info = "<b>not referenced by any doc — router gap</b>"
-            parts.append(
-                f"<li class=untouched><code>{esc(p)}</code>"
-                f" <small class=muted>· {info}</small></li>"
+        rows = []
+        for item in candidates:
+            flags = []
+            if item.get("is_router"):
+                flags.append("unread router")
+            if item.get("template"):
+                flags.append("template")
+            if item.get("classification") == "protected":
+                flags.append("protected")
+            if not item.get("inbound_refs", len(item.get("referenced_from", []))):
+                flags.append("router gap")
+            rows.append(
+                f"<tr><td><code>{esc(item['path'])}</code></td>"
+                f"<td>{item.get('inbound_refs', len(item.get('referenced_from', [])))}</td>"
+                f"<td>{esc(', '.join(flags) or 'review')}</td></tr>"
             )
-        parts.append("</ul>")
+        parts.extend(rows[:20])
+        parts.append("</table></div>")
+        if len(rows) > 20:
+            parts.append(
+                f"<details><summary>and {len(rows) - 20} more</summary><div class=scroll><table>"
+                "<tr><th>Path</th><th>Inbound refs</th><th>Flags</th></tr>"
+                + "".join(rows[20:])
+                + "</table></div></details>"
+            )
+        parts.append(f"<p class=muted><small>{esc(s.get('review_caveat'))}</small></p>")
     else:
         parts.append("<p>None — every inventoried file has been read at least once.</p>")
-    protected = [
-        item for item in s.get("review_candidates", []) if item.get("classification") == "protected"
-    ]
-    if protected:
-        parts.append("<h3>Protected — review, likely keep</h3><ul>")
-        for item in protected:
-            parts.append(
-                f"<li><code>{esc(item['path'])}</code> · {esc('; '.join(item['why']))}"
-                f"<br><small>{esc(item['caveat'])}</small></li>"
-            )
-        parts.append("</ul>")
-    if s.get("always_loaded"):
+    always_loaded = s.get("always_loaded_inventory", s.get("always_loaded", []))
+    if always_loaded:
         parts.append(
             "<p class=muted><small>Out of scope (always loaded via system prompt / Skill tool): "
-            + ", ".join(f"<code>{esc(p)}</code>" for p in s["always_loaded"])
+            + ", ".join(f"<code>{esc(p)}</code>" for p in always_loaded)
             + "</small></p>"
+        )
+    if s.get("unread_routers"):
+        parts.append(
+            "<p class=muted><b>Unread routers:</b> "
+            + ", ".join(f"<code>{esc(path)}</code>" for path in s["unread_routers"])
+            + ". Router files are never classified as templates.</p>"
         )
 
     if s.get("trend") and len(s["trend"]) > 1:
@@ -223,7 +288,7 @@ def main():
             parts.append(
                 f"<tr><td>{esc(b['period'])}</td><td>{b['reads']}</td><td>{b['scans']}</td>"
                 f"<td><span class=bar style='width:{w}px;background:{HEAT[2]}'></span></td>"
-                f"<td>{esc(ratio)}</td></tr>"
+                f"<td>{esc(ratio)}{' · small n' if b.get('small_n') else ''}</td></tr>"
             )
         parts.append("</table></div>")
 

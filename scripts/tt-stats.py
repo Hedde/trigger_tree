@@ -13,6 +13,7 @@ Config: $PROJECT/.trigger-tree/config.sh overrides the plugin default tt-config.
 Usage: python3 tt-stats.py [path/to/history.jsonl]
 """
 
+import argparse
 import glob
 import hashlib
 import json
@@ -24,6 +25,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from fnmatch import fnmatch
 from itertools import combinations
+from statistics import median
 
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -39,6 +41,7 @@ SCHEMA_VERSION = 1
 HEAT_HALF_LIFE_DAYS = 30.0
 HEAT_WINDOWS_DAYS = (7, 30, 90)
 ROUTER_NAMES = ("README.md", "_index.md", "index.md", "CLAUDE.md")
+TREND_MIN_EVENTS = 10
 
 
 def _conf_texts():
@@ -297,9 +300,42 @@ def jaccard(a, b):
     return len(a & b) / len(a | b) if a | b else 0.0
 
 
+def detect_client(explicit="auto"):
+    if explicit in ("claude", "codex"):
+        return explicit
+    if os.environ.get("CLAUDE_PLUGIN_ROOT"):
+        return "claude"
+    if os.environ.get("CODEX_HOME") or os.environ.get("PLUGIN_ROOT"):
+        return "codex"
+    return None
+
+
+def prompt_preview(event, client, fallback=""):
+    """Return task-shaped user text, never a client/harness envelope or fingerprint."""
+    prompt = (event.get("prompt") or "").strip()
+    if not prompt or event.get("prompt_hash") or prompt.startswith("#"):
+        return fallback
+    lowered = prompt.lower()
+    client_envelopes = {
+        "claude": ("<task-notification", "<agent-message", "<system-reminder"),
+        "codex": ("<environment_context", "<turn_aborted", "<collaboration"),
+    }
+    if any(lowered.startswith(prefix) for prefix in client_envelopes.get(client, ())):
+        return fallback
+    if re.fullmatch(r"/(?:trigger-tree:)?tt(?:\s+\S+)*", prompt, flags=re.I):
+        return fallback
+    if re.fullmatch(r"git\s+(?:status|diff|log)(?:\s+[-\w./]+)*", prompt, flags=re.I):
+        return fallback
+    return prompt
+
+
 def main():
-    explicit = sys.argv[1] if len(sys.argv) > 1 else None
-    events, history_diagnostics = load_events_with_diagnostics(history_files(explicit))
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("history", nargs="?")
+    parser.add_argument("--client", choices=("auto", "claude", "codex"), default="auto")
+    args = parser.parse_args()
+    client = detect_client(args.client)
+    events, history_diagnostics = load_events_with_diagnostics(history_files(args.history))
     docs = inventory()
 
     reads = [e for e in events if e.get("t") == "read"]
@@ -370,17 +406,21 @@ def main():
     # Fingerprints: the set of doc paths (and skills used) between two prompt markers.
     buckets = []
     current = {}  # session -> {"prompt": str, "paths": set}
+    last_real_prompt = {}
     for e in events:
         s = e.get("session", "?")
         if e.get("t") == "prompt":
             if s in current and current[s]["paths"]:
                 buckets.append(current[s])
-            current[s] = {"prompt": e.get("prompt", ""), "paths": set()}
+            preview = prompt_preview(e, client, last_real_prompt.get(s, ""))
+            if preview and preview != last_real_prompt.get(s):
+                last_real_prompt[s] = preview
+            current[s] = {"prompt": preview, "paths": set()}
         elif e.get("t") == "read":
-            current.setdefault(s, {"prompt": "(session start)", "paths": set()})
+            current.setdefault(s, {"prompt": "", "paths": set()})
             current[s]["paths"].add(e["path"])
         elif e.get("t") == "skill":
-            current.setdefault(s, {"prompt": "(session start)", "paths": set()})
+            current.setdefault(s, {"prompt": "", "paths": set()})
             current[s]["paths"].add(f"skill:{e['skill']}")
     buckets.extend(b for b in current.values() if b["paths"])
 
@@ -448,6 +488,8 @@ def main():
         {
             "period": k,
             **v,
+            "sample_size": v["reads"] + v["scans"],
+            "small_n": v["reads"] + v["scans"] < TREND_MIN_EVENTS,
             "search_ratio": round(v["scans"] / v["reads"], 2) if v["reads"] else None,
             "hunting_ratio": round(v["scans"] / v["reads"], 2) if v["reads"] else None,
         }
@@ -464,9 +506,11 @@ def main():
     }
     imported_files = claude_import_graph(docs)
     always_loaded_set = {p for p in docs if ALWAYS.search(p)} | imported_files
+    doc_set = set(docs)
+    evaluable_set = doc_set - always_loaded_set
     unread = [p for p in docs if p not in read_paths and p not in used_skill_files]
     untouched = [p for p in unread if p not in always_loaded_set]
-    always_loaded = [p for p in unread if p in always_loaded_set]
+    always_loaded_unread = [p for p in unread if p in always_loaded_set]
 
     # Router-gap detection: an untouched file that no other doc links to is invisible
     # to the router; an untouched file that IS referenced points at content/naming.
@@ -477,6 +521,12 @@ def main():
         except OSError:
             texts[p] = ""
     routers = folder_routers(docs)
+    all_refs_by_path = {
+        p: sorted(
+            q for q, text in texts.items() if q != p and (p in text or p.rsplit("/", 1)[-1] in text)
+        )
+        for p in docs
+    }
     router_coverage = []
     for folder, router in sorted(routers.items()):
         members = [
@@ -497,26 +547,27 @@ def main():
     untouched_detail = []
     for p in untouched:
         base = p.rsplit("/", 1)[-1]
-        refs = [q for q, t in texts.items() if q != p and (p in t or base in t)]
+        refs = all_refs_by_path[p]
         router = routers.get(posix_dirname(p))
+        is_router = p == router
         untouched_detail.append(
             {
                 "path": p,
-                "referenced_from": sorted(refs)[:5],
-                "template": base.startswith("_"),
+                "referenced_from": refs,
+                "referenced_from_sample": refs[:5],
+                "inbound_refs": len(refs),
+                "template": base.startswith("_") and not is_router,
+                "is_router": is_router,
                 "router": router,
-                "router_mentions_target": bool(
-                    router and text_mentions_target(texts[router], p, router)
-                ),
+                "router_mentions_target": is_router
+                or bool(router and text_mentions_target(texts[router], p, router)),
             }
         )
 
     review_candidates = []
     for detail in untouched_detail:
         p = detail["path"]
-        all_refs = [
-            q for q, text in texts.items() if q != p and (p in text or p.rsplit("/", 1)[-1] in text)
-        ]
+        all_refs = all_refs_by_path[p]
         reasons = protection_reasons(p, all_refs, texts.get(p, ""), False)
         if detail["template"]:
             reasons.append("template or intentional archive")
@@ -541,7 +592,7 @@ def main():
         )
 
     protected_docs = []
-    for p in always_loaded:
+    for p in sorted(always_loaded_set):
         protected_docs.append(
             {
                 "path": p,
@@ -580,7 +631,27 @@ def main():
             }
         )
 
-    # Folder heat/cold map: current decayed attention, coverage, and lifetime volume.
+    # Reconcile historical paths against the current inventory. Missing paths retain
+    # their evidence but cannot contribute to current coverage or current heat.
+    path_states = {}
+    for p in per_file:
+        exists = os.path.isfile(os.path.join(ROOT, p))
+        path_states[p] = (
+            "current" if p in doc_set and exists else "untracked" if exists else "retired"
+        )
+    retired_files = [
+        {
+            "path": p,
+            "reads": d["reads"],
+            "heat": d["heat"],
+            "last_read": d["last_read"],
+            "agents": dict(d["agents"]),
+        }
+        for p, d in sorted(per_file.items(), key=lambda item: (-item[1]["reads"], item[0]))
+        if path_states[p] == "retired"
+    ]
+
+    # Folder heat/cold map: current decayed attention plus measured churn.
     folder_map = defaultdict(
         lambda: {
             "files": 0,
@@ -591,9 +662,12 @@ def main():
             "reads_30d": 0,
             "reads_90d": 0,
             "last_read": None,
+            "retired_reads": 0,
+            "agents": Counter(),
+            "file_ages_days": [],
         }
     )
-    touched_paths = read_paths | used_skill_files
+    touched_paths = (read_paths | used_skill_files) & evaluable_set
     for p in docs:
         folder = p.rsplit("/", 1)[0] if "/" in p else "(root)"
         fm = folder_map[folder]
@@ -607,26 +681,51 @@ def main():
             for window in HEAT_WINDOWS_DAYS:
                 fm[f"reads_{window}d"] += data[f"reads_{window}d"]
             fm["last_read"] = max(filter(None, [fm["last_read"], data["last_read"]]), default=None)
+            fm["agents"].update(data["agents"])
+            try:
+                age = max(
+                    0.0, (heat_as_of.timestamp() - os.path.getmtime(os.path.join(ROOT, p))) / 86400
+                )
+                fm["file_ages_days"].append(age)
+            except OSError:
+                pass
+    for p, data in per_file.items():
+        if path_states[p] == "retired":
+            folder = p.rsplit("/", 1)[0] if "/" in p else "(root)"
+            folder_map[folder]["retired_reads"] += data["reads"]
     folders_with_index = {
         p.rsplit("/", 1)[0] if "/" in p else "(root)"
         for p in docs
         if p.rsplit("/", 1)[-1] in ROUTER_NAMES
     }
-    folders = [
-        {
-            "folder": k,
-            **v,
-            "heat": round(v["heat"], 3),
-            "coverage": round(v["touched"] / v["files"], 2),
-            "has_index": k in folders_with_index,
-        }
-        for k, v in sorted(folder_map.items())
-    ]
+    folders = []
+    for key, value in sorted(folder_map.items()):
+        current_reads = value["reads"]
+        retired_reads = value.pop("retired_reads")
+        ages = value.pop("file_ages_days")
+        agents = dict(value.pop("agents"))
+        folders.append(
+            {
+                "folder": key,
+                **value,
+                "heat": round(value["heat"], 3),
+                "coverage": round(value["touched"] / value["files"], 2) if value["files"] else 0.0,
+                "has_index": key in folders_with_index,
+                "retired_reads": retired_reads,
+                "retired_read_share": (
+                    round(retired_reads / (current_reads + retired_reads), 2)
+                    if current_reads + retired_reads
+                    else 0.0
+                ),
+                "median_file_age_days": round(median(ages), 2) if ages else None,
+                "agents": agents,
+            }
+        )
 
     # Documentation health: one deterministic grade a product owner can track.
     router_gaps = sum(1 for d in untouched_detail if not d["referenced_from"])
-    denom = max(1, len(docs) - len(always_loaded))
-    coverage_overall = round(len(touched_paths & set(docs)) / denom, 2)
+    denom = max(1, len(evaluable_set))
+    coverage_overall = round(len(touched_paths) / denom, 2)
     distributed_scans = sum(
         item["scans"] for item in search_activity if item["pattern"] == "distributed"
     )
@@ -648,7 +747,7 @@ def main():
         "grade": grade_for(score),
         "coverage": coverage_overall,
         "drivers": [
-            f"{len(untouched)} of {len(docs)} docs untouched",
+            f"{len(untouched)} of {len(evaluable_set)} evaluable docs untouched",
             f"{router_gaps} router gaps (untouched and unreferenced)",
             f"distributed search ratio {distributed_search_ratio}",
         ],
@@ -677,6 +776,10 @@ def main():
             "skill_uses": len(skill_events),
             "prompts_with_doc_reads": len(buckets),
             "inventory_files": len(docs),
+            "evaluable_files": len(evaluable_set),
+            "always_loaded_files": len(always_loaded_set),
+            "touched_current_files": len(touched_paths),
+            "untouched_current_files": len(untouched),
         },
         "files": [
             {
@@ -690,6 +793,9 @@ def main():
                 "last_read": d["last_read"],
                 "sessions": len(d["sessions"]),
                 "agents": dict(d["agents"]),
+                "state": path_states[p],
+                "main_reads": d["agents"].get("main", 0),
+                "subagent_reads": d["reads"] - d["agents"].get("main", 0),
             }
             for p, d in sorted(per_file.items(), key=lambda kv: -kv[1]["reads"])
         ],
@@ -705,10 +811,14 @@ def main():
         "untouched": untouched,
         "untouched_detail": untouched_detail,
         "review_candidates": review_candidates,
+        "review_caveat": "Low reads can mean rare-but-critical; verify purpose and owners before archiving.",
         "router_coverage": router_coverage,
+        "unread_routers": sorted(d["path"] for d in untouched_detail if d["is_router"]),
         "protected_docs": protected_docs,
         "folders": folders,
-        "always_loaded": always_loaded,
+        "always_loaded": always_loaded_unread,
+        "always_loaded_inventory": sorted(always_loaded_set),
+        "always_loaded_unread": always_loaded_unread,
         "always_loaded_imports": sorted(imported_files),
         "signal_integrity": {
             "subagent_reads": "captured",
@@ -719,7 +829,8 @@ def main():
         },
         "history_schema": {"current": SCHEMA_VERSION, **history_diagnostics},
         "experimental_outcomes": experimental_outcomes,
-        "unknown_reads": sorted(p for p in read_paths if p not in docs),
+        "retired_files": retired_files,
+        "unknown_reads": sorted(p for p in read_paths if path_states[p] == "untracked"),
         "search_activity": search_activity,
         "hunting": search_activity,  # compatibility alias; scans are not causal evidence
         "trend": trend,

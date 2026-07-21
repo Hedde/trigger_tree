@@ -33,6 +33,25 @@ def test_pure_helpers():
     assert [mod.grade_for(x) for x in (95, 80, 65, 50, 10)] == ["A", "B", "C", "D", "F"]
 
 
+def test_client_detection_and_prompt_filters(monkeypatch):
+    mod = load_script("tt-stats.py", FIXTURE)
+    monkeypatch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    monkeypatch.delenv("PLUGIN_ROOT", raising=False)
+    assert mod.detect_client() is None
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", "/plugin")
+    assert mod.detect_client() == "claude"
+    monkeypatch.delenv("CLAUDE_PLUGIN_ROOT")
+    monkeypatch.setenv("CODEX_HOME", "/codex")
+    assert mod.detect_client() == "codex"
+    assert mod.detect_client("claude") == "claude"
+
+    assert mod.prompt_preview({}, "claude", "previous") == "previous"
+    assert mod.prompt_preview({"prompt": "#abc", "prompt_hash": True}, "claude") == ""
+    assert mod.prompt_preview({"prompt": "git status"}, "claude", "task") == "task"
+    assert mod.prompt_preview({"prompt": "<environment_context>x"}, "codex", "task") == "task"
+
+
 def test_router_coverage_uses_existing_index_and_ignores_unrelated_inlinks(tmp_path, monkeypatch):
     architecture = tmp_path / "docs" / "architecture"
     other = tmp_path / "docs" / "other"
@@ -56,6 +75,9 @@ def test_router_coverage_uses_existing_index_and_ignores_unrelated_inlinks(tmp_p
         "unlisted": ["docs/architecture/unlisted.md"],
     }
     detail = {item["path"]: item for item in stats["untouched_detail"]}
+    assert detail["docs/architecture/_index.md"]["is_router"] is True
+    assert detail["docs/architecture/_index.md"]["template"] is False
+    assert detail["docs/architecture/_index.md"]["router_mentions_target"] is True
     assert detail["docs/architecture/unlisted.md"]["referenced_from"] == ["docs/other/reference.md"]
     assert detail["docs/architecture/unlisted.md"]["router_mentions_target"] is False
 
@@ -363,6 +385,15 @@ def test_fixture_full_run(monkeypatch):
     ):
         assert p in s["untouched"], p
     assert s["always_loaded"] == ["AGENTS.md", "CLAUDE.md"]  # invoked skill's SKILL.md excluded
+    assert s["always_loaded_inventory"] == [
+        ".claude/skills/deploy/SKILL.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+    ]
+    assert (
+        s["totals"]["touched_current_files"] + s["totals"]["untouched_current_files"]
+        == s["totals"]["evaluable_files"]
+    )
     assert s["files"][0]["path"] == "docs/README.md" and s["files"][0]["reads"] == 3
     assert s["skills"][0] == {
         "name": "deploy",
@@ -384,9 +415,9 @@ def test_fixture_full_run(monkeypatch):
     assert s["health"] == {
         "score": 56,
         "grade": "D",
-        "coverage": 0.41,
+        "coverage": 0.39,
         "drivers": [
-            "19 of 34 docs untouched",
+            "19 of 31 evaluable docs untouched",
             "12 router gaps (untouched and unreferenced)",
             "distributed search ratio 0.0",
         ],
@@ -465,8 +496,90 @@ def test_unknown_reads_and_explicit_history(tmp_path, monkeypatch):
     mod = load_script("tt-stats.py", tmp_path)
     explicit = str(tmp_path / ".trigger-tree" / "history.jsonl")
     s = run_stats(mod, monkeypatch, [explicit])
-    assert s["unknown_reads"] == ["docs/ghost.md"]
+    assert s["unknown_reads"] == []
+    assert s["retired_files"][0]["path"] == "docs/ghost.md"
     assert s["untouched"] == ["docs/a.md"]
+
+
+def test_retired_paths_do_not_affect_current_heat_or_coverage(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "current.md").write_text("current")
+    write_history(
+        tmp_path,
+        [
+            {"t": "read", "session": "S", "path": "docs/retired.md", "agent": "feature"},
+            {"t": "read", "session": "S", "path": "docs/current.md", "agent": "main"},
+        ],
+    )
+
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+    files = {item["path"]: item for item in stats["files"]}
+
+    assert files["docs/retired.md"]["state"] == "retired"
+    assert files["docs/current.md"]["state"] == "current"
+    assert stats["totals"]["touched_current_files"] == 1
+    assert stats["totals"]["untouched_current_files"] == 0
+    assert stats["retired_files"][0]["agents"] == {"feature": 1}
+    folder = next(item for item in stats["folders"] if item["folder"] == "docs")
+    assert folder["retired_reads"] == 1
+    assert folder["retired_read_share"] == 0.5
+
+
+def test_missing_file_age_stat_does_not_break_folder_metrics(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("a")
+    write_history(tmp_path, [{"t": "read", "session": "S", "path": "docs/a.md"}])
+
+    mod = load_script("tt-stats.py", tmp_path)
+    monkeypatch.setattr(mod.os.path, "getmtime", lambda _path: (_ for _ in ()).throw(OSError()))
+    stats = run_stats(mod, monkeypatch)
+
+    assert stats["folders"][0]["median_file_age_days"] is None
+
+
+def test_reference_count_and_sample_use_one_full_source(tmp_path, monkeypatch):
+    (tmp_path / "docs" / "refs").mkdir(parents=True)
+    (tmp_path / "docs" / "target.md").write_text("target")
+    for index in range(7):
+        (tmp_path / "docs" / "refs" / f"{index}.md").write_text("../target.md")
+    write_history(tmp_path, [{"t": "session", "session": "S"}])
+
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+    item = next(row for row in stats["review_candidates"] if row["path"] == "docs/target.md")
+
+    assert item["inbound_refs"] == 7
+    assert len(item["referenced_from"]) == 7
+    assert item["referenced_from_sample"] == item["referenced_from"][:5]
+    assert item["why"] == ["referenced by 7 other docs"]
+
+
+def test_cluster_prompts_filter_client_envelopes_and_use_real_fallback(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("a")
+    write_history(
+        tmp_path,
+        [
+            {"t": "prompt", "session": "S", "prompt": "Review the routing docs"},
+            {"t": "read", "session": "S", "path": "docs/a.md"},
+            {
+                "t": "prompt",
+                "session": "S",
+                "prompt": "<task-notification>done</task-notification>",
+            },
+            {"t": "read", "session": "S", "path": "docs/a.md"},
+            {"t": "prompt", "session": "T", "prompt": "/tt watch"},
+            {"t": "read", "session": "T", "path": "docs/a.md"},
+        ],
+    )
+
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch, ["--client", "claude"])
+    prompts = [prompt for cluster in stats["clusters"] for prompt in cluster["prompts"]]
+
+    assert prompts == ["Review the routing docs", "Review the routing docs"]
+    assert all("task-notification" not in prompt and "/tt" not in prompt for prompt in prompts)
 
 
 def test_two_prompts_in_one_session_make_two_buckets(tmp_path, monkeypatch):

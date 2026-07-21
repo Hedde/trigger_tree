@@ -48,14 +48,14 @@ Show exactly this, nothing above or below it:
 
 ## `$1` = "status"
 
-1. Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-stats.py"` and read the JSON.
+1. Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-stats.py" --client claude` and read the JSON.
 2. Show only this block:
 
 > **🌳 trigger-tree status** _(period: <observed_from> → <observed_to>, <sessions> sessions)_
-> <reads> reads · <scans> scans · <skill_uses> skill uses · <files touched>/<inventory_files> files touched
+> <reads> reads · <scans> scans · <skill_uses> skill uses · <touched_current_files>/<evaluable_files> current files touched
 > **Health:** <health.grade> (<health.score>/100) — append "(provisional)" unless maturity is `mature`
 >
-> **Current heat:** sort `files` by `heat` descending and show the top 5 as
+> **Current heat:** exclude `state != "current"`, then sort `files` by `heat` descending and show the top 5 as
 > `path (h<heat>, <reads>× lifetime)`, comma-separated.
 > **Untouched:** <count of untouched> — followed by the maturity suffix:
 > - `cold-start`: "(measurement just started — nothing can be called dead yet)"
@@ -73,27 +73,29 @@ Show exactly this, nothing above or below it:
 
 ## `$1` = "insights"
 
-1. Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-stats.py"` and read the JSON.
+1. Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-stats.py" --client claude` and read the JSON.
 2. If `maturity` is `cold-start`: answer in one line —
    `🌳 Not enough data yet (<reads> reads, <sessions> sessions) — check back after a few working sessions.` Stop.
-3. Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-report.py"` — it writes
+3. Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-report.py" --client claude` — it writes
    `.trigger-tree/report.html` and prints the path.
 4. Publish that file with the Artifact tool (favicon `🌳`, description "trigger-tree
    documentation telemetry report"). No Artifact tool available → use the local path
    as the link.
-5. Show only the final report, compact (guideline ≤ 15 lines):
+5. Show only the final report, with a hard maximum of 15 lines:
 
 > **🌳 trigger-tree insights** _(period, #sessions, maturity)_
 >
 > **Health** — grade + score with its three drivers, one line ("(provisional)" unless mature).
-> **Key figures** — reads, searches, skill uses, files touched / inventory.
+> **Key figures** — reads, searches, skill uses, touched current files / evaluable files;
+> mention always-loaded files separately so the inventory equation reconciles.
 > **Folder heat/cold map** — from `folders`: name the hottest folder by current
 > decayed `heat` (also state 30-day and lifetime reads) and the least-covered folder,
 > one line each. Cold means inactive now, not obsolete.
 > **Untouched paths** — when `mature`: one line per path with a category — 🗑 remove/merge,
 > 🧭 sharpen router (with a concrete proposal), 📦 intentional archive. Use
-> `untouched_detail`: a path with empty `referenced_from` is a **router gap** (no doc
-> links to it) — that's nearly always 🧭; `template: true` entries are automatically 📦.
+> `untouched_detail`: a path with zero `inbound_refs` is a **router gap** (no doc
+> links to it) — that's nearly always 🧭. `is_router: true` is an unread router signal,
+> never a template. `template: true` may support 📦 but is not a removal verdict.
 > When `warming`: present as untouched with the note that judgment needs more data;
 > no categories.
 > **Trend** — only when `trend` has 2+ periods: is `search_ratio` falling or rising,
@@ -117,7 +119,8 @@ Analysis rules (do not repeat them in the output): lifetime read counts never de
 current `heat` uses the `heat_model` 30-day half-life and is distinct from untouched;
 read counts and heat are signals, not verdicts;
 scan counts are narrow search telemetry and do not establish why a search occurred;
-files in `always_loaded` are never dead by definition (system-prompt injection); a file
+files in `always_loaded_inventory` are never dead by definition (system-prompt injection);
+`retired_files` are historical evidence and must not appear in current rankings; a file
 younger than the measurement period is new, not untouched; subagent reads (the `agents`
 field) count fully; skill uses make `.claude/skills/**` measurable — an invoked skill's
 SKILL.md counts as touched.
