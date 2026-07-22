@@ -29,3 +29,23 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "Math.min(buckets.length - 1, browseIdx + 1)" in html
     assert "browseIdx + 1 >= buckets.length ? null" not in html
     assert "folderSearches" in html and "unread" in html
+    assert (
+        'property="og:image" content="https://hedde.github.io/trigger_tree/assets/social-card.png"'
+        in html
+    )
+    assert '<meta name="twitter:card" content="summary_large_image">' in html
+    assert 'property="og:image:width" content="1200"' in html
+    assert "current local snapshot · cold-start" in html and "measuring…" in html
+    assert "Different evidence, different questions" in html
+    assert "Which local project docs did the coding assistant discover?" in html
+    assert "/tt badge" in html
+    assert "static, dependency-free, and has no analytics" in html
+    assert "--muted:#9aa4af" in html
+    assert 'src="https://' not in html
+
+
+def test_social_card_has_link_preview_dimensions():
+    data = open(f"{REPO}/assets/social-card.png", "rb").read(24)
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+    assert int.from_bytes(data[16:20], "big") == 1200
+    assert int.from_bytes(data[20:24], "big") == 630

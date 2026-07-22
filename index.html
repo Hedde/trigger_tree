@@ -5,10 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>trigger-tree — see which docs your AI actually discovers</title>
 <meta name="description" content="See which docs your AI actually discovers. Local documentation-discovery telemetry with a real-time dashboard, heat maps, and evidence-backed router fixes.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="trigger-tree — see which docs your AI actually discovers">
+<meta property="og:description" content="Local, zero-token evidence for documentation discovery, heat, and health.">
+<meta property="og:image" content="https://hedde.github.io/trigger_tree/assets/social-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://hedde.github.io/trigger_tree/">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
 <style>
   :root {
-    --bg:#0c1014; --panel:#101418; --line:#1f262e; --fg:#e6edf3; --muted:#8b949e;
+    --bg:#0c1014; --panel:#101418; --line:#1f262e; --fg:#e6edf3; --muted:#9aa4af;
     --cold:#5c8fe6; --cool:#38bfc3; --green:#7cb342; --bright:#b9f6a0;
     --amber:#ffb300; --hot:#e53935; --dim:#4a5361;
   }
@@ -49,6 +57,15 @@
   .install-card > p { color:var(--muted); padding:0 1.2rem 1rem; font-size:.9rem; }
   .install-card pre.block { border:0; border-top:1px solid var(--line); border-radius:0; }
   .install-note { color:var(--muted); margin-top:1rem; font-size:.9rem; }
+  .health-story { display:grid; grid-template-columns:8rem 1fr; gap:1.5rem; align-items:center;
+                  background:var(--panel); border:1px solid var(--line); border-left:5px solid var(--green);
+                  border-radius:10px; padding:1.4rem; }
+  .health-grade { font:700 1.35rem/1.2 ui-monospace,Menlo,monospace; color:var(--green); text-align:center; }
+  .drivers { color:var(--muted); margin:.45rem 0 0 1.1rem; }
+  .compare { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .compare div { padding:1.15rem; background:var(--panel); }
+  .compare div + div { border-left:1px solid var(--line); }
+  .compare p { color:var(--muted); font-size:.92rem; margin-top:.3rem; }
   table { border-collapse:collapse; width:100%; }
   th,td { text-align:left; padding:.5rem .7rem; border-bottom:1px solid var(--line); font-size:.95rem; }
   th { color:var(--muted); } td code { color:var(--bright); }
@@ -57,7 +74,8 @@
             box-shadow:0 8px 30px rgba(0,0,0,.6); pointer-events:none; opacity:0; transition:opacity .3s; }
   footer { text-align:center; color:var(--muted); margin-top:4rem; font-size:.9rem; }
   @media (max-width:850px) { .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-  @media (max-width:580px) { .grid, .install-grid { grid-template-columns:1fr; } }
+  @media (max-width:580px) { .grid, .install-grid, .health-story, .compare { grid-template-columns:1fr; }
+    .compare div + div { border-left:0; border-top:1px solid var(--line); } }
   @media (prefers-reduced-motion: reduce) { .pulse { text-shadow:none; } }
 </style>
 </head>
@@ -108,6 +126,22 @@
   Anthropic's own guidance says to keep CLAUDE.md lean; trigger-tree provides evidence for what to review,
   what to protect or reroute, and what to rescue.</p>
 
+  <h2>One signal, with its evidence attached</h2>
+  <section class="health-story" aria-label="Example documentation health grade">
+    <div class="health-grade">measuring…</div>
+    <div><b>This repository’s current local snapshot · cold-start</b>
+      <ul class="drivers"><li>1 of 11 evaluable docs consulted</li><li>0 unreferenced router gaps</li><li>no distributed-search concentration yet</li></ul>
+      <p class="install-note">The eventual grade is trackable sprint over sprint. Until the evidence is mature, the public badge deliberately hides the provisional C (64).</p>
+    </div>
+  </section>
+
+  <h2>Different evidence, different questions</h2>
+  <div class="compare">
+    <div><b>Token/trace observability</b><p>What did the model call, spend, and produce?</p></div>
+    <div><b>Documentation linters</b><p>Is the documentation structurally or stylistically valid?</p></div>
+    <div><b>trigger-tree</b><p>Which local project docs did the coding assistant discover?</p></div>
+  </div>
+
   <h2>Install</h2>
   <div class="install-grid">
     <section class="install-card">
@@ -140,6 +174,7 @@ codex plugin add trigger-tree@trigger-tree
     <tr><td><code>/tt watch</code></td><td>This dashboard, live, in your terminal</td></tr>
     <tr><td><code>/tt insights</code></td><td>Heat/cold map, router reachability, search patterns + HTML</td></tr>
     <tr><td><code>/tt suggestions</code></td><td>Max 5 evidence-backed router fixes</td></tr>
+    <tr><td><code>/tt badge</code></td><td>Write a public-safe docs-health endpoint JSON</td></tr>
     <tr><td><code>/tt note</code></td><td>Annotate router changes on the timeline</td></tr>
     <tr><td><code>/tt doctor</code></td><td>Check hook liveness, watch coverage, privacy, and telemetry</td></tr>
     <tr><td><code>/tt setup [truncate|hash|off]</code></td><td>Wire the project, report watch coverage, and choose prompt privacy</td></tr>
@@ -152,6 +187,7 @@ codex plugin add trigger-tree@trigger-tree
        <a href="PRIVACY.html">Privacy</a> ·
        <a href="https://github.com/Hedde/trigger_tree/blob/main/CHANGELOG.md">Changelog</a></p>
     <p>Measured, not guessed. · MIT · Hedde van der Heide</p>
+    <p>This site is static, dependency-free, and has no analytics — the same privacy stance as the plugin.</p>
   </footer>
 </div>
 <div class="bubble" id="bubble"></div>
