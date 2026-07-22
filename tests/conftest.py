@@ -20,7 +20,7 @@ __all__ = ["REPO", "SCRIPTS", "FIXTURE", "load_script"]
 def scrub_ambient_trigger_tree_environment():
     """Keep dogfooding hook exports from changing the suite's baseline."""
     for name in tuple(os.environ):
-        if name.startswith("TT_"):
+        if name.startswith("TT_") or name == "CLAUDE_PROJECT_DIR":
             os.environ.pop(name, None)
 
 

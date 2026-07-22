@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.10.0 — 2026-07-22
+
+- Reframes the project around its measurable documentation-discovery loop with a
+  short demo-first README, a routed reference tree, canonical glossary, and concise
+  root `CLAUDE.md`, while preserving every measurement and platform caveat.
+- Adds `/tt badge` and `tt-stats.py --badge`, which atomically write a shields.io
+  endpoint and publish only `measuring…` until the dataset is mature; CI now carries
+  both coverage and docs-health endpoints on the badges branch.
+- Makes empty dashboards explain how evidence appears, aligns the HTML report with
+  the product heat palette and grade-first hierarchy, and adds mature cached grades
+  to the statusline without recomputing stats on every refresh.
+- Keeps the interactive mock TUI as the canonical demo, adds an optimized static
+  dashboard capture and regenerable VHS tape, and gives the site an honest health
+  story, comparison positioning, privacy statement, accessible contrast, and
+  reduced-motion-safe additions.
+- Adds a 1200×630 social card plus Open Graph and Twitter metadata, with no external
+  site requests or analytics, and corrects cross-platform badge tests discovered by
+  the full Windows CI matrix.
+
 ## 1.9.1 — 2026-07-22
 
 - Fixes a critical v1.9.0 regression where Claude Code could load both bundled hook
