@@ -130,6 +130,7 @@ def test_full_report_on_fixture(monkeypatch, capsys):
         "trigger-tree 1.10.0",
     ):
         assert expected in html, expected
+    assert html.index("id=search") < html.index("id=tasks") < html.index("id=routing")
     os.remove(out_path)  # keep the fixture clean for other tests
 
 

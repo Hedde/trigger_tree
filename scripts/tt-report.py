@@ -318,7 +318,8 @@ def main():
         "<nav class=toc aria-label='Report sections'><b>Jump to:</b> "
         "<a href='#heat'>heat</a><a href='#folders'>folders</a>"
         "<a href='#untouched'>untouched</a><a href='#trend'>trend</a>"
-        "<a href='#routing'>routing</a><a href='#tasks'>tasks</a></nav>"
+        "<a href='#search'>search</a><a href='#tasks'>tasks</a>"
+        "<a href='#routing'>routing</a></nav>"
     )
 
     heat_model = s.get("heat_model", {})
@@ -540,25 +541,11 @@ def main():
             parts.append(f"<tr><td>{bucket}</td><td>{value['sessions']}</td><td>{docs}</td></tr>")
         parts.append("</table></div>")
 
-    if s.get("router_coverage"):
-        parts.append("<h2 id=routing>Folder-router coverage</h2><div class=scroll><table>")
-        parts.append("<tr><th>Router</th><th>Listed</th><th>Unlisted direct files</th></tr>")
-        for item in s["router_coverage"]:
-            missing = "<br>".join("<code>" + esc(path) + "</code>" for path in item["unlisted"])
-            parts.append(
-                f"<tr><td><code>{esc(item['router'])}</code></td>"
-                f"<td>{item['listed']}/{item['files']}</td>"
-                f"<td>{missing or '—'}</td></tr>"
-            )
-        parts.append(
-            "</table></div><p class=muted>Unlisted means absent from that folder's existing "
-            "README.md, _index.md, index.md, or CLAUDE.md; links elsewhere do not count as "
-            "folder-router reachability.</p>"
-        )
-
     search_activity = s.get("search_activity", s.get("hunting", []))
     if search_activity:
-        parts.append("<h2>Search activity inside doc folders</h2><div class=scroll><table>")
+        parts.append(
+            "<h2 id=search>Search activity inside doc folders</h2><div class=scroll><table>"
+        )
         parts.append(
             "<tr><th>Folder</th><th>Scans</th><th>Sessions</th><th>Tools</th><th>Pattern</th></tr>"
         )
@@ -587,6 +574,22 @@ def main():
                 f"<tr><td>{c['count']}</td><td>{c['variants']}</td><td>{prompt}</td><td>{paths}</td></tr>"
             )
         parts.append("</table></div>")
+
+    if s.get("router_coverage"):
+        parts.append("<h2 id=routing>Folder-router coverage</h2><div class=scroll><table>")
+        parts.append("<tr><th>Router</th><th>Listed</th><th>Unlisted direct files</th></tr>")
+        for item in s["router_coverage"]:
+            missing = "<br>".join("<code>" + esc(path) + "</code>" for path in item["unlisted"])
+            parts.append(
+                f"<tr><td><code>{esc(item['router'])}</code></td>"
+                f"<td>{item['listed']}/{item['files']}</td>"
+                f"<td>{missing or '—'}</td></tr>"
+            )
+        parts.append(
+            "</table></div><p class=muted>Unlisted means absent from that folder's existing "
+            "README.md, _index.md, index.md, or CLAUDE.md; links elsewhere do not count as "
+            "folder-router reachability.</p>"
+        )
 
     if s["co_read_top"]:
         parts.append("<h2>Most often read together</h2><div class=scroll><table>")
