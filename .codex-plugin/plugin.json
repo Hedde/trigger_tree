@@ -10,7 +10,7 @@
   "repository": "https://github.com/Hedde/trigger_tree",
   "license": "MIT",
   "keywords": ["documentation", "telemetry", "observability", "docs-as-code", "codex"],
-  "skills": "./skills/",
+  "skills": "./codex-skills/",
   "interface": {
     "displayName": "trigger-tree",
     "shortDescription": "See which documentation your coding agents discover.",

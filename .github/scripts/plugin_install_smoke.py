@@ -13,7 +13,7 @@ REQUIRED_FILES = (
     ".claude-plugin/plugin.json",
     "hooks/claude-hooks.json",
     "hooks/hooks.json",
-    "SKILL.md",
+    "codex-skills/trigger-tree/SKILL.md",
     "skills/tt/SKILL.md",
     "scripts/tt-log.py",
     "scripts/tt-doctor.py",
@@ -73,6 +73,11 @@ def main() -> None:
         missing = [name for name in REQUIRED_FILES if not (install_path / name).is_file()]
         if missing:
             raise SystemExit(f"installed plugin is incomplete: {', '.join(missing)}")
+        claude_skills = sorted(
+            path.parent.name for path in (install_path / "skills").glob("*/SKILL.md")
+        )
+        if claude_skills != ["tt"]:
+            raise SystemExit(f"Claude plugin exposes unexpected skills: {claude_skills}")
 
         manifest = json.loads((install_path / ".claude-plugin/plugin.json").read_text())
         if matches[0]["version"] != manifest["version"]:
@@ -82,7 +87,7 @@ def main() -> None:
         if "${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py" not in hooks:
             raise SystemExit("shared hooks do not use the cross-client plugin root")
 
-        command_contract = (install_path / "SKILL.md").read_text()
+        command_contract = (install_path / "skills" / "tt" / "SKILL.md").read_text()
         if "CLAUDE_SKILL_DIR" in command_contract:
             raise SystemExit("Claude command contract resolves scripts from the skill directory")
         if "${CLAUDE_PLUGIN_ROOT}/scripts/tt-open.sh" not in command_contract:

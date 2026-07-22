@@ -12,10 +12,12 @@ def test_codex_manifest_is_complete_and_references_real_components():
     claude = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     assert manifest["name"] == claude["name"] == "trigger-tree"
     assert manifest["version"] == claude["version"]
-    assert manifest["skills"] == "./skills/"
+    assert manifest["skills"] == "./codex-skills/"
     assert "hooks" not in manifest  # Codex discovers hooks/hooks.json by convention.
-    assert (ROOT / "skills" / "trigger-tree" / "SKILL.md").is_file()
+    assert (ROOT / "codex-skills" / "trigger-tree" / "SKILL.md").is_file()
     assert (ROOT / "skills" / "tt" / "SKILL.md").is_file()
+    assert not (ROOT / "skills" / "trigger-tree").exists()
+    assert not (ROOT / "SKILL.md").exists()
     assert (ROOT / "hooks" / "hooks.json").is_file()
 
     interface = manifest["interface"]
@@ -50,7 +52,7 @@ def test_codex_marketplace_installs_repository_root_from_git():
 
 
 def test_codex_skill_has_valid_frontmatter_and_no_placeholders():
-    text = (ROOT / "skills" / "trigger-tree" / "SKILL.md").read_text(encoding="utf-8")
+    text = (ROOT / "codex-skills" / "trigger-tree" / "SKILL.md").read_text(encoding="utf-8")
     assert text.startswith("---\nname: trigger-tree\n")
     assert "description:" in text.split("---", 2)[1]
     assert "[TODO:" not in text
@@ -59,8 +61,9 @@ def test_codex_skill_has_valid_frontmatter_and_no_placeholders():
 
 
 def test_claude_command_contract_uses_plugin_root_and_only_real_scripts():
-    text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+    text = (ROOT / "skills" / "tt" / "SKILL.md").read_text(encoding="utf-8")
     assert "CLAUDE_SKILL_DIR" not in text
+    assert "disable-model-invocation: false" in text.split("---", 2)[1]
     references = re.findall(r"\$\{CLAUDE_PLUGIN_ROOT\}/scripts/([\w.-]+)", text)
     assert set(references) == {
         "tt-doctor.py",
