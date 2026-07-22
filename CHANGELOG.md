@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.14.1 — 2026-07-22
+
+- Brings the website demo to parity with the real dashboard controls: the
+  advertised `[s]` settings panel now opens and switches the demo's prompt-privacy
+  mode for future prompts, maintenance tips rotate on the real 30-second cadence,
+  recently active folders bubble to the top of the focus sort and settle back
+  after eight seconds, and always-loaded context appears with its `injected`
+  label instead of being omitted.
+
 ## 1.14.0 — 2026-07-22
 
 - Ships trigger-tree as a standalone PyPI package: `pipx install trigger-tree`
