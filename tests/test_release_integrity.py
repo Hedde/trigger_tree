@@ -100,7 +100,7 @@ def test_docs_currency_rejects_induced_command_and_link_drift(tmp_path):
     with pytest.raises(SystemExit, match="README.md command drift"):
         mod.check_docs_currency(tmp_path)
 
-    (tmp_path / "README.md").write_text("/tt status\n[broken](docs/gone.md)\n")
+    (tmp_path / "README.md").write_text("/tt status — docs\n[broken](docs/gone.md)\n")
     with pytest.raises(SystemExit, match="broken relative link"):
         mod.check_docs_currency(tmp_path)
 

@@ -33,7 +33,8 @@ def require_commands(label: str, actual: set[str], expected: set[str]) -> None:
 def check_relative_links(root: Path) -> None:
     documents = [root / "README.md", *(root / "docs").glob("*.md")]
     for document in documents:
-        for raw_target in re.findall(r"!?\[[^]]*\]\(([^)]+)\)", document.read_text()):
+        text = document.read_text(encoding="utf-8")
+        for raw_target in re.findall(r"!?\[[^]]*\]\(([^)]+)\)", text):
             target = raw_target.strip().strip("<>").split("#", 1)[0]
             if not target or re.match(r"^[a-z][a-z0-9+.-]*:", target, re.I):
                 continue
@@ -43,7 +44,7 @@ def check_relative_links(root: Path) -> None:
 
 
 def check_docs_currency(root: Path = ROOT) -> None:
-    claude = (root / "skills/tt/SKILL.md").read_text()
+    claude = (root / "skills/tt/SKILL.md").read_text(encoding="utf-8")
     frontmatter = claude.split("---", 2)[1]
     help_block = claude.split('## `$1` = "help" or empty', 1)[1].split("\n## ", 1)[0]
     canonical = tt_commands(frontmatter)
@@ -53,10 +54,14 @@ def check_docs_currency(root: Path = ROOT) -> None:
     require_commands("Claude handler sections", sections - CLAUDE_SECTION_ONLY, canonical)
 
     public = canonical - PUBLIC_OMISSIONS
-    require_commands("README.md", tt_commands((root / "README.md").read_text()), public)
-    require_commands("index.html", tt_commands((root / "index.html").read_text()), public)
+    require_commands(
+        "README.md", tt_commands((root / "README.md").read_text(encoding="utf-8")), public
+    )
+    require_commands(
+        "index.html", tt_commands((root / "index.html").read_text(encoding="utf-8")), public
+    )
 
-    codex = (root / "codex-skills/trigger-tree/SKILL.md").read_text()
+    codex = (root / "codex-skills/trigger-tree/SKILL.md").read_text(encoding="utf-8")
     labels = set(re.findall(r"^- ([A-Za-z ]+):", codex, re.M))
     codex_commands = {CODEX_LABELS.get(label.lower(), label.lower()) for label in labels}
     require_commands("Codex workflows", codex_commands, public | CLAUDE_SECTION_ONLY)
@@ -67,9 +72,9 @@ def main(tag: str) -> None:
     if not re.fullmatch(r"v\d+\.\d+\.\d+(?:-rc\.\d+)?", tag):
         fail(f"tag {tag!r} is not vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N")
 
-    manifest = json.loads((ROOT / ".claude-plugin/plugin.json").read_text())
-    codex_manifest = json.loads((ROOT / ".codex-plugin/plugin.json").read_text())
-    marketplace = json.loads((ROOT / ".claude-plugin/marketplace.json").read_text())
+    manifest = json.loads((ROOT / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))
+    codex_manifest = json.loads((ROOT / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
+    marketplace = json.loads((ROOT / ".claude-plugin/marketplace.json").read_text(encoding="utf-8"))
     version = tag.removeprefix("v")
 
     if manifest["version"] != version:
@@ -86,7 +91,7 @@ def main(tag: str) -> None:
     if entry.get("version") != version:
         fail(f"marketplace plugin version {entry.get('version')} does not match {version}")
 
-    changelog = (ROOT / "CHANGELOG.md").read_text()
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     heading = re.search(r"^## (?:\[)?([^]\s]+)", changelog, re.M)
     if not heading or heading.group(1) != version:
         fail(f"top CHANGELOG.md release is not {version}")
