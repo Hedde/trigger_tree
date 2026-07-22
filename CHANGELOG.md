@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.14.0 — 2026-07-22
+
+- Ships trigger-tree as a standalone PyPI package: `pipx install trigger-tree`
+  provides a `tt` console command dispatching to the same bundled scripts and hook
+  manifests, for CI use, git-hook ingestion, and dashboards without a plugin.
+- Publishes to PyPI automatically on version tags through trusted publishing (OIDC,
+  no stored secrets) after tests and release integrity pass; release integrity now
+  also verifies the packaged version, and the README, site, and development docs
+  document the standalone install.
+
 ## 1.13.0 — 2026-07-22
 
 - Publishes GitHub release notes automatically from the changelog on every version
