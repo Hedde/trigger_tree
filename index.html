@@ -94,7 +94,7 @@
     <div class="card"><h3>⚡ Zero model tokens</h3>
       <p>Hooks run shell-side in milliseconds. Measuring costs nothing — not in tokens, not in latency, not in context.</p></div>
     <div class="card"><h3>🤝 Claude Code · Codex</h3>
-      <p>Native lifecycle hooks feed one local dataset on both agents. Full CI covers macOS, Linux, Windows and Python 3.10–3.13; the dashboard opens in an iTerm2 split, tmux pane, or Windows Terminal.</p></div>
+      <p>Native lifecycle hooks feed one git-root dataset on both agents. Python CI covers macOS, Linux, Windows and Python 3.10–3.13; native Windows hook launch uses Claude's documented exec form but is not exercised end-to-end in CI.</p></div>
   </div>
 
   <h2>Why this matters</h2>
@@ -141,8 +141,9 @@ codex plugin add trigger-tree@trigger-tree
     <tr><td><code>/tt insights</code></td><td>Heat/cold map, router reachability, search patterns + HTML</td></tr>
     <tr><td><code>/tt suggestions</code></td><td>Max 5 evidence-backed router fixes</td></tr>
     <tr><td><code>/tt note</code></td><td>Annotate router changes on the timeline</td></tr>
-    <tr><td><code>/tt doctor</code></td><td>Prove this repo is wired and receiving events</td></tr>
-    <tr><td><code>/tt setup [truncate|hash|off]</code></td><td>Wire the project and choose prompt-preview privacy</td></tr>
+    <tr><td><code>/tt doctor</code></td><td>Check hook liveness, watch coverage, privacy, and telemetry</td></tr>
+    <tr><td><code>/tt setup [truncate|hash|off]</code></td><td>Wire the project, report watch coverage, and choose prompt privacy</td></tr>
+    <tr><td><code>/tt uninstall</code></td><td>Remove statusline wiring while preserving telemetry for explicit deletion</td></tr>
   </table>
 
   <footer>

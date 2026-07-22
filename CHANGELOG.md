@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.9.0 — 2026-07-22
+
+- Consolidates Claude telemetry behind its declared hook manifest, routes both clients
+  through one adapter, and suppresses duplicate tool events with a bounded per-session
+  idempotency window.
+- Uses Claude's documented shell-free hook execution across platforms and separates the
+  Claude `/tt` contract from the Codex-only `trigger-tree` skill package.
+- Audits the effective documentation watch scope during setup and doctor runs, proposes
+  observed-layout regexes without applying them implicitly, and distinguishes static
+  hook-file integrity from current, recent, stale, or never-seen hook activity.
+- Counts conservative static directory prefixes for pathless Glob and Grep file-glob
+  calls, keeps direct Claude and Codex events in one git-root dataset, and broadens MCP
+  capture while retaining explicit local-file and non-HTTP filtering.
+- Adds `/tt uninstall` to remove only trigger-tree's copied statusline and registration;
+  telemetry data and gitignore entries always remain for explicit manual deletion.
+- Updates the README, command contracts, packaging smoke checks, and website to describe
+  the verified behavior and native Windows hook-execution boundary accurately.
+
 ## 1.8.3 — 2026-07-21
 
 - Prevents report and session-cache symlink escapes: HTML reports are written through

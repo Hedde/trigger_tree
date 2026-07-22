@@ -14,6 +14,9 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert 'const sorts = { f: "focus", h: "hot", c: "cold", n: "name" }' in html
     assert "Focused top 10" in html
     assert "/tt doctor" in html
+    assert "/tt uninstall" in html
+    assert "hook liveness, watch coverage" in html
+    assert "native Windows hook launch" in html
     assert "rg</code>/<code>grep</code>/<code>find" in html
     assert "Claude Code · Codex" in html
     assert "codex plugin marketplace add Hedde/trigger_tree" in html
