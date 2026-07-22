@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.15.0 — 2026-07-22
+
+- Replaces the README hero with a real terminal recording of the live dashboard
+  (regenerable via `make demo-gif` and the committed VHS tape) and embeds the same
+  footage as a compact self-hosted video on the website, clearly labeled against
+  the interactive mock demo.
+- Adds one-click copy buttons to the website install blocks and documents the
+  `uvx --from trigger-tree tt` zero-install route beside `pipx` in the README and
+  on the site; the site remains free of external requests.
+
 ## 1.14.1 — 2026-07-22
 
 - Brings the website demo to parity with the real dashboard controls: the
