@@ -17,13 +17,72 @@ def run_report(mod, monkeypatch, capsys, project):
     return capsys.readouterr().out.strip()
 
 
-def test_heat_color_and_escape():
+def test_heat_color_and_escape(monkeypatch):
     mod = load_script("tt-report.py", FIXTURE)
     assert mod.heat_color(0, 10) == mod.HEAT[0]
     assert mod.heat_color(10, 10) == mod.HEAT[-1]
     assert mod.esc(None) == "—"
     assert mod.esc("<b>") == "&lt;b&gt;"
     assert mod.plugin_version() == "1.10.0"
+    monkeypatch.setattr(mod, "SCRIPT_DIR", "/missing")
+    assert mod.plugin_version() == "unknown"
+    assert mod._points([], 10, 10) == []
+    assert mod.sparkline_svg([1, 2], "short") == ""
+    spark = mod.sparkline_svg([4, 4, 4], "all equal")
+    assert "<svg" in spark and "all equal" in spark and ">4</text>" in spark
+    assert mod.line_chart_svg([{"reads": 1}], (("reads", "reads", "red"),), "one") == ""
+    trend = [
+        {"period": "2026-07-01", "reads": 1, "small_n": True},
+        {"period": "2026-07-02", "reads": 1000, "small_n": False},
+        {"period": "2026-07-03", "reads": 2, "small_n": False},
+    ]
+    chart = mod.line_chart_svg(
+        trend,
+        (("reads", "reads", "red"),),
+        "outlier",
+        [{"ts": "2026-07-02T00:00:00Z", "text": "router edit"}],
+    )
+    assert "stroke-dasharray" in chart and "router edit" in chart and "reads 2" in chart
+    assert mod.tree_svg([], "warming", 5).startswith("<svg")
+    assert mod.tree_svg([], "cold-start", 5) == ""
+    assert mod.tree_svg([], "warming", 4) == ""
+    tree = mod.tree_svg(
+        [
+            {"path": "docs/a/" + "long-" * 20 + ".md", "heat": 8, "reads": 3},
+            {"path": "docs/a/quiet.md", "heat": 0, "reads": 0},
+            {"path": "docs/retired.md", "state": "retired", "heat": 99, "reads": 99},
+        ],
+        "warming",
+        5,
+    )
+    assert "untouched" in tree and "…" in tree and "retired" not in tree
+
+
+def test_mature_report_renders_visuals_and_keeps_tables(tmp_path, monkeypatch, capsys):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    for index in range(5):
+        (docs / f"{index}.md").write_text("x")
+    events = []
+    for index in range(100):
+        day = min(8, 1 + index // 13)
+        events.append(
+            json.dumps(
+                {
+                    "t": "read",
+                    "ts": f"2026-07-{day:02d}T09:00:00Z",
+                    "session": f"S{index % 4}",
+                    "path": f"docs/{index % 5}.md",
+                }
+            )
+        )
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    (telemetry / "history.jsonl").write_text("\n".join(events) + "\n")
+    mod = load_script("tt-report.py", tmp_path)
+    rendered = open(run_report(mod, monkeypatch, capsys, tmp_path), encoding="utf-8").read()
+    assert "class=tree-chart" in rendered
+    assert "<table>" in rendered and "docs/0.md" in rendered
 
 
 def test_full_report_on_fixture(monkeypatch, capsys):
@@ -72,7 +131,7 @@ def test_report_on_empty_project(tmp_path, monkeypatch, capsys):
     assert "Measurement just started" in html
     assert "docs/a.md" in html  # untouched listing
     assert "not a removal recommendation" in html
-    assert "--cold:#5c8fe6" in html and "--hot:#e53935" in html
+    assert "--cold:#4775d1" in html and "--hot:#e53935" in html
     if os.name != "nt":
         assert stat.S_IMODE(os.stat(out_path).st_mode) == 0o600
 

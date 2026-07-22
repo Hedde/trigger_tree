@@ -20,7 +20,7 @@ ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Website brand ramp; TUI approximations are 75, 80, 114, 214, and 196.
-HEAT = ["#4a5361", "#5c8fe6", "#38bfc3", "#7cb342", "#b9f6a0", "#ffb300", "#f57c00", "#e53935"]
+HEAT = ["#4a5361", "#4775d1", "#38cfd0", "#7cb342", "#b9f6a0", "#ffb300", "#f57c00", "#e53935"]
 
 MATURITY_NOTE = {
     "cold-start": "Measurement just started — review candidates are provisional.",
@@ -31,7 +31,7 @@ MATURITY_NOTE = {
 # Keep these variables synchronized with index.html's :root brand block.
 CSS = """
 :root { --bg:#fff; --fg:#1f2328; --muted:#59636e; --line:#d0d7de; --card:#f6f8fa;
-        --cold:#5c8fe6; --cool:#38bfc3; --active:#7cb342; --warm:#ffb300; --hot:#e53935; }
+        --cold:#4775d1; --cool:#38cfd0; --active:#7cb342; --warm:#ffb300; --hot:#e53935; }
 @media (prefers-color-scheme: dark) {
   :root { --bg:#0c1014; --fg:#e6edf3; --muted:#9aa4af; --line:#1f262e; --card:#101418; }
 }
@@ -50,11 +50,18 @@ tbody tr:hover, table tr:hover { background:color-mix(in srgb,var(--card) 70%,tr
 .kpi div { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.6rem 1rem; }
 .kpi b { font-size:1.35rem; display:block; }
 .note { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.6rem 1rem; margin:1rem 0; }
-.grade { display:grid; grid-template-columns:auto 1fr; gap:1.25rem; align-items:center; border-left:5px solid var(--active); padding:1rem 1.25rem; }
+.grade { display:grid; grid-template-columns:auto 1fr; gap:1.25rem; align-items:center;
+         border:0; border-block:1px solid var(--line); border-radius:0; padding:1rem 0; background:transparent; }
 .grade-letter { font:700 3.5rem/1 ui-monospace,monospace; }
 .untouched { color:var(--muted); }
 code { background:var(--card); padding:.1em .35em; border-radius:4px; font-size:.9em; }
 .scroll { overflow-x:auto; }
+.spark { width:150px; height:46px; display:block; margin-top:.35rem; overflow:visible; }
+.chart, .tree-chart { width:100%; height:auto; overflow:visible; font:12px ui-monospace,monospace; }
+.chart text, .tree-chart text { fill:var(--fg); }
+.chart .grid { stroke:var(--line); stroke-width:1; }
+.chart .note-tick { stroke:var(--muted); stroke-width:1; }
+.chart-pair { display:grid; gap:1rem; margin:1rem 0; }
 .toc { position:sticky; top:0; z-index:2; background:color-mix(in srgb,var(--bg) 94%,transparent);
        border-block:1px solid var(--line); padding:.55rem 0; }
 .toc a { display:inline-block; margin:.2rem .8rem .2rem 0; white-space:nowrap; }
@@ -91,6 +98,133 @@ def agent_label(file_row):
     )[:2]
     suffix = ", ".join(f"{esc(name)} {count}" for name, count in top_subagents)
     return f"main {main} · sub {sub}" + (f" ({suffix})" if suffix else "")
+
+
+def _points(values, width, height, pad=12):
+    if not values:
+        return []
+    high, low = max(values), min(values)
+    span = high - low or 1
+    step = (width - 2 * pad) / max(1, len(values) - 1)
+    return [
+        (
+            round(pad + index * step, 1),
+            round(height - pad - (value - low) * (height - 2 * pad) / span, 1),
+        )
+        for index, value in enumerate(values)
+    ]
+
+
+def sparkline_svg(values, label):
+    if len(values) < 3:
+        return ""
+    points = _points(values, 150, 46, 8)
+    path = " ".join(f"{x},{y}" for x, y in points)
+    x, y = points[-1]
+    return (
+        f"<svg class=spark viewBox='0 0 150 46' role=img aria-label='{esc(label)}'>"
+        f"<title>{esc(label)}</title><polyline points='{path}' fill=none stroke='var(--cool)' "
+        "stroke-width=2 vector-effect=non-scaling-stroke/>"
+        f"<circle cx='{x}' cy='{y}' r=3 fill='var(--cool)'/><text x='{x - 5}' y='{max(9, y - 6)}' "
+        f"text-anchor=end>{esc(values[-1])}</text></svg>"
+    )
+
+
+def line_chart_svg(trend, series, title, notes=None):
+    if len(trend) < 3:
+        return ""
+    width, height = 720, 180
+    all_values = [float(bucket.get(key) or 0) for key, _, _ in series for bucket in trend]
+    high = max(all_values, default=1) or 1
+    step = (width - 64) / max(1, len(trend) - 1)
+    out = [f"<svg class=chart viewBox='0 0 {width} {height}' role=img><title>{esc(title)}</title>"]
+    for grid in range(1, 4):
+        y = 16 + grid * 36
+        out.append(f"<line class=grid x1=32 y1={y} x2=688 y2={y}/>")
+    for key, label, color in series:
+        values = [float(bucket.get(key) or 0) for bucket in trend]
+        points = [(32 + i * step, 152 - value * 128 / high) for i, value in enumerate(values)]
+        for index in range(1, len(points)):
+            dashed = trend[index].get("small_n") or trend[index - 1].get("small_n")
+            x1, y1 = points[index - 1]
+            x2, y2 = points[index]
+            dash = " stroke-dasharray='6 5'" if dashed else ""
+            out.append(
+                f"<line x1='{x1:.1f}' y1='{y1:.1f}' x2='{x2:.1f}' y2='{y2:.1f}' stroke='{color}' stroke-width=2{dash}/>"
+            )
+        x, y = points[-1]
+        value_label = f"{values[-1]:g}"
+        out.append(
+            f"<circle cx='{x:.1f}' cy='{y:.1f}' r=3 fill='{color}'/><text x='{x - 7:.1f}' y='{max(12, y - 7):.1f}' text-anchor=end>{esc(label)} {esc(value_label)}</text>"
+        )
+    for note in notes or []:
+        stamp = str(note.get("ts") or "")[:10]
+        match = next(
+            (
+                i
+                for i, bucket in enumerate(trend)
+                if str(bucket.get("period", "")).startswith(stamp)
+            ),
+            None,
+        )
+        if match is not None:
+            x = 32 + match * step
+            out.append(
+                f"<line class=note-tick x1='{x:.1f}' y1=18 x2='{x:.1f}' y2=156><title>{esc(note.get('text'))}</title></line>"
+            )
+    out.append("</svg>")
+    return "".join(out)
+
+
+def tree_svg(files, maturity, evaluable_files):
+    if maturity == "cold-start" or evaluable_files < 5:
+        return ""
+    current = [row for row in files if row.get("state", "current") == "current"]
+    groups = {}
+    for row in current:
+        groups.setdefault(os.path.dirname(row["path"]), []).append(row)
+    ordered = sorted(
+        groups.items(), key=lambda item: (-sum(r.get("heat", 0) for r in item[1]), item[0])
+    )
+    rows = []
+    for folder, members in ordered:
+        folder_heat = sum(row.get("heat", 0) for row in members)
+        rows.append(
+            (folder + "/", folder_heat, sum(row.get("reads", 0) for row in members), False, False)
+        )
+        active = sorted(
+            (row for row in members if row.get("reads", 0)),
+            key=lambda row: (-row.get("heat", 0), row["path"]),
+        )
+        rows.extend(
+            (
+                "  " + os.path.basename(row["path"]),
+                row.get("heat", 0),
+                row.get("reads", 0),
+                True,
+                False,
+            )
+            for row in active
+        )
+        quiet = len(members) - len(active)
+        if quiet:
+            rows.append((f"  · {quiet} untouched", 0, 0, True, True))
+    high = max((heat for _, heat, _, _, _ in rows), default=1) or 1
+    height = 30 + len(rows) * 25
+    out = [
+        f"<svg class=tree-chart viewBox='0 0 820 {height}' role=img><title>Documentation tree by current heat</title>"
+    ]
+    for index, (label, heat, reads, nested, quiet) in enumerate(rows):
+        y = 23 + index * 25
+        shown = label if len(label) <= 48 else label[:47] + "…"
+        mark = "·" if quiet else "▸" if not nested else "●"
+        color = HEAT[0] if quiet else heat_color(heat, high)
+        bar = 0 if quiet else max(3, 280 * math.log1p(heat) / math.log1p(max(high, 2)))
+        out.append(
+            f"<g><title>{esc(label)} · h{heat:.3f} · {reads} lifetime reads</title><text x=12 y={y} fill='{color}'>{mark}</text><text x=32 y={y}>{esc(shown)}</text><rect x=410 y={y-13} width='{bar:.1f}' height=11 rx=2 fill='{color}'/><text x=705 y={y}>h{heat:.2f} · {reads}×</text></g>"
+        )
+    out.append("</svg>")
+    return "".join(out)
 
 
 def write_report(content):
@@ -132,6 +266,9 @@ def main():
         key=lambda f: (-f.get("heat", 0), -f["reads"], f["path"]),
     )
     max_heat = max((f.get("heat", 0) for f in heated_files), default=1)
+    trend = s.get("trend", [])
+    reads_spark = sparkline_svg([bucket.get("reads", 0) for bucket in trend], "Reads by period")
+    scans_spark = sparkline_svg([bucket.get("scans", 0) for bucket in trend], "Searches by period")
 
     parts = [f"<title>trigger-tree Report</title><style>{CSS}</style>"]
     parts.append("<h1>🌳 trigger-tree — documentation health</h1>")
@@ -152,8 +289,8 @@ def main():
     )
     parts.append(
         "<div class=kpi>"
-        f"<div><b>{t['reads']}</b>reads</div>"
-        f"<div><b>{t['scans']}</b>searches</div>"
+        f"<div><b>{t['reads']}</b>reads{reads_spark}</div>"
+        f"<div><b>{t['scans']}</b>searches{scans_spark}</div>"
         f"<div><b>{t.get('skill_uses', 0)}</b>skill uses</div>"
         f"<div><b>{s['sessions']}</b>sessions</div>"
         f"<div><b>{t['touched_current_files']}/{t['evaluable_files']}</b>current files touched</div>"
@@ -182,7 +319,13 @@ def main():
     heat_model = s.get("heat_model", {})
     half_life = heat_model.get("half_life_days", 30)
     half_life_label = f"{half_life:g}" if isinstance(half_life, (int, float)) else esc(half_life)
+    tree = tree_svg(s["files"], maturity, t["evaluable_files"])
     parts.append("<h2 id=heat>Current heat</h2>")
+    if tree:
+        parts.append(
+            "<p class=muted>The same indented tree, heat bars, h values, and lifetime reads "
+            "used by the live dashboard. Untouched files collapse to a · summary.</p>" + tree
+        )
     parts.append(
         "<p class=muted>Heat is recent attention with a "
         f"{half_life_label}-day half-life; lifetime reads never decay. "
@@ -327,17 +470,32 @@ def main():
             + ". Router files are never classified as templates.</p>"
         )
 
-    if s.get("trend") and len(s["trend"]) > 1:
-        max_bucket = max(b["reads"] + b["scans"] for b in s["trend"]) or 1
+    if trend and len(trend) > 1:
+        max_bucket = max(b["reads"] + b["scans"] for b in trend) or 1
         parts.append(
             "<h2 id=trend>Trend</h2><p class=muted>Search/read ratio per period. Movement after "
             "a note is correlation, not proof that the recorded edit caused it.</p>"
+        )
+        counts_chart = line_chart_svg(
+            trend,
+            (("reads", "reads", "var(--active)"), ("scans", "searches", "var(--cool)")),
+            "Reads and searches by period",
+            s.get("notes"),
+        )
+        ratios = [{**bucket, "ratio": bucket.get("search_ratio") or 0} for bucket in trend]
+        ratio_chart = line_chart_svg(
+            ratios, (("ratio", "search ratio", "var(--warm)"),), "Search ratio by period"
+        )
+        if counts_chart:
+            parts.append("<div class=chart-pair>" + counts_chart + ratio_chart + "</div>")
+        parts.append(
+            "<p class=muted>Movement after a note is correlation, not proof that the recorded edit caused it.</p>"
             "<div class=scroll><table>"
         )
         parts.append(
             "<tr><th>Period</th><th>Reads</th><th>Searches</th><th></th><th>Search ratio</th></tr>"
         )
-        for b in s["trend"]:
+        for b in trend:
             w = max(4, int(120 * (b["reads"] + b["scans"]) / max_bucket))
             ratio_value = b.get("search_ratio", b.get("hunting_ratio"))
             ratio = "—" if ratio_value is None else ratio_value

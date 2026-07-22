@@ -6,4 +6,6 @@ Controls: `f` recent focus, `h` hottest, `c` coldest, `n` name order, `←`/`→
 
 The report keeps heat, lifetime reads, search evidence, routing coverage, trend, task clusters, protected context, retired paths, and review candidates separate. Its grade is a summary, not a verdict. The thesis remains: **a rule that is never read protects nothing**.
 
+Its optional SVG visuals preserve the tables beneath them: single-series KPI sparklines, separate single-axis count and search-ratio trends, and a TUI-shaped indented heat tree. Dashed trend segments mark small samples; neutral note ticks carry tooltip text without implying causation.
+
 First run with no evidence explains the loop: work normally and reads light up, or run `/tt watch demo` now.

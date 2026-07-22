@@ -18,7 +18,7 @@
   /* Keep this brand block synchronized with scripts/tt-report.py CSS. */
   :root {
     --bg:#0c1014; --panel:#101418; --line:#1f262e; --fg:#e6edf3; --muted:#9aa4af;
-    --cold:#5c8fe6; --cool:#38bfc3; --green:#7cb342; --bright:#b9f6a0;
+    --cold:#4775d1; --cool:#38cfd0; --green:#7cb342; --bright:#b9f6a0;
     --amber:#ffb300; --hot:#e53935; --dim:#4a5361;
   }
   * { box-sizing:border-box; margin:0; }
@@ -58,13 +58,12 @@
   .install-card > p { color:var(--muted); padding:0 1.2rem 1rem; font-size:.9rem; }
   .install-card pre.block { border:0; border-top:1px solid var(--line); border-radius:0; }
   .install-note { color:var(--muted); margin-top:1rem; font-size:.9rem; }
-  .health-story { display:grid; grid-template-columns:8rem 1fr; gap:1.5rem; align-items:center;
-                  background:var(--panel); border:1px solid var(--line); border-left:5px solid var(--green);
-                  border-radius:10px; padding:1.4rem; }
-  .health-grade { font:700 1.35rem/1.2 ui-monospace,Menlo,monospace; color:var(--green); text-align:center; }
+  .health-story { display:grid; grid-template-columns:8rem 1fr; gap:1.5rem; align-items:start;
+                  border-top:1px solid var(--line); padding:1.4rem 0; }
+  .health-grade { font:700 1.35rem/1.2 ui-monospace,Menlo,monospace; color:var(--green); text-align:left; padding-top:.15rem; }
   .drivers { color:var(--muted); margin:.45rem 0 0 1.1rem; }
-  .compare { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
-  .compare div { padding:1.15rem; background:var(--panel); }
+  .compare { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-block:1px solid var(--line); }
+  .compare div { padding:1.15rem 1.15rem 1.15rem 0; }
   .compare div + div { border-left:1px solid var(--line); }
   .compare p { color:var(--muted); font-size:.92rem; margin-top:.3rem; }
   table { border-collapse:collapse; width:100%; }

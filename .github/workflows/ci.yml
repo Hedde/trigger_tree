@@ -137,6 +137,7 @@ jobs:
           package-manager-cache: false
       - run: npm ci
       - run: npm ls --all
+      - run: node scripts/validate_palette.js "#4775d1,#38cfd0,#7cb342,#ffb300,#e53935" --mode dark
       - run: npx claude plugin validate .
       - name: Prove isolated marketplace installation
         run: python3 .github/scripts/plugin_install_smoke.py

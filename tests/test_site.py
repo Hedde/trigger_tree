@@ -22,7 +22,7 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "codex plugin marketplace add Hedde/trigger_tree" in html
     assert "OpenAI Curated only after a separate OpenAI submission" in html
     assert "Codex's built-in <code>/statusline</code> is separate" in html
-    assert "--cold:#5c8fe6" in html and "--hot:#e53935" in html
+    assert "--cold:#4775d1" in html and "--hot:#e53935" in html
     assert 'cold</span> → <span class="cool">cool' in html
     assert "grid-template-columns:repeat(3,minmax(0,1fr))" in html
     assert "← older" in html and "→ newer" in html and "a live overview" in html
