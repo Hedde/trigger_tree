@@ -12,3 +12,5 @@ htmlcov/
 .pytest_cache/
 .claude/worktrees/
 dist-submissions/
+dist/
+*.egg-info/

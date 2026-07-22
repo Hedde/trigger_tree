@@ -35,6 +35,9 @@ def write_release(root, version="1.0.0-rc.1"):
         json.dumps({"name": "trigger-tree", "version": version}), encoding="utf-8"
     )
     (root / "CHANGELOG.md").write_text(f"## {version} — 2026-07-19\n", encoding="utf-8")
+    (root / "pyproject.toml").write_text(
+        f'[project]\nname = "trigger-tree"\nversion = "{version}"\n', encoding="utf-8"
+    )
 
 
 def test_release_integrity_accepts_semver_release_candidate(tmp_path, monkeypatch, capsys):
@@ -65,6 +68,15 @@ def test_release_integrity_rejects_bad_or_inconsistent_metadata(tmp_path, monkey
         encoding="utf-8",
     )
     with pytest.raises(SystemExit, match="marketplace plugin version"):
+        mod.main("v1.0.0-rc.1")
+
+    (tmp_path / "pkg").mkdir()
+    write_release(tmp_path / "pkg")
+    monkeypatch.setattr(mod, "ROOT", tmp_path / "pkg")
+    (tmp_path / "pkg" / "pyproject.toml").write_text(
+        '[project]\nname = "trigger-tree"\nversion = "0.1.0"\n', encoding="utf-8"
+    )
+    with pytest.raises(SystemExit, match="pyproject packaged version"):
         mod.main("v1.0.0-rc.1")
 
 

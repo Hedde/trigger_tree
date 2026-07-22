@@ -91,6 +91,12 @@ def main(tag: str) -> None:
     if entry.get("version") != version:
         fail(f"marketplace plugin version {entry.get('version')} does not match {version}")
 
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    packaged = re.search(r'(?m)^version = "([^"]+)"$', pyproject)
+    if not packaged or packaged.group(1) != version:
+        found = packaged.group(1) if packaged else "missing"
+        fail(f"pyproject packaged version {found} does not match {version}")
+
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     heading = re.search(r"^## (?:\[)?([^]\s]+)", changelog, re.M)
     if not heading or heading.group(1) != version:

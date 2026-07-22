@@ -47,6 +47,7 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "Common questions" in html
     assert "an unread guardrail fails" in html
     assert "It reports discovery, not understanding." in html
+    assert "pipx install trigger-tree" in html
 
 
 def test_search_presence_files_agree_on_the_canonical_url():

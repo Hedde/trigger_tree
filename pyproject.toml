@@ -1,3 +1,68 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "trigger-tree"
+version = "1.13.0"
+description = "See which project docs your AI coding agent actually discovers — local, zero-token documentation telemetry."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Hedde van der Heide" }]
+keywords = [
+  "documentation",
+  "telemetry",
+  "observability",
+  "docs-as-code",
+  "claude-code",
+  "codex",
+  "ai-agents",
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Documentation",
+  "Topic :: Software Development :: Documentation",
+]
+
+[project.urls]
+Homepage = "https://hedde.github.io/trigger_tree/"
+Repository = "https://github.com/Hedde/trigger_tree"
+Changelog = "https://github.com/Hedde/trigger_tree/blob/main/CHANGELOG.md"
+
+[project.scripts]
+tt = "trigger_tree.cli:main"
+
+[tool.hatch.build]
+exclude = ["**/__pycache__", "**/*.pyc"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["trigger_tree"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"scripts" = "trigger_tree/_scripts"
+"hooks" = "trigger_tree/hooks"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "trigger_tree",
+  "scripts",
+  "hooks",
+  "README.md",
+  "LICENSE",
+  "CHANGELOG.md",
+  "pyproject.toml",
+]
+
 [tool.black]
 line-length = 100
 target-version = ["py310"]

@@ -5,10 +5,11 @@
 [![CI](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fcoverage.json)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
 [![release](https://img.shields.io/github/v/release/Hedde/trigger_tree?label=release)](https://github.com/Hedde/trigger_tree/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/trigger-tree?label=pypi)](https://pypi.org/project/trigger-tree/)
 [![platforms](https://img.shields.io/badge/platforms-macOS%20·%20Linux%20·%20Windows-lightgrey.svg)](docs/platform-support.md)
 [![docs health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fdocs-health.json)](docs/heat-model.md)
 
-<p align="center"><a href="https://hedde.github.io/trigger_tree/"><img src="docs/assets/dashboard.png" alt="trigger-tree mock dashboard showing documentation reads, searches, heat bars, and prompt browsing" width="900"></a></p>
+<p align="center"><a href="https://hedde.github.io/trigger_tree/"><img src="https://raw.githubusercontent.com/Hedde/trigger_tree/main/docs/assets/dashboard.png" alt="trigger-tree mock dashboard showing documentation reads, searches, heat bars, and prompt browsing" width="900"></a></p>
 
 - Local and dependency-free: no cloud, analytics, or model tokens.
 - Separate heat, lifetime reads, searches, and untouched paths instead of guessing intent.
@@ -23,6 +24,9 @@ Documentation steers an AI coding assistant toward your team’s patterns and gu
 | `/plugin marketplace add Hedde/trigger_tree`<br>`/plugin install trigger-tree@trigger-tree`<br>`/reload-plugins`<br>`/tt watch demo`<br>`/tt setup` · `/tt doctor`<br>Work normally, then `/tt insights` | `codex plugin marketplace add Hedde/trigger_tree`<br>`codex plugin install trigger-tree`<br>Restart Codex<br>Ask it to run `python3 "$PLUGIN_ROOT/scripts/tt-watch.py" --demo`<br>Use the bundled trigger-tree skill for setup, doctor, and insights |
 
 The Claude `/tt` skill is explicitly user-triggered. Codex installs the equivalent skill and lifecycle hooks through its plugin marketplace.
+
+Prefer a standalone CLI — for CI, git-hook ingestion, or dashboards without a plugin?
+`pipx install trigger-tree`, then `tt doctor`, `tt watch --demo`, `tt stats`.
 
 Prompt logging defaults to a recognizable, gitignored local preview of at most 200
 characters as soon as the plugin is installed, even if setup is never run. `/tt setup`
