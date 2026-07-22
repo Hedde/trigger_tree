@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.11.0 — 2026-07-22
+
+- Turns the local insights output into a self-contained evidence report with a
+  grade-first hierarchy, compact navigation, generation metadata, and the same
+  section order as `/tt insights`, while retaining every underlying table.
+- Adds pure-Python SVG sparklines, separate count and ratio trend charts, neutral
+  note ticks, small-sample dashes, and a maturity-gated indented documentation tree;
+  cold-start, single-bucket, outlier, long-name, and 100+-file cases are covered.
+- Validates the shared five-step heat palette under protan, deutan, and tritan
+  simulations in CI, and flattens report and site treatments to avoid decorative
+  rails, rounded evidence cards, and other visual noise.
+- Saves an inspected render of the generated report for documentation reuse while
+  deliberately retaining the clearer synthetic dashboard demo instead of claiming
+  mock footage is a real terminal recording.
+- Moves docs-health badge publication to an explicit local-evidence command,
+  `make badge-publish`; CI now updates measured coverage without overwriting that
+  local aggregate with a permanently immature checkout result.
+
 ## 1.10.0 — 2026-07-22
 
 - Reframes the project around its measurable documentation-discovery loop with a
