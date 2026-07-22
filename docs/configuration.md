@@ -18,10 +18,10 @@ External local tools can ingest a validated event with `python3 <plugin>/scripts
 
 ## Publishing the docs-health badge
 
-Run `/tt badge` (or `python3 scripts/tt-stats.py --badge`) to write a shields.io endpoint at `.trigger-tree/badge.json`. Publish that file as `docs-health.json` on a `badges` branch, then embed:
+Run `/tt badge` (or `python3 scripts/tt-stats.py --badge`) to write a shields.io endpoint at `.trigger-tree/badge.json`. Because telemetry stays local and is gitignored, a normal CI checkout cannot calculate this grade. From the measured development checkout, run `make badge-publish` to update only `docs-health.json` on an existing `badges` branch while preserving its other endpoints.
 
 ```markdown
 [![docs health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FOWNER%2FREPO%2Fbadges%2Fdocs-health.json)](docs/heat-model.md)
 ```
 
-The CI workflow in this repository shows the complete orphan-branch publishing pattern alongside its coverage endpoint. Before measurement is mature, the public badge deliberately says `measuring…`.
+CI independently updates `coverage.json` on the same branch and preserves the locally published docs-health value. Before measurement is mature, the public badge deliberately says `measuring…`. Publishing is explicit because it pushes local aggregate evidence to the repository; file paths and event history are never included in the badge payload.

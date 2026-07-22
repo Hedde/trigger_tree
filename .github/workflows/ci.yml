@@ -88,6 +88,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    concurrency:
+      group: project-badges
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -101,16 +104,14 @@ jobs:
         run: |
           PCT=$(coverage report --format=total)
           COLOR=$(python3 -c "p=float('$PCT'); print('brightgreen' if p>=90 else 'green' if p>=80 else 'yellow' if p>=70 else 'orange' if p>=60 else 'red')")
-          python3 scripts/tt-stats.py --badge
-          mkdir /tmp/badges && cd /tmp/badges
+          git clone --quiet --single-branch --branch badges "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" /tmp/badges
+          cd /tmp/badges
           printf '{"schemaVersion": 1, "label": "coverage", "message": "%s%%", "color": "%s"}\n' "$PCT" "$COLOR" > coverage.json
-          cp "$GITHUB_WORKSPACE/.trigger-tree/badge.json" docs-health.json
-          git init -b badges
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add coverage.json docs-health.json
-          git commit -m "chore: publish project badges"
-          git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" badges
+          git add coverage.json
+          git diff --cached --quiet || git commit -m "chore: publish measured coverage"
+          git push origin badges
 
   shellcheck:
     runs-on: ubuntu-latest
@@ -121,7 +122,7 @@ jobs:
         with:
           persist-credentials: false
       - run: sudo apt-get update && sudo apt-get install -y shellcheck
-      - run: shellcheck scripts/tt-open.sh scripts/tt-shell-capture.sh  # tt-config.sh is parsed data
+      - run: shellcheck scripts/tt-open.sh scripts/tt-shell-capture.sh scripts/tt-publish-badge.sh  # tt-config.sh is parsed data
 
   validate:
     runs-on: ubuntu-latest
