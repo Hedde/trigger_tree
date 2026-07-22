@@ -81,6 +81,26 @@ def test_translate_ignores_non_file_tools(payload, tmp_path):
     assert mod.translate(payload)[0] is None
 
 
+@pytest.mark.parametrize(
+    ("tool_name", "tool_input", "normalized_tool"),
+    [
+        ("mcp__notion__get_page", {"file_path": "docs/page.md"}, "Read"),
+        ("mcp__local__fetch", {"filename": "docs/fetched.md"}, "Read"),
+        ("mcp__archive__retrieve", {"uri": "docs/archive.md"}, "Read"),
+        ("mcp__docs__list_documents", {"path": "docs/index.md"}, "Read"),
+        ("mcp__wiki__search_pages", {"path": "docs"}, "Grep"),
+    ],
+)
+def test_translate_accepts_broad_file_backed_mcp_names(
+    tool_name, tool_input, normalized_tool, tmp_path
+):
+    mod = load_script("tt-codex-hook.py", tmp_path)
+    route, normalized = mod.translate(
+        {"hook_event_name": "PostToolUse", "tool_name": tool_name, "tool_input": tool_input}
+    )
+    assert route == "read" and normalized["tool_name"] == normalized_tool
+
+
 def test_payload_and_project_root_fallbacks(tmp_path, monkeypatch):
     mod = load_script("tt-codex-hook.py", tmp_path)
     assert mod.read_payload(io.StringIO("[]")) == {}

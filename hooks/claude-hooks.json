@@ -4,7 +4,7 @@
     "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py"], "timeout": 5}]}],
     "SessionEnd": [{"hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py"], "timeout": 5}]}],
     "PostToolUse": [
-      {"matcher": "Bash|Read|Glob|Grep|Skill|mcp__.*(read|search|grep|find).*", "hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py"], "timeout": 5}]}
+      {"matcher": "Bash|Read|Glob|Grep|Skill|mcp__.*", "hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py"], "timeout": 5}]}
     ],
     "PostToolUseFailure": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py"], "timeout": 5}]}]
   }

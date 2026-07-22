@@ -165,6 +165,11 @@ an explicit path or a non-empty static directory before the first wildcard (for 
 path, or the same conservative prefix from their optional file `glob`; the Grep content
 regex is never interpreted as a path.
 
+All `mcp__*` post-tool events reach the small local adapter so documentation tools with
+names such as `get_page`, `fetch`, or `retrieve` are not missed. The adapter records
+only explicit file-like parameters and drops HTTP(S) targets or calls with no file
+parameter; MCP response content is never collected.
+
 Subagent reads are attributed (`Explore`, `Plan`, …). Auto-loaded context—including
 the recursive `CLAUDE.md` `@import` graph—is invisible to Read telemetry by design
 and classified as **always loaded**; invoked skills *are* measured.
