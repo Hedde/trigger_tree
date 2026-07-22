@@ -16,7 +16,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 
-ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Website brand ramp; TUI approximations are 75, 80, 114, 214, and 196.

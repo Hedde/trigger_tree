@@ -15,7 +15,7 @@ import time
 import unicodedata
 from datetime import datetime, timezone
 
-ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 HIST = os.path.join(ROOT, ".trigger-tree", "history.jsonl")
 BADGE = os.path.join(ROOT, ".trigger-tree", "badge.json")
 

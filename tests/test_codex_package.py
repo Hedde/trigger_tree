@@ -57,7 +57,9 @@ def test_codex_skill_has_valid_frontmatter_and_no_placeholders():
     assert "description:" in text.split("---", 2)[1]
     assert "[TODO:" not in text
     assert "official Codex lifecycle hooks" in text
-    assert "TT_CLIENT=codex scripts/tt-open.sh" in text
+    assert 'TT_PROJECT_DIR="$PWD" TT_CLIENT=codex "$PLUGIN/scripts/tt-open.sh"' in text
+    assert text.count('TT_PROJECT_DIR="$PWD"') >= 10
+    assert "never `cd` into" in text
 
 
 def test_claude_command_contract_uses_plugin_root_and_only_real_scripts():

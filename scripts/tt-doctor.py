@@ -11,7 +11,7 @@ from datetime import datetime
 
 from tt_scope import is_poor_coverage, scan_markdown
 
-ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCHEMA_VERSION = 1
 SUPPORTED_PYTHON = (3, 10), (3, 13)

@@ -31,7 +31,7 @@ import unicodedata
 from collections import Counter, deque
 from datetime import datetime, timezone
 
-ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 HIST = os.path.join(ROOT, ".trigger-tree", "history.jsonl")
 
 if os.name == "nt":  # pragma: no cover — Windows console setup

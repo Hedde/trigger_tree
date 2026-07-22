@@ -5,7 +5,7 @@ import json
 import os
 import runpy
 
-ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SETUP = runpy.run_path(os.path.join(SCRIPT_DIR, "tt-setup.py"))
 assert_safe_destination = SETUP["assert_safe_destination"]

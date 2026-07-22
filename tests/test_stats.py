@@ -798,3 +798,11 @@ def test_trend_skips_unparseable_timestamps(tmp_path, monkeypatch):
     mod = load_script("tt-stats.py", tmp_path)
     s = run_stats(mod, monkeypatch)
     assert len(s["trend"]) == 1 and s["trend"][0]["reads"] == 1
+
+
+def test_root_prefers_explicit_tt_project_dir(tmp_path, monkeypatch):
+    explicit = tmp_path / "explicit"
+    explicit.mkdir()
+    monkeypatch.setenv("TT_PROJECT_DIR", str(explicit))
+    mod = load_script("tt-stats.py", tmp_path)
+    assert mod.ROOT == str(explicit)

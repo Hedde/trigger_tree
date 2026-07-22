@@ -896,3 +896,11 @@ def test_main_exits_on_keyboard_interrupt(monkeypatch, capsys):
     monkeypatch.setattr(mod.time, "sleep", lambda _: (_ for _ in ()).throw(KeyboardInterrupt))
     mod.main()  # must swallow the interrupt and restore cleanly
     assert "trigger-tree" in capsys.readouterr().out
+
+
+def test_root_prefers_explicit_tt_project_dir(tmp_path, monkeypatch):
+    explicit = tmp_path / "explicit"
+    explicit.mkdir()
+    monkeypatch.setenv("TT_PROJECT_DIR", str(explicit))
+    mod = load_script("tt-watch.py", tmp_path)
+    assert mod.ROOT == str(explicit)

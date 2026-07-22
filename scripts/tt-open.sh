@@ -7,7 +7,7 @@ set -euo pipefail
 
 MODE="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+ROOT="${TT_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-$(pwd)}}"
 PY="$(command -v python3 || command -v python || echo python3)"
 PLATFORM="$(uname)"
 # Claude may expose a native C:\... project path while the launcher runs in Git

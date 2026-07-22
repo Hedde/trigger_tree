@@ -29,7 +29,7 @@ from fnmatch import fnmatch
 from itertools import combinations
 from statistics import median
 
-ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 MATURITY_MIN_READS = 30  # below this (or MIN_SESSIONS): cold-start
