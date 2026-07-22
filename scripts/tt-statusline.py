@@ -89,7 +89,7 @@ def main():
     depth = max((p.count("/") for p in files), default=0)
     grade = mature_grade()
     stats = f"{grade} · " if grade else ""
-    stats += f"{len(files)} files · {scans} scans · {len(dirs)} folders · depth {depth}"
+    stats += f"{len(files)} files · {scans} searches · {len(dirs)} folders · depth {depth}"
 
     age = 10**9
     if last_time is not None:

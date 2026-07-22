@@ -49,7 +49,7 @@ def test_session_summary_survives_history_rotation_and_avoids_rescan(tmp_path, m
     (telemetry / "history-rotated.jsonl").write_text("not consulted")
     mod = load_script("tt-statusline.py", tmp_path)
     out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
-    assert "2 files · 7 scans · 2 folders · depth 2" in out
+    assert "2 files · 7 searches · 2 folders · depth 2" in out
     assert "docs/new/" in out
 
 
@@ -97,7 +97,7 @@ def test_fresh_read_green_dot(tmp_path, monkeypatch, capsys):
     )
     mod = load_script("tt-statusline.py", tmp_path)
     out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
-    assert "2 files · 0 scans · 2 folders · depth 2" in out
+    assert "2 files · 0 searches · 2 folders · depth 2" in out
     assert "●" in out and mod.FRESH in out and "docs/b.md" in out
 
 
@@ -113,7 +113,7 @@ def test_scan_only_session_is_live_and_marks_folder_path(tmp_path, monkeypatch, 
     mod = load_script("tt-statusline.py", tmp_path)
     out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
 
-    assert "0 files · 1 scans · 0 folders · depth 0" in out
+    assert "0 files · 1 searches · 0 folders · depth 0" in out
     assert "●" in out and mod.FRESH in out and "docs/backlog/" in out
 
 
@@ -149,7 +149,7 @@ def test_newer_scan_controls_freshness_but_read_stats_stay_read_derived(
     mod = load_script("tt-statusline.py", tmp_path)
     out = run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
 
-    assert "1 files · 1 scans · 1 folders · depth 2" in out
+    assert "1 files · 1 searches · 1 folders · depth 2" in out
     assert "●" in out and mod.FRESH in out and "docs/backlog/" in out
 
 

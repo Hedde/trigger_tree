@@ -547,7 +547,7 @@ def main():
             "<h2 id=search>Search activity inside doc folders</h2><div class=scroll><table>"
         )
         parts.append(
-            "<tr><th>Folder</th><th>Scans</th><th>Sessions</th><th>Tools</th><th>Pattern</th></tr>"
+            "<tr><th>Folder</th><th>Searches</th><th>Sessions</th><th>Tools</th><th>Pattern</th></tr>"
         )
         parts.extend(
             f"<tr><td><code>{esc(h['path'])}</code></td><td>{h['scans']}</td>"
@@ -556,7 +556,7 @@ def main():
             for h in search_activity
         )
         parts.append(
-            "</table></div><p class=muted>A scan records explicit search activity, not its "
+            "</table></div><p class=muted>A search event records explicit search activity, not its "
             "cause. Concentrated bursts may be intentional bulk work; distributed recurrence "
             "can support, but does not prove, a routing hypothesis.</p>"
         )

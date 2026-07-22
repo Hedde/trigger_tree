@@ -245,7 +245,6 @@ def configure_prompts(mode, explicit=False):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--with-config", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--prompt-mode", choices=("truncate", "hash", "off"))
     parser.add_argument("--apply-watch-suggestion", action="store_true")
     return parser.parse_args(argv)

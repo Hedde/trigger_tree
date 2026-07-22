@@ -54,7 +54,7 @@ Show exactly this, nothing above or below it:
 2. Show only this block:
 
 > **🌳 trigger-tree status** _(period: <observed_from> → <observed_to>, <sessions> sessions)_
-> <reads> reads · <scans> scans · <skill_uses> skill uses · <touched_current_files>/<evaluable_files> current files touched
+> <reads> reads · <scans> searches · <skill_uses> skill uses · <touched_current_files>/<evaluable_files> current files touched
 > **Health:** <health.grade> (<health.score>/100) — append "(provisional)" unless maturity is `mature`
 >
 > **Current heat:** exclude `state != "current"`, then sort `files` by `heat` descending and show the top 5 as
@@ -104,7 +104,7 @@ Show exactly this, nothing above or below it:
 > and does that correlate with any `notes` (router changes)? Never say a note or edit
 > caused the change.
 > **Search activity** — only if scans > 20% of reads: use `search_activity` to report
-> the tool mix, sessions/total_sessions, and `pattern`. A scan is an explicit search in a
+> the tool mix, sessions/total_sessions, and `pattern`. A search event is an explicit search in a
 > watched path, not proof of failed routing. Treat `concentrated` activity as possible
 > bulk/research workflow; only `distributed` recurrence may support a routing hypothesis.
 > **Task clusters** — top 2-3 from `clusters`: "tasks like <example prompt> consistently
@@ -120,7 +120,7 @@ Show exactly this, nothing above or below it:
 Analysis rules (do not repeat them in the output): lifetime read counts never decay;
 current `heat` uses the `heat_model` 30-day half-life and is distinct from untouched;
 read counts and heat are signals, not verdicts;
-scan counts are narrow search telemetry and do not establish why a search occurred;
+the schema's `scan` counts are narrow search telemetry and do not establish why a search occurred;
 files in `always_loaded_inventory` are never dead by definition (system-prompt injection);
 `retired_files` are historical evidence and must not appear in current rankings; a file
 younger than the measurement period is new, not untouched; subagent reads (the `agents`

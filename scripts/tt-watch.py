@@ -571,7 +571,7 @@ class App:
                 + c256(WHITE, f'"{prompt_txt}"')
                 + c256(
                     DIM,
-                    f" · {sum(counts.values())} reads · {b_scans} scans{privacy_hint}",
+                    f" · {sum(counts.values())} reads · {b_scans} searches{privacy_hint}",
                 ),
             )
             files_src = sorted(counts)

@@ -119,7 +119,7 @@ def test_logger_and_statusline():
 
 def test_setup():
     with tempfile.TemporaryDirectory() as tmp:
-        run("tt-setup.py", ["--with-config"], project=tmp)
+        run("tt-setup.py", project=tmp)
         assert os.path.isfile(os.path.join(tmp, ".claude", "tt-statusline.py"))
         assert os.path.isfile(os.path.join(tmp, ".trigger-tree", "config.sh"))
         settings = json.load(open(os.path.join(tmp, ".claude", "settings.json")))
