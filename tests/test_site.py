@@ -53,6 +53,10 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "injected · always loaded" in html
     assert "RECENT_MS = 8000" in html
     assert "% TIPS.length" in html and "30000" in html
+    assert "copyInstall()" in html and 'btn.textContent = "copied ✓"' in html
+    assert "uvx --from trigger-tree tt" in html
+    assert 'video src="docs/assets/demo.mp4" autoplay loop muted playsinline' in html
+    assert "real footage — tt watch --demo" in html
 
 
 def test_search_presence_files_agree_on_the_canonical_url():

@@ -73,6 +73,11 @@
   .install-card > p { color:var(--muted); padding:0 1.2rem 1rem; font-size:.9rem; }
   .install-card pre.block { border:0; border-top:1px solid var(--line); border-radius:0; }
   .install-note { color:var(--muted); margin-top:1rem; font-size:.9rem; }
+  .install-card { position:relative; }
+  .copy-btn { position:absolute; top:.85rem; right:.9rem; background:transparent; color:var(--muted);
+              border:1px solid var(--line); border-radius:6px; font:.75rem ui-monospace,monospace;
+              padding:.25rem .55rem; cursor:pointer; }
+  .copy-btn:hover { color:var(--fg); border-color:var(--muted); }
   .health-story { display:grid; grid-template-columns:8rem 1fr; gap:1.5rem; align-items:start;
                   border-top:1px solid var(--line); padding:1.4rem 0; }
   .health-grade { font:700 1.35rem/1.2 ui-monospace,Menlo,monospace; color:var(--green); text-align:left; padding-top:.15rem; }
@@ -113,6 +118,18 @@
     </div>
     <pre id="screen"></pre>
     <div class="hint">every flash is a real doc read rippling up the tree · ← older prompts · → newer prompts · <span id="hintx">this demo is the plugin</span></div>
+  </div>
+
+  <p class="install-note" style="max-width:720px;margin:0 auto 2.5rem;text-align:center">The demo above is a faithful mock.
+  This is the real thing — an actual terminal recording of <code>tt watch --demo</code>:</p>
+  <div class="term">
+    <div class="term-bar">
+      <span class="dot" style="background:#ff5f56"></span>
+      <span class="dot" style="background:#ffbd2e"></span>
+      <span class="dot" style="background:#27c93f"></span>
+      <span class="title">real footage — tt watch --demo</span>
+    </div>
+    <video src="docs/assets/demo.mp4" autoplay loop muted playsinline style="display:block;width:100%"></video>
   </div>
 
   <div class="grid">
@@ -178,7 +195,7 @@ codex plugin add trigger-tree@trigger-tree
   </div>
   <p class="install-note"><b>Where it appears:</b> this GitHub marketplace installs immediately under your configured
   marketplace/Installed plugins. It will appear under OpenAI Curated only after a separate OpenAI submission,
-  review, approval, and publish step. Prefer a standalone CLI without a plugin? <code>pipx install trigger-tree</code> gives the same local <code>tt</code> toolkit.</p>
+  review, approval, and publish step. Prefer a standalone CLI without a plugin? <code>pipx install trigger-tree</code> (or <code>uvx --from trigger-tree tt</code>) gives the same local <code>tt</code> toolkit.</p>
 
   <h2>Use it</h2>
   <p class="install-note">Claude Code uses the <code>/tt</code> commands below. In Codex, ask for the same outcome—for
@@ -413,6 +430,20 @@ codex plugin add trigger-tree@trigger-tree
     if (buf === "hunt") hunt();
   });
 
+  function copyInstall() {
+    for (const card of document.querySelectorAll(".install-card")) {
+      const block = card.querySelector("pre.block");
+      if (!block || !navigator.clipboard) continue;
+      const btn = document.createElement("button");
+      btn.className = "copy-btn"; btn.type = "button"; btn.textContent = "copy";
+      btn.onclick = () => navigator.clipboard.writeText(block.textContent.trim()).then(() => {
+        btn.textContent = "copied ✓";
+        setTimeout(() => (btn.textContent = "copy"), 1500);
+      });
+      card.appendChild(btn);
+    }
+  }
+  copyInstall();
   console.log("🌳 curious one. try typing `hunt`, press `q`, and the gray file in docs/legacy/ is lonely.");
   render();
   setInterval(() => { spin++; if (mode === "live") render(); }, 220);

@@ -9,7 +9,7 @@
 [![platforms](https://img.shields.io/badge/platforms-macOS%20·%20Linux%20·%20Windows-lightgrey.svg)](docs/platform-support.md)
 [![docs health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fdocs-health.json)](docs/heat-model.md)
 
-<p align="center"><a href="https://hedde.github.io/trigger_tree/"><img src="https://raw.githubusercontent.com/Hedde/trigger_tree/main/docs/assets/dashboard.png" alt="trigger-tree mock dashboard showing documentation reads, searches, heat bars, and prompt browsing" width="900"></a></p>
+<p align="center"><a href="https://hedde.github.io/trigger_tree/"><img src="https://raw.githubusercontent.com/Hedde/trigger_tree/main/docs/assets/demo.gif" alt="Real terminal recording of the live trigger-tree dashboard: doc reads pulse through the tree, sorting, prompt browsing, and the privacy settings panel" width="900"></a></p>
 
 - Local and dependency-free: no cloud, analytics, or model tokens.
 - Separate heat, lifetime reads, searches, and untouched paths instead of guessing intent.
@@ -26,7 +26,7 @@ Documentation steers an AI coding assistant toward your team’s patterns and gu
 The Claude `/tt` skill is explicitly user-triggered. Codex installs the equivalent skill and lifecycle hooks through its plugin marketplace.
 
 Prefer a standalone CLI — for CI, git-hook ingestion, or dashboards without a plugin?
-`pipx install trigger-tree`, then `tt doctor`, `tt watch --demo`, `tt stats`.
+`pipx install trigger-tree` (or `uvx --from trigger-tree tt`), then `tt doctor`, `tt watch --demo`, `tt stats`.
 
 Prompt logging defaults to a recognizable, gitignored local preview of at most 200
 characters as soon as the plugin is installed, even if setup is never run. `/tt setup`
