@@ -64,7 +64,8 @@ def test_badge_mode_writes_private_endpoint_json(tmp_path, monkeypatch, capsys):
         "message": "measuring…",
         "color": "lightgrey",
     }
-    assert badge.stat().st_mode & 0o777 == 0o600
+    if os.name != "nt":
+        assert badge.stat().st_mode & 0o777 == 0o600
 
 
 def test_badge_refuses_symlinked_telemetry_directory(tmp_path):
