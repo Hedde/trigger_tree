@@ -1,0 +1,124 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>trigger-tree Report</title><style>
+:root { --bg:#fff; --fg:#1f2328; --muted:#59636e; --line:#d0d7de; --card:#f6f8fa;
+        --cold:#4775d1; --cool:#38cfd0; --active:#7cb342; --warm:#ffb300; --hot:#e53935; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#0c1014; --fg:#e6edf3; --muted:#9aa4af; --line:#1f262e; --card:#101418; }
+}
+:root[data-theme="dark"] { --bg:#0c1014; --fg:#e6edf3; --muted:#9aa4af; --line:#1f262e; --card:#101418; }
+:root[data-theme="light"] { --bg:#fff; --fg:#1f2328; --muted:#59636e; --line:#d0d7de; --card:#f6f8fa; }
+body { background:var(--bg); color:var(--fg); font:15px/1.55 -apple-system,'Segoe UI',sans-serif;
+       max-width:880px; margin:2rem auto; padding:0 1.25rem; }
+h1 { font-size:1.7rem; } h2 { font-size:1.2rem; margin-top:2.4rem; border-bottom:1px solid var(--line); padding-bottom:.35rem; }
+small, .muted { color:var(--muted); }
+table { border-collapse:collapse; width:100%; margin:.75rem 0; font-size:.92em; }
+th, td { text-align:left; padding:.35rem .6rem; border-bottom:1px solid var(--line); vertical-align:top; }
+th { color:var(--muted); font-weight:600; }
+tbody tr:hover, table tr:hover { background:color-mix(in srgb,var(--card) 70%,transparent); }
+.bar { display:inline-block; height:.65em; border-radius:3px; vertical-align:baseline; }
+.kpi { display:flex; gap:1rem; flex-wrap:wrap; margin:1rem 0; }
+.kpi div { background:transparent; border:0; border-top:1px solid var(--line); border-radius:0; padding:.7rem 1rem .7rem 0; min-width:8rem; }
+.kpi b { font-size:1.35rem; display:block; }
+.note { background:transparent; border:0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); border-radius:0; padding:.7rem 0; margin:1rem 0; }
+.grade { display:grid; grid-template-columns:auto 1fr; gap:1.25rem; align-items:center;
+         border:0; border-block:1px solid var(--line); border-radius:0; padding:1rem 0; background:transparent; }
+.grade-letter { font:700 3.5rem/1 ui-monospace,monospace; }
+.untouched { color:var(--muted); }
+code { background:var(--card); padding:.1em .35em; border-radius:4px; font-size:.9em; }
+.scroll { overflow-x:auto; }
+.spark { width:150px; height:46px; display:block; margin-top:.35rem; overflow:visible; }
+.chart, .tree-chart { width:100%; height:auto; overflow:visible; font:12px ui-monospace,monospace; }
+.chart text, .tree-chart text { fill:var(--fg); }
+.chart .grid { stroke:var(--line); stroke-width:1; }
+.chart .note-tick { stroke:var(--muted); stroke-width:1; }
+.chart-pair { display:grid; gap:1rem; margin:1rem 0; }
+.toc { position:sticky; top:0; z-index:2; background:color-mix(in srgb,var(--bg) 94%,transparent);
+       border-block:1px solid var(--line); padding:.55rem 0; }
+.toc a { display:inline-block; margin:.2rem .8rem .2rem 0; white-space:nowrap; }
+footer { border-top:1px solid var(--line); color:var(--muted); margin-top:3rem; padding:1.2rem 0; font-size:.85rem; }
+</style></head><body>
+<h1>🌳 trigger-tree — documentation health</h1><p class=note><b>Example report</b> — generated from synthetic demo data so you can see the full format. Real reports are produced locally by <code>/tt insights</code> and never leave your machine.</p>
+<div class='note grade'><span class=grade-letter>B</span><span><b>Documentation health · 89/100</b><br><small class=muted>2 of 11 evaluable docs untouched · 1 router gaps (untouched and unreferenced) · distributed search ratio 0.0</small></span></div>
+<p class=muted>Period 2026-07-01T09:00:00Z → 2026-07-21T15:21:00Z (20.26 days) · maturity: <b>mature</b></p>
+<div class=kpi><div><b>112</b>reads<svg class=spark viewBox='0 0 150 46' role=img aria-label='Reads by period'><title>Reads by period</title><polyline points='8.0,8.0 52.7,9.8 97.3,12.5 142.0,38.0' fill=none stroke='var(--cool)' stroke-width=2 vector-effect=non-scaling-stroke/><circle cx='142.0' cy='38.0' r=3 fill='var(--cool)'/><text x='137.0' y='32.0' text-anchor=end>5</text></svg></div><div><b>3</b>searches<svg class=spark viewBox='0 0 150 46' role=img aria-label='Searches by period'><title>Searches by period</title><polyline points='8.0,8.0 52.7,8.0 97.3,8.0 142.0,38.0' fill=none stroke='var(--cool)' stroke-width=2 vector-effect=non-scaling-stroke/><circle cx='142.0' cy='38.0' r=3 fill='var(--cool)'/><text x='137.0' y='32.0' text-anchor=end>0</text></svg></div><div><b>0</b>skill uses</div><div><b>11</b>sessions</div><div><b>9/11</b>current files touched</div><div><b>2</b>current files untouched</div></div>
+<p class=muted>Current inventory: 12 files = 11 evaluable + 1 always loaded. Evaluable coverage reconciles as 9 touched + 2 untouched = 11.</p>
+<p><b>a rule that is never read protects nothing</b> — use the evidence below to improve routes, not to confuse discovery with understanding. <a href='https://github.com/Hedde/trigger_tree/blob/main/docs/glossary.md'>Glossary</a>.</p>
+<nav class=toc aria-label='Report sections'><b>Jump to:</b> <a href='#heat'>heat</a><a href='#folders'>folders</a><a href='#untouched'>untouched</a><a href='#trend'>trend</a><a href='#search'>search</a><a href='#tasks'>tasks</a><a href='#routing'>routing</a></nav>
+<h2 id=heat>Current heat</h2>
+<p class=muted>The same indented tree, heat bars, h values, and lifetime reads used by the live dashboard. Untouched files collapse to a · summary.</p><svg class=tree-chart viewBox='0 0 820 355' role=img><title>Documentation tree by current heat</title><g><title>docs/design/ · h47.902 · 63 lifetime reads</title><text x=12 y=23 fill='#e53935'>▸</text><text x=32 y=23>docs/design/</text><rect x=410 y=10 width='280.0' height=11 rx=2 fill='#e53935'/><text x=705 y=23>h47.90 · 63×</text></g><g><title>  ui-patterns.md · h22.887 · 30 lifetime reads</title><text x=12 y=48 fill='#ffb300'>●</text><text x=32 y=48>  ui-patterns.md</text><rect x=410 y=35 width='228.4' height=11 rx=2 fill='#ffb300'/><text x=705 y=48>h22.89 · 30×</text></g><g><title>  principles.md · h17.109 · 22 lifetime reads</title><text x=12 y=73 fill='#7cb342'>●</text><text x=32 y=73>  principles.md</text><rect x=410 y=60 width='208.5' height=11 rx=2 fill='#7cb342'/><text x=705 y=73>h17.11 · 22×</text></g><g><title>  index.md · h6.659 · 9 lifetime reads</title><text x=12 y=98 fill='#7cb342'>●</text><text x=32 y=98>  index.md</text><rect x=410 y=85 width='146.5' height=11 rx=2 fill='#7cb342'/><text x=705 y=98>h6.66 · 9×</text></g><g><title>  accessibility.md · h1.247 · 2 lifetime reads</title><text x=12 y=123 fill='#4775d1'>●</text><text x=32 y=123>  accessibility.md</text><rect x=410 y=110 width='58.3' height=11 rx=2 fill='#4775d1'/><text x=705 y=123>h1.25 · 2×</text></g><g><title>docs/database/ · h24.193 · 33 lifetime reads</title><text x=12 y=148 fill='#ffb300'>▸</text><text x=32 y=148>docs/database/</text><rect x=410 y=135 width='232.3' height=11 rx=2 fill='#ffb300'/><text x=705 y=148>h24.19 · 33×</text></g><g><title>  migrations.md · h13.484 · 18 lifetime reads</title><text x=12 y=173 fill='#7cb342'>●</text><text x=32 y=173>  migrations.md</text><rect x=410 y=160 width='192.4' height=11 rx=2 fill='#7cb342'/><text x=705 y=173>h13.48 · 18×</text></g><g><title>  index.md · h5.778 · 8 lifetime reads</title><text x=12 y=198 fill='#38cfd0'>●</text><text x=32 y=198>  index.md</text><rect x=410 y=185 width='137.8' height=11 rx=2 fill='#38cfd0'/><text x=705 y=198>h5.78 · 8×</text></g><g><title>  principles.md · h4.931 · 7 lifetime reads</title><text x=12 y=223 fill='#38cfd0'>●</text><text x=32 y=223>  principles.md</text><rect x=410 y=210 width='128.1' height=11 rx=2 fill='#38cfd0'/><text x=705 y=223>h4.93 · 7×</text></g><g><title>docs/ · h7.582 · 10 lifetime reads</title><text x=12 y=248 fill='#7cb342'>▸</text><text x=32 y=248>docs/</text><rect x=410 y=235 width='154.7' height=11 rx=2 fill='#7cb342'/><text x=705 y=248>h7.58 · 10×</text></g><g><title>  README.md · h7.582 · 10 lifetime reads</title><text x=12 y=273 fill='#7cb342'>●</text><text x=32 y=273>  README.md</text><rect x=410 y=260 width='154.7' height=11 rx=2 fill='#7cb342'/><text x=705 y=273>h7.58 · 10×</text></g><g><title>docs/operations/runbooks/ · h4.123 · 6 lifetime reads</title><text x=12 y=298 fill='#38cfd0'>▸</text><text x=32 y=298>docs/operations/runbooks/</text><rect x=410 y=285 width='117.6' height=11 rx=2 fill='#38cfd0'/><text x=705 y=298>h4.12 · 6×</text></g><g><title>  rollback.md · h4.123 · 6 lifetime reads</title><text x=12 y=323 fill='#38cfd0'>●</text><text x=32 y=323>  rollback.md</text><rect x=410 y=310 width='117.6' height=11 rx=2 fill='#38cfd0'/><text x=705 y=323>h4.12 · 6×</text></g></svg>
+<p class=muted>Heat is recent attention with a 30-day half-life; lifetime reads never decay. Cold means inactive now, not unimportant.</p><div class=scroll><table>
+<tr><th>Path</th><th>Heat</th><th></th><th>7d</th><th>Lifetime</th><th>Agents</th><th>Last read</th></tr>
+<tr><td><code>docs/design/ui-patterns.md</code></td><td>22.887</td><td><span class=bar style='width:120px;background:#e53935'></span></td><td>6</td><td>30</td><td><small>main 24 · sub 6 (Explore 6)</small></td><td><small>2026-07-21T15:21:00Z</small></td></tr>
+<tr><td><code>docs/design/principles.md</code></td><td>17.109</td><td><span class=bar style='width:89px;background:#ffb300'></span></td><td>6</td><td>22</td><td><small>main 18 · sub 4 (Explore 4)</small></td><td><small>2026-07-21T15:21:00Z</small></td></tr>
+<tr><td><code>docs/database/migrations.md</code></td><td>13.484</td><td><span class=bar style='width:70px;background:#ffb300'></span></td><td>3</td><td>18</td><td><small>main 15 · sub 3 (Explore 3)</small></td><td><small>2026-07-21T12:10:00Z</small></td></tr>
+<tr><td><code>docs/README.md</code></td><td>7.582</td><td><span class=bar style='width:39px;background:#7cb342'></span></td><td>2</td><td>10</td><td><small>main 8 · sub 2 (Explore 2)</small></td><td><small>2026-07-19T11:09:00Z</small></td></tr>
+<tr><td><code>docs/design/index.md</code></td><td>6.659</td><td><span class=bar style='width:34px;background:#7cb342'></span></td><td>1</td><td>9</td><td><small>main 8 · sub 1 (Explore 1)</small></td><td><small>2026-07-17T10:08:00Z</small></td></tr>
+<tr><td><code>docs/database/index.md</code></td><td>5.778</td><td><span class=bar style='width:30px;background:#7cb342'></span></td><td>0</td><td>8</td><td><small>main 7 · sub 1 (Explore 1)</small></td><td><small>2026-07-15T17:07:00Z</small></td></tr>
+<tr><td><code>docs/database/principles.md</code></td><td>4.931</td><td><span class=bar style='width:25px;background:#7cb342'></span></td><td>0</td><td>7</td><td><small>main 6 · sub 1 (Explore 1)</small></td><td><small>2026-07-13T16:06:00Z</small></td></tr>
+<tr><td><code>docs/operations/runbooks/rollback.md</code></td><td>4.123</td><td><span class=bar style='width:21px;background:#7cb342'></span></td><td>0</td><td>6</td><td><small>main 5 · sub 1 (Explore 1)</small></td><td><small>2026-07-11T15:05:00Z</small></td></tr>
+<tr><td><code>docs/design/accessibility.md</code></td><td>1.247</td><td><span class=bar style='width:6px;background:#38cfd0'></span></td><td>0</td><td>2</td><td><small>main 2 · sub 0</small></td><td><small>2026-07-03T11:01:00Z</small></td></tr>
+</table></div>
+<h2 id=folders>Folder heat &amp; cold map</h2>
+<p class=muted>Folder heat sums current decayed file attention. Coverage and lifetime reads remain separate; cold means inactive now and never proves removal is safe.</p>
+<div class=scroll><table>
+<tr><th>Folder</th><th>Heat</th><th></th><th>7d</th><th>Coverage</th><th>Lifetime</th><th>Retired read share</th><th>Median file age</th><th>Last read</th></tr>
+<tr><td><code>docs/design/</code></td><td>47.902</td><td><span class=bar style='width:119px;background:#e53935'></span></td><td>13</td><td>4/4 (100%)</td><td>63</td><td>0%</td><td>0.0 days</td><td><small>2026-07-21T15:21:00Z</small></td></tr>
+<tr><td><code>docs/database/</code></td><td>24.193</td><td><span class=bar style='width:60px;background:#ffb300'></span></td><td>3</td><td>3/3 (100%)</td><td>33</td><td>0%</td><td>0.0 days</td><td><small>2026-07-21T12:10:00Z</small></td></tr>
+<tr><td><code>docs/</code></td><td>7.582</td><td><span class=bar style='width:18px;background:#7cb342'></span></td><td>2</td><td>1/1 (100%)</td><td>10</td><td>0%</td><td>0.0 days</td><td><small>2026-07-19T11:09:00Z</small></td></tr>
+<tr><td><code>docs/operations/runbooks/</code> <small class=muted>· no index file</small></td><td>4.123</td><td><span class=bar style='width:10px;background:#38cfd0'></span></td><td>0</td><td>1/1 (100%)</td><td>6</td><td>0%</td><td>0.0 days</td><td><small>2026-07-11T15:05:00Z</small></td></tr>
+<tr><td><code>(root)/</code></td><td>0.000</td><td><span class=bar style='width:4px;background:#4a5361'></span></td><td>0</td><td>0/1 (0%)</td><td>0</td><td>0%</td><td>— days</td><td><small>—</small></td></tr>
+<tr><td><code>docs/legacy/</code> <small class=muted>· no index file</small></td><td>0.000</td><td><span class=bar style='width:4px;background:#4a5361'></span></td><td>0</td><td>0/1 (0%)</td><td>0</td><td>0%</td><td>— days</td><td><small>—</small></td></tr>
+<tr><td><code>docs/operations/</code></td><td>0.000</td><td><span class=bar style='width:4px;background:#4a5361'></span></td><td>0</td><td>0/1 (0%)</td><td>0</td><td>0%</td><td>— days</td><td><small>—</small></td></tr>
+</table></div>
+<h2 id=untouched>Untouched review</h2>
+<div class=note>Measurement is mature, but low reads can still mean rare-but-critical.</div>
+<p class=muted>Never read during the measurement period. This is a review queue, not a removal recommendation.</p><div class=scroll><table><tr><th>Path</th><th>Inbound refs</th><th>Flags</th></tr>
+<tr><td><code>docs/operations/index.md</code></td><td>1</td><td>unread router</td></tr>
+<tr><td><code>docs/legacy/old-api.md</code></td><td>0</td><td>router gap</td></tr>
+</table></div>
+<p class=muted><small>Low reads can mean rare-but-critical; verify purpose and owners before archiving.</small></p>
+<p class=muted><small>Out of scope (always loaded via system prompt / Skill tool): <code>CLAUDE.md</code></small></p>
+<p class=muted><b>Unread routers:</b> <code>docs/operations/index.md</code>. Router files are never classified as templates.</p>
+<h2 id=trend>Trend</h2><p class=muted>Search/read ratio per period. Movement after a note is correlation, not proof that the recorded edit caused it.</p>
+<div class=chart-pair><svg class=chart viewBox='0 0 720 180' role=img><title>Reads and searches by period</title><line class=grid x1=32 y1=52 x2=688 y2=52/><line class=grid x1=32 y1=88 x2=688 y2=88/><line class=grid x1=32 y1=124 x2=688 y2=124/><line x1='32.0' y1='24.0' x2='250.7' y2='30.7' stroke='var(--active)' stroke-width=2/><line x1='250.7' y1='30.7' x2='469.3' y2='40.8' stroke='var(--active)' stroke-width=2/><line x1='469.3' y1='40.8' x2='688.0' y2='135.2' stroke='var(--active)' stroke-width=2 stroke-dasharray='6 5'/><circle cx='688.0' cy='135.2' r=3 fill='var(--active)'/><text x='681.0' y='128.2' text-anchor=end>reads 5</text><line x1='32.0' y1='148.6' x2='250.7' y2='148.6' stroke='var(--cool)' stroke-width=2/><line x1='250.7' y1='148.6' x2='469.3' y2='148.6' stroke='var(--cool)' stroke-width=2/><line x1='469.3' y1='148.6' x2='688.0' y2='152.0' stroke='var(--cool)' stroke-width=2 stroke-dasharray='6 5'/><circle cx='688.0' cy='152.0' r=3 fill='var(--cool)'/><text x='681.0' y='145.0' text-anchor=end>searches 0</text></svg><svg class=chart viewBox='0 0 720 180' role=img><title>Search ratio by period</title><line class=grid x1=32 y1=52 x2=688 y2=52/><line class=grid x1=32 y1=88 x2=688 y2=88/><line class=grid x1=32 y1=124 x2=688 y2=124/><line x1='32.0' y1='24.0' x2='250.7' y2='24.0' stroke='var(--warm)' stroke-width=2/><line x1='250.7' y1='24.0' x2='469.3' y2='24.0' stroke='var(--warm)' stroke-width=2/><line x1='469.3' y1='24.0' x2='688.0' y2='152.0' stroke='var(--warm)' stroke-width=2 stroke-dasharray='6 5'/><circle cx='688.0' cy='152.0' r=3 fill='var(--warm)'/><text x='681.0' y='145.0' text-anchor=end>search ratio 0</text></svg></div>
+<p class=muted>Movement after a note is correlation, not proof that the recorded edit caused it.</p><div class=scroll><table>
+<tr><th>Period</th><th>Reads</th><th>Searches</th><th></th><th>Search ratio</th></tr>
+<tr><td>2026-W27</td><td>38</td><td>1</td><td><span class=bar style='width:120px;background:#38cfd0'></span></td><td>0.03</td></tr>
+<tr><td>2026-W28</td><td>36</td><td>1</td><td><span class=bar style='width:113px;background:#38cfd0'></span></td><td>0.03</td></tr>
+<tr><td>2026-W29</td><td>33</td><td>1</td><td><span class=bar style='width:104px;background:#38cfd0'></span></td><td>0.03</td></tr>
+<tr><td>2026-W30</td><td>5</td><td>0</td><td><span class=bar style='width:15px;background:#38cfd0'></span></td><td>0.0 · small n</td></tr>
+</table></div>
+<h2>Notes (router changes &amp; annotations)</h2><ul>
+<li><small class=muted>2026-07-12T12:00:00Z</small> — sharpened the design router</li>
+</ul>
+<h2 id=search>Search activity inside doc folders</h2><div class=scroll><table>
+<tr><th>Folder</th><th>Searches</th><th>Sessions</th><th>Tools</th><th>Pattern</th></tr>
+<tr><td><code>docs/database</code></td><td>3</td><td>3/11</td><td>{&#x27;Grep&#x27;: 3}</td><td>concentrated</td></tr>
+</table></div><p class=muted>A search event records explicit search activity, not its cause. Concentrated bursts may be intentional bulk work; distributed recurrence can support, but does not prove, a routing hypothesis.</p>
+<h2 id=tasks>Task clusters</h2><p class=muted>Doc-and-skill sets per prompt, grouped by similarity (Jaccard ≥ 0.6) across sessions.</p><div class=scroll><table>
+<tr><th>×</th><th>Variants</th><th>Example prompt</th><th>Paths</th></tr>
+<tr><td>9</td><td>5</td><td>why is the deploy failing?</td><td><code>docs/README.md</code><br><code>docs/database/index.md</code><br><code>docs/database/migrations.md</code><br><code>docs/database/principles.md</code><br><code>docs/design/index.md</code><br><code>docs/design/principles.md</code><br><code>docs/design/ui-patterns.md</code><br><code>docs/operations/runbooks/rollback.md</code></td></tr>
+<tr><td>2</td><td>2</td><td>review the rollback runbook</td><td><code>docs/README.md</code><br><code>docs/database/migrations.md</code><br><code>docs/design/principles.md</code><br><code>docs/design/ui-patterns.md</code></td></tr>
+</table></div>
+<h2 id=routing>Folder-router coverage</h2><div class=scroll><table>
+<tr><th>Router</th><th>Listed</th><th>Unlisted direct files</th></tr>
+<tr><td><code>CLAUDE.md</code></td><td>0/0</td><td>—</td></tr>
+<tr><td><code>docs/README.md</code></td><td>0/0</td><td>—</td></tr>
+<tr><td><code>docs/database/index.md</code></td><td>1/2</td><td><code>docs/database/principles.md</code></td></tr>
+<tr><td><code>docs/design/index.md</code></td><td>2/3</td><td><code>docs/design/accessibility.md</code></td></tr>
+<tr><td><code>docs/operations/index.md</code></td><td>0/0</td><td>—</td></tr>
+</table></div><p class=muted>Unlisted means absent from that folder's existing README.md, _index.md, index.md, or CLAUDE.md; links elsewhere do not count as folder-router reachability.</p>
+<h2>Most often read together</h2><div class=scroll><table>
+<tr><th>Pair</th><th>×</th></tr>
+<tr><td><code>docs/database/migrations.md</code> + <code>docs/design/principles.md</code></td><td>11</td></tr>
+<tr><td><code>docs/database/migrations.md</code> + <code>docs/design/ui-patterns.md</code></td><td>11</td></tr>
+<tr><td><code>docs/design/principles.md</code> + <code>docs/design/ui-patterns.md</code></td><td>11</td></tr>
+<tr><td><code>docs/README.md</code> + <code>docs/database/migrations.md</code></td><td>10</td></tr>
+<tr><td><code>docs/README.md</code> + <code>docs/design/principles.md</code></td><td>10</td></tr>
+<tr><td><code>docs/README.md</code> + <code>docs/design/ui-patterns.md</code></td><td>10</td></tr>
+<tr><td><code>docs/README.md</code> + <code>docs/design/index.md</code></td><td>9</td></tr>
+<tr><td><code>docs/database/migrations.md</code> + <code>docs/design/index.md</code></td><td>9</td></tr>
+<tr><td><code>docs/design/index.md</code> + <code>docs/design/principles.md</code></td><td>9</td></tr>
+<tr><td><code>docs/design/index.md</code> + <code>docs/design/ui-patterns.md</code></td><td>9</td></tr>
+</table></div>
+<footer>Generated 2026-07-22 21:40 UTC · trigger-tree 1.16.0<br>100% local — this file was generated on your machine and never uploaded.</footer>
+</body></html>

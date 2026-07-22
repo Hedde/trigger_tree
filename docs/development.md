@@ -5,8 +5,8 @@ Use a virtual environment:
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-test.txt -r requirements-dev.txt
-.venv/bin/black --check scripts tests .github/scripts
-.venv/bin/ruff check scripts tests .github/scripts
+.venv/bin/black --check scripts tests .github/scripts docs/assets
+.venv/bin/ruff check scripts tests .github/scripts docs/assets
 .venv/bin/python -m coverage run -m pytest tests -q
 .venv/bin/python -m coverage report --fail-under=100
 shellcheck scripts/tt-open.sh scripts/tt-shell-capture.sh

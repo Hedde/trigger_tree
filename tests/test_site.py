@@ -59,6 +59,16 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "real footage — tt watch --demo" in html
 
 
+def test_example_report_is_published_and_labeled_synthetic():
+    html = open(f"{REPO}/index.html", encoding="utf-8").read()
+    assert '<a href="demo-report.html">view an example insights report</a>' in html
+    report = open(f"{REPO}/demo-report.html", encoding="utf-8").read()
+    assert "<title>trigger-tree Report</title>" in report
+    assert "Example report</b> — generated from synthetic demo data" in report
+    assert "never leave your machine" in report
+    assert 'src="http' not in report and "https://cdn" not in report
+
+
 def test_search_presence_files_agree_on_the_canonical_url():
     site = "https://hedde.github.io/trigger_tree/"
     sitemap = open(f"{REPO}/sitemap.xml", encoding="utf-8").read()

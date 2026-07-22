@@ -42,8 +42,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
-      - run: black --check scripts tests .github/scripts
-      - run: ruff check scripts tests .github/scripts
+      - run: black --check scripts tests .github/scripts docs/assets
+      - run: ruff check scripts tests .github/scripts docs/assets
 
   test:
     strategy:
