@@ -86,7 +86,7 @@ WATCH = _conf_regex(
     r"^(docs|agents|skills|agent-briefs)/.*\.md$|^\.claude/(rules|skills)/.*\.md$|"
     r"^(CLAUDE|AGENTS|GEMINI)\.md$",
 )
-ALWAYS = _conf_regex("TT_ALWAYS_LOADED_REGEX", r"(^|/)(CLAUDE|AGENTS|GEMINI)\.md$")
+ALWAYS = _conf_regex("TT_ALWAYS_LOADED_REGEX", r"(^|/)(CLAUDE|AGENTS|GEMINI)\.md$|^\.claude/rules/")
 CRITICAL_GLOBS = [
     value.strip() for value in _conf_value("TT_CRITICAL_GLOB").split(",") if value.strip()
 ]

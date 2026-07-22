@@ -131,9 +131,12 @@ SKILL.md counts as touched.
 
 Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-suggestions.py"` (fall back to
 `python` if needed) and show its concise output verbatim. The script keeps full stats
-off stdout, explains its evidence scope, prints at most five deterministic router
-edits, and changes nothing. Apply only numbers the user explicitly confirms, then
-suggest recording the change with `/tt note`.
+off stdout and changes nothing. Its output is tiered: at most five numbered,
+appliable router edits (each verified against existing files, with evidence numbers),
+up to two unnumbered "Worth a look" observations that need judgment rather than an
+edit, and one summary line for low-read but likely-critical files. Apply only
+numbered edits the user explicitly confirms, then suggest recording the change with
+`/tt note`.
 
 ## `$1` = "tips"
 

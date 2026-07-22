@@ -12,7 +12,7 @@ TT_SCAN_REGEX='^(docs|agents|skills|agent-briefs)(/|$)'
 # Files matching this regex are loaded automatically (system-prompt injection, nested
 # CLAUDE.md on-demand loading, Skill tool) and therefore cannot be judged through
 # Read telemetry — excluded from untouched review-candidate analysis.
-TT_ALWAYS_LOADED_REGEX='(^|/)(CLAUDE|AGENTS|GEMINI)\.md$|(^|/)CLAUDE\.local\.md$|^\.claude/skills/'
+TT_ALWAYS_LOADED_REGEX='(^|/)(CLAUDE|AGENTS|GEMINI)\.md$|(^|/)CLAUDE\.local\.md$|^\.claude/(rules|skills)/'
 # Example project override additions for other instruction systems:
 # TT_ALWAYS_LOADED_REGEX='...|^\.github/copilot-instructions\.md$|^\.cursor/rules/'
 

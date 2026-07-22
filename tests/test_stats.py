@@ -401,11 +401,14 @@ def test_rare_critical_docs_are_protected_review_items(tmp_path, monkeypatch):
     stats = run_stats(mod, monkeypatch)
     items = {item["path"]: item for item in stats["review_candidates"]}
 
-    rule = items[".claude/rules/production.md"]
+    # Claude injects .claude/rules/** as project instructions: never a review item.
+    assert ".claude/rules/production.md" not in items
+    always = {item["path"]: item for item in stats["protected_docs"]}
+    rule = always[".claude/rules/production.md"]
     assert rule["classification"] == "protected"
-    assert rule["recommendation"] == "review, likely keep — rare-but-critical"
+    assert rule["recommendation"] == "keep — always loaded"
+    assert "always loaded into context" in rule["why"]
     assert "safety path" in rule["why"]
-    assert "Low reads can mean rare-but-critical" in rule["caveat"]
     assert "safety path" in items["docs/security/incident.md"]["why"]
     assert "critical glob docs/decisions/**" in items["docs/decisions/adr.md"]["why"]
 
@@ -497,7 +500,8 @@ def test_fixture_full_run(monkeypatch):
     assert (
         s["totals"]["reads"] == 17 and s["totals"]["scans"] == 2 and s["totals"]["skill_uses"] == 1
     )
-    assert s["totals"]["inventory_files"] == 34
+    assert s["totals"]["inventory_files"] == 35
+    assert ".claude/rules/security-review.md" in s["always_loaded_inventory"]
     assert s["sessions"] == 4
     assert len(s["untouched"]) == 19, s["untouched"]
     for p in (
@@ -509,8 +513,13 @@ def test_fixture_full_run(monkeypatch):
         "skills/doc-update.md",
     ):
         assert p in s["untouched"], p
-    assert s["always_loaded"] == ["AGENTS.md", "CLAUDE.md"]  # invoked skill's SKILL.md excluded
+    assert s["always_loaded"] == [
+        ".claude/rules/security-review.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+    ]  # invoked skill's SKILL.md excluded
     assert s["always_loaded_inventory"] == [
+        ".claude/rules/security-review.md",
         ".claude/skills/deploy/SKILL.md",
         "AGENTS.md",
         "CLAUDE.md",
