@@ -3,7 +3,7 @@
 # Paths are relative to the project root.
 
 # A Read of a file matching this regex counts as a documentation read.
-TT_WATCH_REGEX='^(docs|agents|skills|agent-briefs)/.*\.md$|^\.claude/(rules|skills)/.*\.md$|^(CLAUDE|AGENTS)\.md$'
+TT_WATCH_REGEX='^(docs|agents|skills|agent-briefs)/.*\.md$|^\.claude/(rules|skills)/.*\.md$|^(CLAUDE|AGENTS|GEMINI)\.md$'
 
 # A Glob/Grep whose explicit target dir matches this regex counts as search activity.
 # The event records that a search happened, not why it happened or whether routing failed.
@@ -12,7 +12,9 @@ TT_SCAN_REGEX='^(docs|agents|skills|agent-briefs)(/|$)'
 # Files matching this regex are loaded automatically (system-prompt injection, nested
 # CLAUDE.md on-demand loading, Skill tool) and therefore cannot be judged through
 # Read telemetry — excluded from untouched review-candidate analysis.
-TT_ALWAYS_LOADED_REGEX='(^|/)(CLAUDE|AGENTS)\.md$|(^|/)CLAUDE\.local\.md$|^\.claude/skills/'
+TT_ALWAYS_LOADED_REGEX='(^|/)(CLAUDE|AGENTS|GEMINI)\.md$|(^|/)CLAUDE\.local\.md$|^\.claude/skills/'
+# Example project override additions for other instruction systems:
+# TT_ALWAYS_LOADED_REGEX='...|^\.github/copilot-instructions\.md$|^\.cursor/rules/'
 
 # Comma-separated globs for rare-but-critical documentation that must be reviewed,
 # never treated as an archive candidate. Safety paths are protected regardless.

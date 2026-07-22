@@ -4,4 +4,8 @@ Keep the root `CLAUDE.md` below 200 lines and use it as a task router, not a man
 
 Injected files trade measurability for guaranteed context: root/nested `CLAUDE.md`, `.claude/rules`, and `@imports` are always loaded and cannot produce Read evidence. Keep them thin. Route detailed material through index pages when provable discovery matters.
 
+Other agents' hierarchical context files, including `AGENTS.md` and `GEMINI.md`, are
+also classified as injected rather than judged as untouched. `index.md` stays a
+folder router, not an agent context convention.
+
 Prefix templates with `_` (for example `_template.md`) so trigger-tree can classify them as intentional scaffolding. Treat suggestions as evidence-backed proposals and review each one; low traffic can mean rare but critical.

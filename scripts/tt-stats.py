@@ -81,8 +81,12 @@ def _conf_value(name, fallback=""):
     return fallback
 
 
-WATCH = _conf_regex("TT_WATCH_REGEX", r"^docs/.*\.md$")
-ALWAYS = _conf_regex("TT_ALWAYS_LOADED_REGEX", r"^(CLAUDE|AGENTS)\.md$")
+WATCH = _conf_regex(
+    "TT_WATCH_REGEX",
+    r"^(docs|agents|skills|agent-briefs)/.*\.md$|^\.claude/(rules|skills)/.*\.md$|"
+    r"^(CLAUDE|AGENTS|GEMINI)\.md$",
+)
+ALWAYS = _conf_regex("TT_ALWAYS_LOADED_REGEX", r"(^|/)(CLAUDE|AGENTS|GEMINI)\.md$")
 CRITICAL_GLOBS = [
     value.strip() for value in _conf_value("TT_CRITICAL_GLOB").split(",") if value.strip()
 ]

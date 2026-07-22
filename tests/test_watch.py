@@ -115,14 +115,16 @@ def test_name_sort_toggles_both_directions():
 
 def test_injected_files_are_labeled_and_stat_columns_align():
     mod = load_script("tt-watch.py", FIXTURE)
-    app = mod.App(["CLAUDE.md", "AGENTS.md", "docs/a.md"])
+    app = mod.App(["CLAUDE.md", "AGENTS.md", "GEMINI.md", "docs/a.md"])
     app.feed({"t": "read", "path": "CLAUDE.md", "session": "S"}, live=False)
+    app.feed({"t": "read", "path": "GEMINI.md", "session": "S"}, live=False)
     app.feed({"t": "read", "path": "docs/a.md", "session": "S"}, live=False)
     frame = plain(app.render(time.time(), width=110, height=30))
     claude = next(line for line in frame.splitlines() if "CLAUDE.md" in line)
     nested = next(line for line in frame.splitlines() if "a.md" in line)
     assert "injected · 1×" in claude
     assert claude.index("injected") == nested.index("·····")
+    assert "GEMINI.md" in frame and mod.ALWAYS_LOADED.search("docs/GEMINI.md")
 
 
 def test_cold_sort_excludes_injected_instructions_from_files_and_folders():
@@ -131,6 +133,7 @@ def test_cold_sort_excludes_injected_instructions_from_files_and_folders():
         [
             "CLAUDE.md",
             "AGENTS.md",
+            "GEMINI.md",
             ".claude/skills/security/SKILL.md",
             "docs/CLAUDE.md",
             "docs/untouched.md",
@@ -144,7 +147,7 @@ def test_cold_sort_excludes_injected_instructions_from_files_and_folders():
     app.set_sort("cold")
     frame = plain(app.render(mod.timestamp_epoch("2026-07-21T00:00:00Z"), 120, 40))
     assert "untouched.md" in frame and "cold.md" in frame
-    assert "CLAUDE.md" not in frame and "AGENTS.md" not in frame
+    assert "CLAUDE.md" not in frame and "AGENTS.md" not in frame and "GEMINI.md" not in frame
     assert ".claude/skills/" not in frame and "SKILL.md" not in frame
 
 

@@ -39,7 +39,10 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SCHEMA_VERSION = 1
 
 DEFAULTS = {
-    "TT_WATCH_REGEX": r"^docs/.*\.md$",
+    "TT_WATCH_REGEX": (
+        r"^(docs|agents|skills|agent-briefs)/.*\.md$|^\.claude/(rules|skills)/.*\.md$|"
+        r"^(CLAUDE|AGENTS|GEMINI)\.md$"
+    ),
     "TT_SCAN_REGEX": r"^docs(/|$)",
     "TT_LOG_PROMPTS": "truncate",
     "TT_ROTATE_BYTES": "5242880",

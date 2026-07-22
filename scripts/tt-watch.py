@@ -70,10 +70,14 @@ def _conf_regex(name, fallback):
     return re.compile(fallback)
 
 
-WATCH = _conf_regex("TT_WATCH_REGEX", r"^docs/.*\.md$")
+WATCH = _conf_regex(
+    "TT_WATCH_REGEX",
+    r"^(docs|agents|skills|agent-briefs)/.*\.md$|^\.claude/(rules|skills)/.*\.md$|"
+    r"^(CLAUDE|AGENTS|GEMINI)\.md$",
+)
 ALWAYS_LOADED = _conf_regex(
     "TT_ALWAYS_LOADED_REGEX",
-    r"(^|/)(CLAUDE(?:\.local)?|AGENTS)\.md$|^\.claude/(rules|skills)/",
+    r"(^|/)(CLAUDE(?:\.local)?|AGENTS|GEMINI)\.md$|^\.claude/(rules|skills)/",
 )
 BASES = ["docs", "agents", "skills", "agent-briefs", ".claude/rules", ".claude/skills", "."]
 

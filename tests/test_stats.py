@@ -477,6 +477,19 @@ def test_experimental_outcomes_are_off_by_default(tmp_path, monkeypatch):
     assert run_stats(mod, monkeypatch)["experimental_outcomes"] is None
 
 
+def test_gemini_context_is_watched_but_always_loaded(tmp_path, monkeypatch):
+    (tmp_path / "GEMINI.md").write_text("project instructions")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "GEMINI.md").write_text("nested instructions")
+    (docs / "index.md").write_text("folder router")
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+    assert stats["always_loaded_inventory"] == ["GEMINI.md", "docs/GEMINI.md"]
+    assert stats["untouched"] == ["docs/index.md"]
+    assert mod.WATCH.search("GEMINI.md") and mod.ALWAYS.search("docs/GEMINI.md")
+
+
 def test_fixture_full_run(monkeypatch):
     mod = load_script("tt-stats.py", FIXTURE)
     s = run_stats(mod, monkeypatch)
