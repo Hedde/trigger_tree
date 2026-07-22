@@ -43,7 +43,7 @@ DEFAULTS = {
         r"^(docs|agents|skills|agent-briefs)/.*\.md$|^\.claude/(rules|skills)/.*\.md$|"
         r"^(CLAUDE|AGENTS|GEMINI)\.md$"
     ),
-    "TT_SCAN_REGEX": r"^docs(/|$)",
+    "TT_SCAN_REGEX": r"^(docs|agents|skills|agent-briefs)(/|$)",
     "TT_LOG_PROMPTS": "truncate",
     "TT_ROTATE_BYTES": "5242880",
     "TT_EXPERIMENTAL_OUTCOMES": "off",

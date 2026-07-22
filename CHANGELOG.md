@@ -2,9 +2,9 @@
 
 ## 1.12.0 — 2026-07-22
 
-- Records the owner's explicit privacy decision that installation may store a
-  recognizable, gitignored 200-character prompt preview before setup, and states
-  that behavior plainly across the README, site, FAQ, privacy, and security docs.
+- Records that installation may store a recognizable, gitignored 200-character
+  prompt preview before setup, and states that behavior plainly across the README,
+  site, FAQ, privacy, and security docs.
 - Recognizes root `GEMINI.md` alongside `CLAUDE.md` and `AGENTS.md`, and classifies
   root or nested Gemini context as injected/always loaded rather than an untouched
   candidate; `index.md` remains an ordinary folder router.

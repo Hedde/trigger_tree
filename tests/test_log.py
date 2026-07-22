@@ -377,6 +377,7 @@ def test_conf_unreadable_falls_back_to_defaults(tmp_path):
 def test_conf_defaults_and_override(tmp_path):
     mod = load_script("tt-log.py", tmp_path)
     assert mod.DEFAULTS["TT_LOG_PROMPTS"] == "truncate"
+    assert mod.DEFAULTS["TT_SCAN_REGEX"] == r"^(docs|agents|skills|agent-briefs)(/|$)"
     assert mod.conf()["TT_LOG_PROMPTS"] == "truncate"
     (tmp_path / ".trigger-tree").mkdir()
     (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_LOG_PROMPTS='off'\n")
