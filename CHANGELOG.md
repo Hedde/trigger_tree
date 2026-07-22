@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.15.1 — 2026-07-22
+
+- Fixes a Codex dashboard regression where the detached watcher could bind to the
+  installed plugin directory instead of the user's project, showing zero telemetry
+  while events were being recorded correctly: every entry script and the launcher
+  now honor an explicit `TT_PROJECT_DIR`, and the Codex skill contract runs all
+  commands from the project directory with that override set, never from the
+  plugin root.
+
 ## 1.15.0 — 2026-07-22
 
 - Replaces the README hero with a real terminal recording of the live dashboard
