@@ -56,6 +56,15 @@ def test_heat_color_and_escape(monkeypatch):
         5,
     )
     assert "untouched" in tree and "…" in tree and "retired" not in tree
+    large_tree = mod.tree_svg(
+        [
+            {"path": f"docs/reference/{index:03d}.md", "heat": index + 1, "reads": 1}
+            for index in range(105)
+        ],
+        "mature",
+        105,
+    )
+    assert large_tree.count("<g>") == 106  # one folder row plus every active file
 
 
 def test_mature_report_renders_visuals_and_keeps_tables(tmp_path, monkeypatch, capsys):
@@ -82,6 +91,7 @@ def test_mature_report_renders_visuals_and_keeps_tables(tmp_path, monkeypatch, c
     mod = load_script("tt-report.py", tmp_path)
     rendered = open(run_report(mod, monkeypatch, capsys, tmp_path), encoding="utf-8").read()
     assert "class=tree-chart" in rendered
+    assert "class=spark" in rendered and "class=chart" in rendered
     assert "<table>" in rendered and "docs/0.md" in rendered
 
 
@@ -91,6 +101,7 @@ def test_full_report_on_fixture(monkeypatch, capsys):
     html = open(out_path, encoding="utf-8").read()
     for expected in (
         "<title>trigger-tree Report</title>",
+        "<meta charset=utf-8>",
         "Current heat",
         "30-day half-life",
         "Lifetime",
@@ -132,6 +143,7 @@ def test_report_on_empty_project(tmp_path, monkeypatch, capsys):
     assert "docs/a.md" in html  # untouched listing
     assert "not a removal recommendation" in html
     assert "--cold:#4775d1" in html and "--hot:#e53935" in html
+    assert "class=tree-chart" not in html and "class=chart" not in html
     if os.name != "nt":
         assert stat.S_IMODE(os.stat(out_path).st_mode) == 0o600
 

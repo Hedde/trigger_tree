@@ -8,4 +8,8 @@ The report keeps heat, lifetime reads, search evidence, routing coverage, trend,
 
 Its optional SVG visuals preserve the tables beneath them: single-series KPI sparklines, separate single-axis count and search-ratio trends, and a TUI-shaped indented heat tree. Dashed trend segments mark small samples; neutral note ticks carry tooltip text without implying causation.
 
+![Locally rendered trigger-tree HTML report with a flat grade header, KPI sparklines, and evidence table](assets/report.png)
+
+This capture comes from the generated, self-contained HTML report. It is separate from the intentionally synthetic dashboard demo on the project homepage.
+
 First run with no evidence explains the loop: work normally and reads light up, or run `/tt watch demo` now.

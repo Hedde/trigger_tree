@@ -20,7 +20,8 @@ ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Website brand ramp; TUI approximations are 75, 80, 114, 214, and 196.
-HEAT = ["#4a5361", "#4775d1", "#38cfd0", "#7cb342", "#b9f6a0", "#ffb300", "#f57c00", "#e53935"]
+# Neutral untouched state followed by the five shared report/site heat classes.
+HEAT = ["#4a5361", "#4775d1", "#38cfd0", "#7cb342", "#ffb300", "#e53935"]
 
 MATURITY_NOTE = {
     "cold-start": "Measurement just started — review candidates are provisional.",
@@ -47,9 +48,9 @@ th { color:var(--muted); font-weight:600; }
 tbody tr:hover, table tr:hover { background:color-mix(in srgb,var(--card) 70%,transparent); }
 .bar { display:inline-block; height:.65em; border-radius:3px; vertical-align:baseline; }
 .kpi { display:flex; gap:1rem; flex-wrap:wrap; margin:1rem 0; }
-.kpi div { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.6rem 1rem; }
+.kpi div { background:transparent; border:0; border-top:1px solid var(--line); border-radius:0; padding:.7rem 1rem .7rem 0; min-width:8rem; }
 .kpi b { font-size:1.35rem; display:block; }
-.note { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.6rem 1rem; margin:1rem 0; }
+.note { background:transparent; border:0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); border-radius:0; padding:.7rem 0; margin:1rem 0; }
 .grade { display:grid; grid-template-columns:auto 1fr; gap:1.25rem; align-items:center;
          border:0; border-block:1px solid var(--line); border-radius:0; padding:1rem 0; background:transparent; }
 .grade-letter { font:700 3.5rem/1 ui-monospace,monospace; }
@@ -270,7 +271,11 @@ def main():
     reads_spark = sparkline_svg([bucket.get("reads", 0) for bucket in trend], "Reads by period")
     scans_spark = sparkline_svg([bucket.get("scans", 0) for bucket in trend], "Searches by period")
 
-    parts = [f"<title>trigger-tree Report</title><style>{CSS}</style>"]
+    parts = [
+        "<!doctype html><html lang=en><head><meta charset=utf-8>"
+        "<meta name=viewport content='width=device-width,initial-scale=1'>"
+        f"<title>trigger-tree Report</title><style>{CSS}</style></head><body>"
+    ]
     parts.append("<h1>🌳 trigger-tree — documentation health</h1>")
     h = s.get("health")
     if h:
@@ -605,6 +610,7 @@ def main():
         f"<footer>Generated {generated} · trigger-tree {esc(plugin_version())}<br>"
         "100% local — this file was generated on your machine and never uploaded.</footer>"
     )
+    parts.append("</body></html>")
 
     out_path = write_report("\n".join(parts))
     print(out_path)
