@@ -22,6 +22,7 @@ import os
 import re
 import stat
 import sys
+import tempfile
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from fnmatch import fnmatch
@@ -324,6 +325,50 @@ def grade_for(score):
     )
 
 
+def badge_payload(health, maturity):
+    """Return a shields.io endpoint payload without publishing provisional grades."""
+    if maturity != "mature":
+        return {
+            "schemaVersion": 1,
+            "label": "docs health",
+            "message": "measuring…",
+            "color": "lightgrey",
+        }
+    colors = {"A": "brightgreen", "B": "green", "C": "yellow", "D": "orange", "F": "red"}
+    grade = health["grade"]
+    return {
+        "schemaVersion": 1,
+        "label": "docs health",
+        "message": f"{grade} ({health['score']})",
+        "color": colors[grade],
+    }
+
+
+def write_badge(payload):
+    """Atomically write the endpoint JSON without following project-controlled links."""
+    directory = os.path.join(ROOT, ".trigger-tree")
+    if os.path.lexists(directory):
+        mode = os.lstat(directory).st_mode
+        if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
+            raise RuntimeError("refusing non-directory or symlinked .trigger-tree")
+    else:
+        os.makedirs(directory, mode=0o700)
+    destination = os.path.join(directory, "badge.json")
+    fd, temporary = tempfile.mkstemp(prefix=".badge.", dir=directory, text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False)
+            handle.write("\n")
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, destination)
+    finally:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+    return destination
+
+
 def jaccard(a, b):
     a, b = set(a), set(b)
     return len(a & b) / len(a | b) if a | b else 0.0
@@ -362,6 +407,7 @@ def main():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("history", nargs="?")
     parser.add_argument("--client", choices=("auto", "claude", "codex"), default="auto")
+    parser.add_argument("--badge", action="store_true")
     args = parser.parse_args()
     client = detect_client(args.client)
     events, history_diagnostics = load_events_with_diagnostics(history_files(args.history))
@@ -876,8 +922,11 @@ def main():
             "oversized_prompts_skipped": co_read_skipped_buckets,
         },
     }
-    json.dump(out, sys.stdout, indent=1)
-    print()
+    if args.badge:
+        print(write_badge(badge_payload(health, maturity)))
+    else:
+        json.dump(out, sys.stdout, indent=1)
+        print()
 
 
 if __name__ == "__main__":

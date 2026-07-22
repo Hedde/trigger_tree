@@ -14,6 +14,7 @@ Use the scripts under the plugin root. Resolve it by walking two directories up 
   `replay`, so the detached dashboard loads only Codex-specific tips.
 - Insights: run `python3 scripts/tt-report.py --client codex` and link the generated local HTML report.
 - Suggestions: run `python3 scripts/tt-suggestions.py` and return its output verbatim.
+- Badge: run `python3 scripts/tt-stats.py --client codex --badge` and return the written path.
 - Tips: run `python3 scripts/tt-tips.py --client codex` and return its output verbatim.
 - Note: run `python3 scripts/tt-log.py note "<text>"`.
 - Doctor: run `python3 scripts/tt-doctor.py` and return its diagnostics verbatim.

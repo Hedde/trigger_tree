@@ -1,6 +1,6 @@
 ---
 name: tt
-description: See which docs your AI actually discovers with local, zero-token telemetry. Subcommands; /tt status, /tt watch [demo|replay], /tt insights, /tt suggestions, /tt note <text>, /tt doctor, /tt setup, /tt uninstall, /tt help.
+description: See which docs your AI actually discovers with local, zero-token telemetry. Subcommands; /tt status, /tt watch [demo|replay], /tt insights, /tt suggestions, /tt badge, /tt note <text>, /tt doctor, /tt setup, /tt uninstall, /tt help.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Artifact
 arguments:
@@ -39,6 +39,7 @@ Show exactly this, nothing above or below it:
 > | `/tt watch replay` | Dashboard replaying the real history, accelerated |
 > | `/tt insights` | Analysis report: heat/cold map, untouched paths, hunting, trend + HTML |
 > | `/tt suggestions` | Max 5 prioritized, concrete router fixes — apply after confirmation |
+> | `/tt badge` | Write `.trigger-tree/badge.json`; immature data publishes only `measuring…` |
 > | `/tt note <text>` | Annotate the timeline (e.g. "sharpened UX router") — shows up in the trend |
 > | `/tt doctor` | Verify hooks, privacy, statusline, and telemetry with actionable fixes |
 > | `/tt setup [truncate\|hash\|off]` | Wire the project; choose recognizable previews or privacy-first prompt markers |
@@ -139,6 +140,12 @@ suggest recording the change with `/tt note`.
 Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-tips.py" --client claude`
 (fall back to `python` if needed) and show its concise output verbatim. These are
 maintenance recommendations only; do not edit memory or instruction files automatically.
+
+## `$1` = "badge"
+
+Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-stats.py" --client claude --badge`
+and answer with exactly one line: `🌳 Docs-health badge written to <path>.` The endpoint
+JSON never exposes a provisional letter; before mature measurement it says `measuring…`.
 
 ## `$1` = "note"
 

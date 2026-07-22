@@ -33,6 +33,50 @@ def test_pure_helpers():
     assert mod._conf_regex("TT_MISSING", r"^fallback$").pattern == "^fallback$"
     assert mod._conf_value("TT_MISSING", "fallback") == "fallback"
     assert [mod.grade_for(x) for x in (95, 80, 65, 50, 10)] == ["A", "B", "C", "D", "F"]
+    assert mod.badge_payload({"grade": "A", "score": 96}, "warming") == {
+        "schemaVersion": 1,
+        "label": "docs health",
+        "message": "measuring…",
+        "color": "lightgrey",
+    }
+    expected_colors = {"A": "brightgreen", "B": "green", "C": "yellow", "D": "orange", "F": "red"}
+    for grade, color in expected_colors.items():
+        assert mod.badge_payload({"grade": grade, "score": 82}, "mature") == {
+            "schemaVersion": 1,
+            "label": "docs health",
+            "message": f"{grade} (82)",
+            "color": color,
+        }
+
+
+def test_badge_mode_writes_private_endpoint_json(tmp_path, monkeypatch, capsys):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "README.md").write_text("router")
+    mod = load_script("tt-stats.py", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["tt-stats.py", "--badge"])
+    mod.main()
+    output = capsys.readouterr().out.strip()
+    badge = tmp_path / ".trigger-tree" / "badge.json"
+    assert output == str(badge)
+    assert json.loads(badge.read_text()) == {
+        "schemaVersion": 1,
+        "label": "docs health",
+        "message": "measuring…",
+        "color": "lightgrey",
+    }
+    assert badge.stat().st_mode & 0o777 == 0o600
+
+
+def test_badge_refuses_symlinked_telemetry_directory(tmp_path):
+    mod = load_script("tt-stats.py", tmp_path)
+    target = tmp_path / "outside"
+    target.mkdir()
+    try:
+        (tmp_path / ".trigger-tree").symlink_to(target, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlink creation is unavailable")
+    with pytest.raises(RuntimeError, match="symlinked"):
+        mod.write_badge({})
 
 
 def test_client_detection_and_prompt_filters(monkeypatch):
