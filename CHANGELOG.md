@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.17.0 — 2026-07-22
+
+- Publishes an example insights report on the website, generated from fixed
+  synthetic telemetry by a committed `make demo-report` generator and clearly
+  labeled as demo data on the page itself; real reports remain local-only.
+- Stops the `/tt suggestions` skill from repeating output the tool result already
+  shows: the script gains `--no-apply-prompt`, the Claude contract now answers
+  with a single apply-question line, and protected-summary reasons aggregate
+  reference counts as "heavily referenced" instead of listing every count.
+
 ## 1.16.0 — 2026-07-22
 
 - Restructures `/tt suggestions` into tiers: at most five numbered, appliable router
