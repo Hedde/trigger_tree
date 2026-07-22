@@ -19,6 +19,8 @@ Use the scripts under the plugin root. Resolve it by walking two directories up 
 - Doctor: run `python3 scripts/tt-doctor.py` and return its diagnostics verbatim.
 - Setup: run `python3 scripts/tt-setup.py`; pass `--prompt-mode truncate|hash|off`
   when requested. Explain that truncate stores the first 200 prompt characters locally.
+- Uninstall: run `python3 scripts/tt-uninstall.py`; explain that telemetry and ignore
+  entries remain until the user explicitly deletes them.
 
 Telemetry is collected silently by official Codex lifecycle hooks. Treat heat as decaying
 current attention and lifetime reads as durable evidence. Untouched never means obsolete;

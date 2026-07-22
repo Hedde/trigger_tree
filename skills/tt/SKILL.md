@@ -1,6 +1,6 @@
 ---
 name: tt
-description: See which docs your AI actually discovers with local, zero-token telemetry. Subcommands; /tt status, /tt watch [demo|replay], /tt insights, /tt suggestions, /tt note <text>, /tt doctor, /tt setup, /tt help.
+description: See which docs your AI actually discovers with local, zero-token telemetry. Subcommands; /tt status, /tt watch [demo|replay], /tt insights, /tt suggestions, /tt note <text>, /tt doctor, /tt setup, /tt uninstall, /tt help.
 disable-model-invocation: false
 allowed-tools: Bash, Read, Write, Artifact
 arguments:
@@ -42,6 +42,7 @@ Show exactly this, nothing above or below it:
 > | `/tt note <text>` | Annotate the timeline (e.g. "sharpened UX router") — shows up in the trend |
 > | `/tt doctor` | Verify hooks, privacy, statusline, and telemetry with actionable fixes |
 > | `/tt setup [truncate\|hash\|off]` | Wire the project; choose recognizable previews or privacy-first prompt markers |
+> | `/tt uninstall` | Remove statusline wiring; keep local telemetry for explicit deletion |
 > | `/tt help` | This overview |
 >
 > Telemetry runs automatically via hooks; the statusline shows the live session counter.
@@ -160,6 +161,12 @@ maintenance recommendations only; do not edit memory or instruction files automa
 Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-doctor.py"` (fall back to
 `python` if needed). Show its output verbatim. A failed check is a diagnostic result,
 not a skill error: still show the complete output.
+
+## `$1` = "uninstall"
+
+Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-uninstall.py"` and show its
+summary verbatim. It removes only trigger-tree's statusline registration and copied
+script; `.trigger-tree/` telemetry and `.gitignore` entries remain for explicit deletion.
 
 ## Any other `$1`
 

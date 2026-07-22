@@ -74,6 +74,7 @@ def test_claude_command_contract_uses_plugin_root_and_only_real_scripts():
         "tt-stats.py",
         "tt-suggestions.py",
         "tt-tips.py",
+        "tt-uninstall.py",
     }
     assert all((ROOT / "scripts" / name).is_file() for name in references)
     assert 'TT_CLIENT=claude "${CLAUDE_PLUGIN_ROOT}/scripts/tt-open.sh"' in text

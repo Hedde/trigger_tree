@@ -17,6 +17,7 @@ REQUIRED_FILES = (
     "skills/tt/SKILL.md",
     "scripts/tt-log.py",
     "scripts/tt-doctor.py",
+    "scripts/tt-uninstall.py",
     "scripts/tt_scope.py",
     "scripts/tt_runtime.py",
 )

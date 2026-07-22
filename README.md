@@ -128,6 +128,7 @@ outcome in natural language; the bundled `trigger-tree` skill runs the same loca
 | **`/tt note <text>`** | Annotate the timeline ("sharpened UX router") — visible in the trend |
 | **`/tt doctor`** | Verify hook files and liveness, watch coverage, privacy, statusline, and telemetry |
 | **`/tt setup [truncate\|hash\|off]`** | Wire the project and choose recognizable local previews or privacy-first markers |
+| **`/tt uninstall`** | Remove trigger-tree statusline wiring without deleting telemetry |
 
 Tips are intentionally client-specific. Claude advice follows Anthropic's guidance to
 [audit auto memory, keep CLAUDE.md concise, and remove conflicting instructions](https://code.claude.com/docs/en/memory).
@@ -321,6 +322,13 @@ The experimental outcome view records whether the repository HEAD changed during
 session and the latest locally observed test-command result. It compares documents
 read in committed versus abandoned sessions. This is correlation only: it does not
 claim that reading a document caused an outcome.
+
+### Uninstall
+
+Run `/tt uninstall` to remove the trigger-tree `statusLine` registration and the copied
+`.claude/tt-statusline.py`. A foreign statusline is never changed. The command leaves
+`.trigger-tree/` and its `.gitignore` entries in place so telemetry is never destroyed
+implicitly; delete those manually only when you intend to erase the local history.
 
 Team auto-install — in your project's `.claude/settings.json`:
 
