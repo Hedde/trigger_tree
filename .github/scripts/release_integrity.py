@@ -6,12 +6,61 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[2]
+PUBLIC_OMISSIONS = {"help"}
+CLAUDE_SECTION_ONLY = {"tips"}
+CODEX_LABELS = {"live dashboard": "watch"}
 
 
 def fail(message: str) -> None:
     raise SystemExit(f"release integrity failed: {message}")
+
+
+def tt_commands(text: str) -> set[str]:
+    return set(re.findall(r"/tt\s+([a-z]+)", text))
+
+
+def require_commands(label: str, actual: set[str], expected: set[str]) -> None:
+    if actual != expected:
+        fail(
+            f"{label} command drift: missing {sorted(expected - actual)}, "
+            f"extra {sorted(actual - expected)}"
+        )
+
+
+def check_relative_links(root: Path) -> None:
+    documents = [root / "README.md", *(root / "docs").glob("*.md")]
+    for document in documents:
+        for raw_target in re.findall(r"!?\[[^]]*\]\(([^)]+)\)", document.read_text()):
+            target = raw_target.strip().strip("<>").split("#", 1)[0]
+            if not target or re.match(r"^[a-z][a-z0-9+.-]*:", target, re.I):
+                continue
+            resolved = (document.parent / unquote(target)).resolve()
+            if not resolved.exists():
+                fail(f"broken relative link in {document.relative_to(root)}: {raw_target}")
+
+
+def check_docs_currency(root: Path = ROOT) -> None:
+    claude = (root / "skills/tt/SKILL.md").read_text()
+    frontmatter = claude.split("---", 2)[1]
+    help_block = claude.split('## `$1` = "help" or empty', 1)[1].split("\n## ", 1)[0]
+    canonical = tt_commands(frontmatter)
+    require_commands("Claude help table", tt_commands(help_block), canonical)
+
+    sections = set(re.findall(r'^## `\$1` = "([a-z]+)', claude, re.M))
+    require_commands("Claude handler sections", sections - CLAUDE_SECTION_ONLY, canonical)
+
+    public = canonical - PUBLIC_OMISSIONS
+    require_commands("README.md", tt_commands((root / "README.md").read_text()), public)
+    require_commands("index.html", tt_commands((root / "index.html").read_text()), public)
+
+    codex = (root / "codex-skills/trigger-tree/SKILL.md").read_text()
+    labels = set(re.findall(r"^- ([A-Za-z ]+):", codex, re.M))
+    codex_commands = {CODEX_LABELS.get(label.lower(), label.lower()) for label in labels}
+    require_commands("Codex workflows", codex_commands, public | CLAUDE_SECTION_ONLY)
+    check_relative_links(root)
 
 
 def main(tag: str) -> None:
@@ -38,8 +87,11 @@ def main(tag: str) -> None:
         fail(f"marketplace plugin version {entry.get('version')} does not match {version}")
 
     changelog = (ROOT / "CHANGELOG.md").read_text()
-    if not re.search(rf"^## (?:\[)?{re.escape(version)}(?:\])?(?:\s|$)", changelog, re.M):
-        fail(f"CHANGELOG.md has no {version} release heading")
+    heading = re.search(r"^## (?:\[)?([^]\s]+)", changelog, re.M)
+    if not heading or heading.group(1) != version:
+        fail(f"top CHANGELOG.md release is not {version}")
+
+    check_docs_currency(ROOT)
 
     print(f"Release metadata consistently describes {tag}")
 
@@ -47,4 +99,8 @@ def main(tag: str) -> None:
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         fail("expected exactly one tag argument")
-    main(sys.argv[1])
+    if sys.argv[1] == "--docs":
+        check_docs_currency(ROOT)
+        print("User-facing command surfaces and relative links are current")
+    else:
+        main(sys.argv[1])

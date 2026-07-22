@@ -38,6 +38,7 @@ def test_release_integrity_accepts_semver_release_candidate(tmp_path, monkeypatc
     mod = load_release_integrity()
     write_release(tmp_path)
     monkeypatch.setattr(mod, "ROOT", tmp_path)
+    monkeypatch.setattr(mod, "check_docs_currency", lambda _root: None)
     mod.main("v1.0.0-rc.1")
     assert "consistently describes v1.0.0-rc.1" in capsys.readouterr().out
 
@@ -46,6 +47,7 @@ def test_release_integrity_rejects_bad_or_inconsistent_metadata(tmp_path, monkey
     mod = load_release_integrity()
     write_release(tmp_path)
     monkeypatch.setattr(mod, "ROOT", tmp_path)
+    monkeypatch.setattr(mod, "check_docs_currency", lambda _root: None)
     with pytest.raises(SystemExit, match="not vMAJOR"):
         mod.main("release-candidate")
 
@@ -66,6 +68,7 @@ def test_release_integrity_rejects_inconsistent_codex_metadata(tmp_path, monkeyp
     mod = load_release_integrity()
     write_release(tmp_path)
     monkeypatch.setattr(mod, "ROOT", tmp_path)
+    monkeypatch.setattr(mod, "check_docs_currency", lambda _root: None)
     codex = tmp_path / ".codex-plugin" / "plugin.json"
     codex.write_text(json.dumps({"name": "other", "version": "0.9.0"}))
     with pytest.raises(SystemExit, match="names disagree"):
@@ -73,3 +76,35 @@ def test_release_integrity_rejects_inconsistent_codex_metadata(tmp_path, monkeyp
     codex.write_text(json.dumps({"name": "trigger-tree", "version": "0.9.0"}))
     with pytest.raises(SystemExit, match="Codex plugin version"):
         mod.main("v1.0.0-rc.1")
+    codex.write_text(json.dumps({"name": "trigger-tree", "version": "1.0.0-rc.1"}))
+    (tmp_path / "CHANGELOG.md").write_text("## 0.9.0 — older\n## 1.0.0-rc.1 — buried\n")
+    with pytest.raises(SystemExit, match="top CHANGELOG.md release"):
+        mod.main("v1.0.0-rc.1")
+
+
+def test_docs_currency_rejects_induced_command_and_link_drift(tmp_path):
+    mod = load_release_integrity()
+    (tmp_path / "skills/tt").mkdir(parents=True)
+    (tmp_path / "codex-skills/trigger-tree").mkdir(parents=True)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "skills/tt/SKILL.md").write_text(
+        "---\ndescription: Subcommands /tt status, /tt help.\n---\n"
+        '## `$1` = "help" or empty\n| `/tt status` | ok |\n| `/tt help` | ok |\n'
+        '## `$1` = "status"\n## `$1` = "help"\n## `$1` = "tips"\n'
+    )
+    (tmp_path / "codex-skills/trigger-tree/SKILL.md").write_text(
+        "- Status: run it\n- Tips: run it\n"
+    )
+    (tmp_path / "index.html").write_text("/tt status")
+    (tmp_path / "README.md").write_text("/tt missing\n[broken](docs/gone.md)\n")
+    with pytest.raises(SystemExit, match="README.md command drift"):
+        mod.check_docs_currency(tmp_path)
+
+    (tmp_path / "README.md").write_text("/tt status\n[broken](docs/gone.md)\n")
+    with pytest.raises(SystemExit, match="broken relative link"):
+        mod.check_docs_currency(tmp_path)
+
+
+def test_docs_currency_accepts_real_tree():
+    mod = load_release_integrity()
+    mod.check_docs_currency(Path(REPO))
