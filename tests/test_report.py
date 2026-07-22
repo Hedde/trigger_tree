@@ -23,7 +23,7 @@ def test_heat_color_and_escape(monkeypatch):
     assert mod.heat_color(10, 10) == mod.HEAT[-1]
     assert mod.esc(None) == "—"
     assert mod.esc("<b>") == "&lt;b&gt;"
-    assert mod.plugin_version() == "1.11.0"
+    assert mod.plugin_version() == "1.11.1"
     monkeypatch.setattr(mod, "SCRIPT_DIR", "/missing")
     assert mod.plugin_version() == "unknown"
     assert mod._points([], 10, 10) == []
@@ -127,7 +127,7 @@ def test_full_report_on_fixture(monkeypatch, capsys):
         "class=toc",
         "id=heat",
         "100% local — this file was generated on your machine and never uploaded",
-        "trigger-tree 1.11.0",
+        "trigger-tree 1.11.1",
     ):
         assert expected in html, expected
     assert html.index("id=search") < html.index("id=tasks") < html.index("id=routing")

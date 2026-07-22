@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.11.1 — 2026-07-22
+
+- Makes recognizable, locally stored 200-character prompt previews the consistent
+  plugin and runtime default instead of falling back to hashed prompts before setup.
+- Asks new interactive setups to choose `truncate`, `hash`, or `off`, recommends
+  `truncate`, keeps automation non-blocking, and preserves existing project choices
+  unless a mode is passed explicitly.
+- Updates both Claude and Codex setup workflows to ask for the privacy choice and
+  pass it explicitly, with matching configuration and security documentation.
+
 ## 1.11.0 — 2026-07-22
 
 - Turns the local insights output into a self-contained evidence report with a
