@@ -63,7 +63,7 @@ def test_codex_skill_has_valid_frontmatter_and_no_placeholders():
 def test_claude_command_contract_uses_plugin_root_and_only_real_scripts():
     text = (ROOT / "skills" / "tt" / "SKILL.md").read_text(encoding="utf-8")
     assert "CLAUDE_SKILL_DIR" not in text
-    assert "disable-model-invocation: false" in text.split("---", 2)[1]
+    assert "disable-model-invocation: true" in text.split("---", 2)[1]
     references = re.findall(r"\$\{CLAUDE_PLUGIN_ROOT\}/scripts/([\w.-]+)", text)
     assert set(references) == {
         "tt-doctor.py",

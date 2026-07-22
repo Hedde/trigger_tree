@@ -115,8 +115,10 @@ collected automatically from official Codex lifecycle hooks; no wrapper is requi
 
 ## Claude Code commands and Codex workflows
 
-Claude Code exposes one command with nine subcommands. In Codex, ask for the matching
+Claude Code exposes one command with ten subcommands. In Codex, ask for the matching
 outcome in natural language; the bundled `trigger-tree` skill runs the same local core.
+Claude does not invoke `/tt` automatically: its script-running and artifact-publishing
+subcommands require an explicit user slash command.
 
 | Command | Does |
 |---------|------|
@@ -430,6 +432,11 @@ intact packaged hook files from evidence that hooks actually fired, checks watch
 coverage, local-data gitignore, statusline registration, and whether this exact
 repository has received valid telemetry. `/tt watch` always binds its split
 to the repository that invoked it and tails new hook events in real time.
+
+**Why is Claude telemetry empty on Windows?** Claude's documented exec-form hooks
+cannot select an executable by operating system: the `if` field filters tool calls,
+not platforms. Ensure `python3` resolves on `PATH` by enabling the Windows `python3`
+app alias or creating an equivalent command that launches your Python 3 installation.
 
 **Can I change prompt logging?** Yes: `/tt setup truncate` stores recognizable
 200-character previews locally, `/tt setup hash` stores only a short SHA-1 fingerprint,

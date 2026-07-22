@@ -1,7 +1,7 @@
 ---
 name: tt
 description: See which docs your AI actually discovers with local, zero-token telemetry. Subcommands; /tt status, /tt watch [demo|replay], /tt insights, /tt suggestions, /tt note <text>, /tt doctor, /tt setup, /tt uninstall, /tt help.
-disable-model-invocation: false
+disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Artifact
 arguments:
   - subcommand
