@@ -160,6 +160,12 @@ def test_watch_scope_scanner_handles_layouts_skips_and_cap(tmp_path):
     ignored = tmp_path / "node_modules"
     ignored.mkdir()
     (ignored / "ignored.md").write_text("ignored")
+    plugin_cache = tmp_path / ".agents"
+    plugin_cache.mkdir()
+    (plugin_cache / "cached.md").write_text("cached")
+    fixtures = tmp_path / "tests"
+    fixtures.mkdir()
+    (fixtures / "fixture.md").write_text("fixture")
     result = mod.scan_markdown(tmp_path, r"^docs/", limit=10)
     assert (result["markdown"], result["watched"], result["capped"]) == (2, 1, False)
     assert "README\\.md" in mod.suggested_regex(result["paths"])

@@ -4,7 +4,21 @@ import os
 import re
 
 DEFAULT_LIMIT = 5000
-SKIP_DIRS = {".git", "node_modules", "vendor", "vendors", "dist", "build", "__pycache__"}
+SKIP_DIRS = {
+    ".git",
+    ".agents",
+    ".codex",
+    ".pytest_cache",
+    ".trigger-tree",
+    "node_modules",
+    "vendor",
+    "vendors",
+    "dist",
+    "build",
+    "__pycache__",
+    "tests",
+    "worktrees",
+}
 
 
 def scan_markdown(root, watch_regex, limit=DEFAULT_LIMIT):
