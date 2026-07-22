@@ -352,10 +352,13 @@ Full policy: [PRIVACY.md](PRIVACY.md) · Security reports: [SECURITY.md](SECURIT
 |----------|---------------------|--------------------|
 | macOS | ✅ | iTerm2 split (same window), tmux split, or Terminal.app |
 | Linux | ✅ | tmux split, gnome-terminal, konsole, xterm |
-| Windows | ✅ (Git Bash) | Windows Terminal (`wt.exe`) or `start` |
+| Windows | ✅ Python runtime and CI | Windows Terminal (`wt.exe`) or `start` |
 
-CI runs the full test suite on all three platforms. Requirements: `python3` (or
-`python`) on PATH — nothing else.
+CI runs the full Python test suite on all three platforms and validates the Claude
+hook manifest. Native Windows hook launch is not exercised end-to-end in CI; Claude's
+[documented shell-free exec form](https://code.claude.com/docs/en/hooks#command-hook-fields)
+is used so plugin paths are substituted without shell quoting. The Claude hook path
+requires `python3` on `PATH`; no other runtime dependency is needed.
 
 ## Limitations
 

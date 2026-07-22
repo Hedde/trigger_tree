@@ -2,7 +2,6 @@ import json
 import os
 import subprocess
 
-import pytest
 from conftest import REPO
 
 
@@ -20,11 +19,12 @@ def test_every_documented_post_tool_use_has_a_logger_route():
     entries = manifest["hooks"]["PostToolUse"]
     routes = {entry["matcher"]: entry["hooks"][0]["command"] for entry in entries}
     assert set(routes) == {"Bash|Read|Glob|Grep|Skill|mcp__.*(read|search|grep|find).*"}
-    assert all(
-        "${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py" in group["hooks"][0]["command"]
-        for groups in manifest["hooks"].values()
-        for group in groups
-    )
+    for groups in manifest["hooks"].values():
+        for group in groups:
+            hook = group["hooks"][0]
+            assert hook["command"] == "python3"
+            assert hook["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py"]
+            assert "shell" not in hook and "commandWindows" not in hook
     failure = manifest["hooks"]["PostToolUseFailure"][0]
     assert failure["matcher"] == "Bash"
 
@@ -42,29 +42,13 @@ def test_codex_hooks_use_the_adapter_and_remain_silent():
                 assert hook["timeout"] == 5
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Unix hook command requires /bin/sh")
-def test_unix_hook_selects_one_available_interpreter_without_retry(tmp_path):
-    manifest = json.load(open(os.path.join(REPO, "hooks", "hooks.json"), encoding="utf-8"))
-    command = manifest["hooks"]["SessionStart"][0]["hooks"][0]["command"]
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    calls = tmp_path / "calls"
-
-    def interpreter(name, exit_code):
-        path = bin_dir / name
-        path.write_text(f'#!/bin/sh\nprintf "%s\\n" {name} >> "$CALLS"\nexit {exit_code}\n')
-        path.chmod(0o755)
-
-    # A python-only PATH uses the documented fallback exactly once.
-    interpreter("python", 0)
-    env = {"PATH": str(bin_dir), "CALLS": str(calls), "CLAUDE_PLUGIN_ROOT": str(tmp_path)}
-    result = subprocess.run(command, shell=True, executable="/bin/sh", env=env)
-    assert result.returncode == 0
-    assert calls.read_text().splitlines() == ["python"]
-
-    # Once python3 starts, its failure is authoritative: never retry and duplicate events.
-    calls.unlink()
-    interpreter("python3", 7)
-    result = subprocess.run(command, shell=True, executable="/bin/sh", env=env)
-    assert result.returncode == 7
-    assert calls.read_text().splitlines() == ["python3"]
+def test_claude_hook_exec_form_invokes_one_interpreter_without_retry(tmp_path):
+    manifest = json.load(open(os.path.join(REPO, "hooks", "claude-hooks.json"), encoding="utf-8"))
+    hook = manifest["hooks"]["SessionStart"][0]["hooks"][0]
+    adapter = tmp_path / "adapter.py"
+    adapter.write_text("raise SystemExit(7)\n")
+    result = subprocess.run(
+        [hook["command"], str(adapter)], input="{}", text=True, capture_output=True, check=False
+    )
+    assert hook["command"] == "python3" and len(hook["args"]) == 1
+    assert result.returncode == 7 and result.stdout == "" and result.stderr == ""
