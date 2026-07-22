@@ -99,7 +99,7 @@ def prompt_mode():
         match = re.search(r"TT_LOG_PROMPTS='(hash|truncate|off)'", text)
         if match:
             return match.group(1)
-    return "hash"
+    return "truncate"
 
 
 def save_prompt_mode(mode):

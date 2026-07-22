@@ -41,7 +41,7 @@ SCHEMA_VERSION = 1
 DEFAULTS = {
     "TT_WATCH_REGEX": r"^docs/.*\.md$",
     "TT_SCAN_REGEX": r"^docs(/|$)",
-    "TT_LOG_PROMPTS": "hash",
+    "TT_LOG_PROMPTS": "truncate",
     "TT_ROTATE_BYTES": "5242880",
     "TT_EXPERIMENTAL_OUTCOMES": "off",
 }
