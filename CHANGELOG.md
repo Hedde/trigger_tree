@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.16.0 — 2026-07-22
+
+- Restructures `/tt suggestions` into tiers: at most five numbered, appliable router
+  edits (verified add-link gaps, unlisted router members, missing folder entry
+  points, each with evidence numbers), up to two unnumbered "Worth a look"
+  observations for telemetry signals that need judgment, and one summary line for
+  low-read but likely-critical files — the apply-prompt now appears only when at
+  least one numbered edit exists.
+- Classifies `.claude/rules/**` as always-loaded context: Claude Code injects rules
+  into the system prompt, so Read telemetry can never observe them and they no
+  longer appear as untouched review candidates.
+- Skips template files in unlisted-member proposals, deduplicates the same path
+  across suggestion categories, guards empty folders out of cold-folder lines, and
+  marks warming-stage telemetry observations as early signals.
+
 ## 1.15.1 — 2026-07-22
 
 - Fixes a Codex dashboard regression where the detached watcher could bind to the
