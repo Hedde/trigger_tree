@@ -1,5 +1,7 @@
 # 🌳 trigger-tree
 
+<p align="center"><img src="https://raw.githubusercontent.com/Hedde/trigger_tree/main/assets/trigger-tree-logo.png" alt="trigger-tree logo" width="160"></p>
+
 > **See which project docs your AI actually discovers.**
 
 [![CI](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
