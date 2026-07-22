@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.9.1 — 2026-07-22
+
+- Fixes a critical v1.9.0 regression where Claude Code could load both bundled hook
+  files and double-record session, prompt, and test events. Explicit client markers
+  now make the Codex hook file a silent no-op under Claude while preserving stale-file
+  compatibility and tool-event idempotency.
+- Makes the test suite hermetic when trigger-tree's own shell-capture variables are
+  present in the developer environment; the hostile-environment run remains at 100%
+  coverage.
+- Restores `/tt` to explicit user invocation and documents that Windows Claude hooks
+  require a `python3` command on `PATH`, because the documented hook schema has no
+  operating-system condition for exec-form handlers.
+
 ## 1.9.0 — 2026-07-22
 
 - Consolidates Claude telemetry behind its declared hook manifest, routes both clients
