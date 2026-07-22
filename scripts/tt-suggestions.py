@@ -132,7 +132,11 @@ def build_suggestions(stats):
     ]
     summary = None
     if protected:
-        reasons = Counter(reason for item in protected for reason in item.get("why", []))
+        reasons = Counter(
+            "heavily referenced" if reason.startswith("referenced by ") else reason
+            for item in protected
+            for reason in item.get("why", [])
+        )
         top = [name for name, _ in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[:2]]
         count = len(protected)
         noun = "file" if count == 1 else "files"
@@ -151,6 +155,7 @@ def build_suggestions(stats):
 
 
 def main():
+    show_apply_prompt = "--no-apply-prompt" not in sys.argv[1:]
     result = subprocess.run(
         [sys.executable, os.path.join(SCRIPT_DIR, "tt-stats.py")],
         capture_output=True,
@@ -179,7 +184,7 @@ def main():
         print(line)
     if tiers["protected_summary"]:
         print(tiers["protected_summary"])
-    if tiers["edits"]:
+    if tiers["edits"] and show_apply_prompt:
         print("Apply any of these? Reply with the numbers.")
 
 

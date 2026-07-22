@@ -114,7 +114,7 @@ def test_zero_edits_shows_summary_without_apply_prompt(monkeypatch):
     out = run_main(mod, monkeypatch, stats)
     assert "No evidence-backed router edits found." in out
     assert "2 low-read files look rare-but-critical" in out
-    assert "referenced by 4 other docs; safety path" in out
+    assert "heavily referenced; safety path" in out
     assert "Reply with" not in out and "1. " not in out
     assert "prune" not in out.lower() and "safe to remove" not in out.lower()
 
@@ -132,6 +132,9 @@ def test_edit_overflow_is_counted_not_dropped_silently(monkeypatch):
     assert mod._tools_label("Bash x3") == "Bash x3"
     out = run_main(mod, monkeypatch, stats)
     assert "+2 more — see /tt insights" in out
+    monkeypatch.setattr(sys, "argv", ["tt-suggestions.py", "--no-apply-prompt"])
+    quiet = run_main(mod, monkeypatch, stats)
+    assert "1. Add a link" in quiet and "Reply with the numbers" not in quiet
 
 
 def test_unlisted_branch_skips_templates_and_duplicates():
