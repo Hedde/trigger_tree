@@ -558,6 +558,72 @@ def test_read_scan_and_filtering(tmp_path, monkeypatch):
     assert events[0]["agent"] == "main"
 
 
+@pytest.mark.parametrize(
+    ("pattern", "expected"),
+    [
+        ("docs/**/*.md", "docs"),
+        ("docs/guides/*.md", "docs/guides"),
+        ("docs/guide-?.md", "docs"),
+        ("./docs/[ab].md", "docs"),
+        ("**/*.md", ""),
+        ("*.md", ""),
+        ("", ""),
+    ],
+)
+def test_static_glob_prefix_is_conservative(tmp_path, pattern, expected):
+    mod = load_script("tt-log.py", tmp_path)
+    assert mod.static_glob_prefix(pattern) == expected
+
+
+def test_glob_and_grep_optional_glob_log_only_static_watched_prefixes(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    payloads = [
+        {"tool_name": "Glob", "tool_input": {"pattern": "docs/**/*.md"}},
+        {"tool_name": "Glob", "tool_input": {"pattern": "**/*.md"}},
+        {"tool_name": "Grep", "tool_input": {"pattern": "docs", "glob": "docs/*.md"}},
+        {"tool_name": "Grep", "tool_input": {"pattern": "docs"}},
+    ]
+    for payload in payloads:
+        payload["session_id"] = "S"
+        run_main(mod, monkeypatch, ["read"], json.dumps(payload))
+    assert [(event["tool"], event["path"]) for event in read_history(tmp_path)] == [
+        ("Glob", "docs"),
+        ("Grep", "docs"),
+    ]
+
+
+def test_direct_claude_skill_from_subdir_uses_git_root_dataset(tmp_path, monkeypatch):
+    nested = tmp_path / "src" / "nested"
+    nested.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    mod = load_script("tt-log.py", nested)
+    run_main(
+        mod,
+        monkeypatch,
+        ["skill"],
+        json.dumps(
+            {
+                "session_id": "S",
+                "tool_use_id": "toolu-skill",
+                "tool_name": "Skill",
+                "tool_input": {"skill": "tt"},
+            }
+        ),
+    )
+    assert read_history(tmp_path)[0]["skill"] == "tt"
+    assert not (nested / ".trigger-tree").exists()
+
+
+def test_project_root_precedence_and_non_git_fallback(tmp_path, monkeypatch):
+    nested = tmp_path / "plain"
+    nested.mkdir()
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(nested))
+    mod = load_script("tt-log.py", nested)
+    assert mod.project_root() == str(nested)
+    monkeypatch.setenv("TT_PROJECT_DIR", str(tmp_path / "explicit"))
+    assert mod.project_root(str(tmp_path / "other")) == str(tmp_path / "explicit")
+
+
 def test_bash_doc_searches_are_scans_without_becoming_reads(tmp_path, monkeypatch):
     docs = tmp_path / "docs" / "ui"
     docs.mkdir(parents=True)

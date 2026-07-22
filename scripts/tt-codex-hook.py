@@ -5,8 +5,9 @@ import io
 import json
 import os
 import runpy
-import subprocess
 import sys
+
+from tt_runtime import project_root
 
 
 def read_payload(stream):
@@ -76,25 +77,6 @@ def translate(payload):
         normalized["reason"] = payload.get("reason", "codex-stop")
         return "outcome", normalized
     return None, payload
-
-
-def project_root(cwd):
-    """Use the repository root so starting Codex in a subdirectory keeps one dataset."""
-    try:
-        return (
-            subprocess.run(
-                ["git", "rev-parse", "--show-toplevel"],
-                cwd=cwd or os.getcwd(),
-                capture_output=True,
-                text=True,
-                timeout=2,
-                check=True,
-            ).stdout.strip()
-            or cwd
-            or os.getcwd()
-        )
-    except (OSError, subprocess.SubprocessError):
-        return cwd or os.getcwd()
 
 
 def main():

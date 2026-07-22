@@ -87,10 +87,11 @@ def test_payload_and_project_root_fallbacks(tmp_path, monkeypatch):
     assert mod.read_payload(io.StringIO("bad")) == {}
 
     result = type("Result", (), {"stdout": ""})()
-    monkeypatch.setattr(mod.subprocess, "run", lambda *args, **kwargs: result)
+    runtime_subprocess = mod.project_root.__globals__["subprocess"]
+    monkeypatch.setattr(runtime_subprocess, "run", lambda *args, **kwargs: result)
     assert mod.project_root(str(tmp_path)) == str(tmp_path)
     monkeypatch.setattr(
-        mod.subprocess,
+        runtime_subprocess,
         "run",
         lambda *args, **kwargs: (_ for _ in ()).throw(subprocess.SubprocessError()),
     )

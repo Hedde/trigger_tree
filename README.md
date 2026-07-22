@@ -158,6 +158,12 @@ trigger-tree registers three lightweight hooks — full transparency:
    paths—not commands, patterns, output, or contents. Other shells use the conservative
    literal-path fallback.
 
+Search telemetry is deliberately a lower bound. Glob calls count only when they have
+an explicit path or a non-empty static directory before the first wildcard (for example,
+`docs/**/*.md` counts `docs`, while `**/*.md` does not). Grep calls count an explicit
+path, or the same conservative prefix from their optional file `glob`; the Grep content
+regex is never interpreted as a path.
+
 Subagent reads are attributed (`Explore`, `Plan`, …). Auto-loaded context—including
 the recursive `CLAUDE.md` `@import` graph—is invisible to Read telemetry by design
 and classified as **always loaded**; invoked skills *are* measured.

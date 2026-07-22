@@ -32,7 +32,9 @@ import sys
 import tempfile
 import time
 
-ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+from tt_runtime import project_root
+
+ROOT = project_root()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SCHEMA_VERSION = 1
 
@@ -363,6 +365,19 @@ def watch_suffix_hint(pattern):
     return suffixes.pop() if len(suffixes) == 1 else ""
 
 
+def static_glob_prefix(pattern):
+    """Return an explicit directory prefix before the first wildcard, or empty."""
+    value = str(pattern or "").replace("\\", "/").removeprefix("./")
+    wildcard = min((value.find(char) for char in "*?[" if char in value), default=len(value))
+    raw_prefix = value[:wildcard]
+    prefix = raw_prefix.rstrip("/")
+    if not prefix:
+        return ""
+    if raw_prefix.endswith("/"):
+        return prefix
+    return posixpath.dirname(prefix)
+
+
 def configure_shell_capture(session, watch_regex):
     """Persist runtime reader wrappers into Claude Code's Bash preamble."""
     env_file = os.environ.get("CLAUDE_ENV_FILE")
@@ -549,6 +564,10 @@ def main():
             target, typ, regex = tool_input.get("file_path"), "read", cfg["TT_WATCH_REGEX"]
         else:
             target, typ, regex = tool_input.get("path"), "scan", cfg["TT_SCAN_REGEX"]
+            if not target and tool == "Glob":
+                target = static_glob_prefix(tool_input.get("pattern"))
+            elif not target and tool == "Grep":
+                target = static_glob_prefix(tool_input.get("glob"))
         if not target:
             return
         rel = rel_path(target)
