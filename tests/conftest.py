@@ -16,6 +16,14 @@ FIXTURE = os.path.join(REPO, "tests", "fixture-project")
 __all__ = ["REPO", "SCRIPTS", "FIXTURE", "load_script"]
 
 
+@pytest.fixture(scope="session", autouse=True)
+def scrub_ambient_trigger_tree_environment():
+    """Keep dogfooding hook exports from changing the suite's baseline."""
+    for name in tuple(os.environ):
+        if name.startswith("TT_"):
+            os.environ.pop(name, None)
+
+
 def load_script(filename, project_root):
     old = os.environ.get("CLAUDE_PROJECT_DIR")
     os.environ["CLAUDE_PROJECT_DIR"] = str(project_root)
