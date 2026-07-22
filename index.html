@@ -237,6 +237,23 @@ codex plugin add trigger-tree@trigger-tree
   let reads = 44, scans = 3, ticker = [], spin = 0, mode = "live", sortMode = "focus", nameDesc = false, hunted = false, revived = false, currentPulse = null;
   const folderSearches = {};
   let buckets = [], browseIdx = null;
+  let settingsOpen = false, settingsMsg = "", promptMode = "truncate", tipIdx = 0;
+  const TIPS = [
+    "Review agent instructions after architecture or workflow changes.",
+    "Keep the root router under 200 lines; pointers over inlining.",
+    "Untouched never means obsolete — only mature datasets may judge.",
+  ];
+  const RECENT_MS = 8000; // recently active folders stay on top, like the real focus sort
+  const folderActive = {};
+  function promptLabel(text) {
+    if (promptMode === "off") return "— prompt hidden —";
+    if (promptMode === "hash") {
+      let h = 0;
+      for (const ch of text) h = (h * 31 + ch.charCodeAt(0)) % 0xffffff;
+      return "#" + h.toString(16).padStart(6, "0");
+    }
+    return text;
+  }
   const PROMPTS = ["style the buttons on the settings page", "add a tenant_id migration", "why is the deploy failing?", "summarize our ADRs"];
   const screen = document.getElementById("screen"), bubble = document.getElementById("bubble");
 
@@ -249,14 +266,30 @@ codex plugin add trigger-tree@trigger-tree
   function render() {
     const pulsePath = currentPulse;
     const b = browseIdx !== null ? buckets[browseIdx] : null;
+    if (settingsOpen) {
+      screen.innerHTML =
+        `<span class="spin"> ${SPIN[spin % SPIN.length]} </span><b>trigger-tree</b><span class="f">  prompt privacy — stored locally, gitignored</span>\n\n` +
+        ` <span class="f">current:</span> <span class="active">${promptMode}</span>\n\n` +
+        ` <span class="f">[1]</span> truncate <span class="f">— recognizable first 200 characters</span>\n` +
+        ` <span class="f">[2]</span> hash <span class="f">— stable fingerprint, no prompt text</span>\n` +
+        ` <span class="f">[3]</span> off <span class="f">— event marker only</span>\n\n` +
+        ` <span class="f">[s] back</span>\n` +
+        (settingsMsg ? `<span class="warm"> ${settingsMsg}</span>\n` : "");
+      return;
+    }
     let out = `<span class="spin"> ${SPIN[spin % SPIN.length]} </span><b>trigger-tree</b><span class="f">  your-project · live doc-discovery</span>\n`;
     if (b) out += ` <span class="warm">▸ prompt ${browseIdx + 1}/${buckets.length}</span> "${b.text}" <span class="f">· ${b.reads} reads</span>\n\n`;
     else out += `\n`;
+    if (!b) out += ` <span class="cool">${"CLAUDE.md".padEnd(25)}</span><span class="f">injected · always loaded</span>\n`;
     const groups = [...tree];
     const folderHeat = g => g.files.reduce((sum, f) => sum + f.h, 0);
     if (!b && sortMode === "hot") groups.sort((a, z) => folderHeat(z) - folderHeat(a));
     if (!b && sortMode === "cold") groups.sort((a, z) => folderHeat(a) - folderHeat(z));
     if (!b && sortMode === "name") groups.sort((a, z) => (nameDesc ? -1 : 1) * a.folder.localeCompare(z.folder));
+    if (!b && sortMode === "focus") {
+      const recent = g => ((folderActive[g.folder] || 0) > Date.now() - RECENT_MS ? 1 : 0);
+      groups.sort((a, z) => recent(z) - recent(a));
+    }
     for (const g of groups) {
       const searchCount = b ? (b.searches[g.folder] || 0) : (folderSearches[g.folder] || 0);
       if (b && !searchCount && !g.files.some(f => b.files[g.folder + f.name])) continue;
@@ -280,7 +313,7 @@ codex plugin add trigger-tree@trigger-tree
     }
     out += `\n <b>${buckets.length ? buckets.length : 0}</b><span class="f"> prompts · </span><b>${reads}</b><span class="f"> reads · </span><b>${scans}</b><span class="f"> searches · 3 sessions</span>\n`;
     out += ` <span class="f">heat:</span> <span class="cold">cold</span> → <span class="cool">cool</span> → <span class="active">active</span> → <span class="warm">warm</span> → <span class="hot">hot</span><span class="dead"> · · untouched</span>\n`;
-    out += b ? `<span class="f">   ← older · → newer · a live overview</span>\n` : `<span class="f">   ←/→ prompts · f focus · h hot · c cold · n ${nameDesc ? "Z–A" : "A–Z"} · s settings · sort:${sortMode}</span>\n<span class="cool"> tip: Review agent instructions after architecture or workflow changes.</span>\n`;
+    out += b ? `<span class="f">   ← older · → newer · a live overview</span>\n` : `<span class="f">   ←/→ prompts · f focus · h hot · c cold · n ${nameDesc ? "Z–A" : "A–Z"} · s settings · sort:${sortMode}</span>\n<span class="cool"> tip: ${TIPS[tipIdx]}</span>\n`;
     out += ticker.slice(0, 3).map(t => `   <span class="tick">${t}</span>`).join("\n");
     screen.innerHTML = out;
     const dead = document.getElementById("deadnode");
@@ -290,7 +323,7 @@ codex plugin add trigger-tree@trigger-tree
   function pulseRandom() {
     if (mode !== "live") return;
     if (reads % 4 === 0 || buckets.length === 0) {
-      const b = { text: PROMPTS[Math.floor(Math.random() * PROMPTS.length)], files: {}, searches: {}, reads: 0 };
+      const b = { text: promptLabel(PROMPTS[Math.floor(Math.random() * PROMPTS.length)]), files: {}, searches: {}, reads: 0 };
       buckets.push(b);
       if (buckets.length > 10) { buckets.shift(); if (browseIdx !== null) browseIdx = Math.max(0, browseIdx - 1); }
       ticker.unshift(`▸ "${b.text}" · just now`);
@@ -298,6 +331,7 @@ codex plugin add trigger-tree@trigger-tree
     const alive = tree.flatMap(g => g.files.filter(f => !f.dead).map(f => ({ g, f })));
     const pick = alive[Math.floor(Math.random() * alive.length)];
     pick.f.n++; pick.f.h += 1; reads++;
+    folderActive[pick.g.folder] = Date.now();
     const cur = buckets[buckets.length - 1];
     const key = pick.g.folder + pick.f.name;
     cur.files[key] = (cur.files[key] || 0) + 1; cur.reads++;
@@ -346,6 +380,16 @@ codex plugin add trigger-tree@trigger-tree
 
   let buf = "";
   addEventListener("keydown", (e) => {
+    if (settingsOpen) {
+      if (e.key === "s" || e.key === "S" || e.key === "Escape") { settingsOpen = false; settingsMsg = ""; render(); return; }
+      if (e.key === "1" || e.key === "2" || e.key === "3") {
+        promptMode = { 1: "truncate", 2: "hash", 3: "off" }[e.key];
+        settingsMsg = `saved — future prompts use ${promptMode}`;
+        render(); return;
+      }
+      return;
+    }
+    if (e.key === "s" && mode === "live" && browseIdx === null) { settingsOpen = true; settingsMsg = ""; render(); return; }
     if (e.key === "q" && mode === "live") {
       mode = "quit";
       screen.innerHTML = `<span class="f">watcher stopped — session ended.\n\n</span><span class="warm">press r to resume</span><span class="f"> (yes, exactly like the real TUI)</span>`;
@@ -373,6 +417,7 @@ codex plugin add trigger-tree@trigger-tree
   render();
   setInterval(() => { spin++; if (mode === "live") render(); }, 220);
   setInterval(pulseRandom, 1700);
+  setInterval(() => { tipIdx = (tipIdx + 1) % TIPS.length; if (mode === "live" && !settingsOpen && browseIdx === null) render(); }, 30000);
 })();
 </script>
 </body>

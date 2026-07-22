@@ -48,6 +48,11 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "an unread guardrail fails" in html
     assert "It reports discovery, not understanding." in html
     assert "pipx install trigger-tree" in html
+    assert "prompt privacy — stored locally, gitignored" in html
+    assert "[s] back" in html and "saved — future prompts use" in html
+    assert "injected · always loaded" in html
+    assert "RECENT_MS = 8000" in html
+    assert "% TIPS.length" in html and "30000" in html
 
 
 def test_search_presence_files_agree_on_the_canonical_url():
