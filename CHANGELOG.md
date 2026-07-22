@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.12.0 — 2026-07-22
+
+- Records the owner's explicit privacy decision that installation may store a
+  recognizable, gitignored 200-character prompt preview before setup, and states
+  that behavior plainly across the README, site, FAQ, privacy, and security docs.
+- Recognizes root `GEMINI.md` alongside `CLAUDE.md` and `AGENTS.md`, and classifies
+  root or nested Gemini context as injected/always loaded rather than an untouched
+  candidate; `index.md` remains an ordinary folder router.
+- Adds a CI and tag-time documentation-currency guard for command parity, top
+  changelog/version parity, and relative-link integrity, with induced-drift tests.
+- Removes the obsolete hidden setup flag, standardizes visible search terminology,
+  recompresses the report capture, and verifies the recent release-tag integrity
+  chain and tracked-artifact hygiene.
+
 ## 1.11.1 — 2026-07-22
 
 - Makes recognizable, locally stored 200-character prompt previews the consistent
