@@ -23,6 +23,7 @@ def test_heat_color_and_escape():
     assert mod.heat_color(10, 10) == mod.HEAT[-1]
     assert mod.esc(None) == "—"
     assert mod.esc("<b>") == "&lt;b&gt;"
+    assert mod.plugin_version() == "1.10.0"
 
 
 def test_full_report_on_fixture(monkeypatch, capsys):
@@ -53,6 +54,10 @@ def test_full_report_on_fixture(monkeypatch, capsys):
         "Folder-router coverage",
         "Search activity inside doc folders",
         "not its cause",
+        "class=toc",
+        "id=heat",
+        "100% local — this file was generated on your machine and never uploaded",
+        "trigger-tree 1.10.0",
     ):
         assert expected in html, expected
     os.remove(out_path)  # keep the fixture clean for other tests
@@ -156,7 +161,7 @@ def test_report_reconciles_inventory_separates_retired_and_hides_wide_windows(
     assert "1 touched + 0 untouched = 1" in html
     assert "1 evaluable + 1 always loaded" in html
     assert "Retired paths" in html and "docs/retired.md" in html
-    current_table = html.split("<h2>Current heat</h2>", 1)[1].split("</table>", 1)[0]
+    current_table = html.split("<h2 id=heat>Current heat</h2>", 1)[1].split("</table>", 1)[0]
     assert "docs/retired.md" not in current_table
     assert "<th>7d</th>" not in html and "<th>30d</th>" not in html
     assert "main 1 · sub 0" in current_table

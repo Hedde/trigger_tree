@@ -14,6 +14,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,6 +28,7 @@ MATURITY_NOTE = {
     "mature": "Measurement is mature, but low reads can still mean rare-but-critical.",
 }
 
+# Keep these variables synchronized with index.html's :root brand block.
 CSS = """
 :root { --bg:#fff; --fg:#1f2328; --muted:#59636e; --line:#d0d7de; --card:#f6f8fa;
         --cold:#5c8fe6; --cool:#38bfc3; --active:#7cb342; --warm:#ffb300; --hot:#e53935; }
@@ -37,11 +39,12 @@ CSS = """
 :root[data-theme="light"] { --bg:#fff; --fg:#1f2328; --muted:#59636e; --line:#d0d7de; --card:#f6f8fa; }
 body { background:var(--bg); color:var(--fg); font:15px/1.55 -apple-system,'Segoe UI',sans-serif;
        max-width:880px; margin:2rem auto; padding:0 1.25rem; }
-h1 { font-size:1.5rem; } h2 { font-size:1.1rem; margin-top:2rem; border-bottom:1px solid var(--line); padding-bottom:.3rem; }
+h1 { font-size:1.7rem; } h2 { font-size:1.2rem; margin-top:2.4rem; border-bottom:1px solid var(--line); padding-bottom:.35rem; }
 small, .muted { color:var(--muted); }
 table { border-collapse:collapse; width:100%; margin:.75rem 0; font-size:.92em; }
 th, td { text-align:left; padding:.35rem .6rem; border-bottom:1px solid var(--line); vertical-align:top; }
 th { color:var(--muted); font-weight:600; }
+tbody tr:hover, table tr:hover { background:color-mix(in srgb,var(--card) 70%,transparent); }
 .bar { display:inline-block; height:.65em; border-radius:3px; vertical-align:baseline; }
 .kpi { display:flex; gap:1rem; flex-wrap:wrap; margin:1rem 0; }
 .kpi div { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.6rem 1rem; }
@@ -52,7 +55,19 @@ th { color:var(--muted); font-weight:600; }
 .untouched { color:var(--muted); }
 code { background:var(--card); padding:.1em .35em; border-radius:4px; font-size:.9em; }
 .scroll { overflow-x:auto; }
+.toc { position:sticky; top:0; z-index:2; background:color-mix(in srgb,var(--bg) 94%,transparent);
+       border-block:1px solid var(--line); padding:.55rem 0; }
+.toc a { display:inline-block; margin:.2rem .8rem .2rem 0; white-space:nowrap; }
+footer { border-top:1px solid var(--line); color:var(--muted); margin-top:3rem; padding:1.2rem 0; font-size:.85rem; }
 """
+
+
+def plugin_version():
+    try:
+        manifest = os.path.join(SCRIPT_DIR, "..", ".claude-plugin", "plugin.json")
+        return json.loads(open(manifest, encoding="utf-8").read())["version"]
+    except (OSError, ValueError, KeyError):
+        return "unknown"
 
 
 def heat_color(count, max_count):
@@ -120,10 +135,6 @@ def main():
 
     parts = [f"<title>trigger-tree Report</title><style>{CSS}</style>"]
     parts.append("<h1>🌳 trigger-tree — documentation health</h1>")
-    parts.append(
-        f"<p class=muted>Period {esc(s['observed_from'])} → {esc(s['observed_to'])} "
-        f"({esc(s.get('observed_days', 0))} days) · maturity: <b>{esc(maturity)}</b></p>"
-    )
     h = s.get("health")
     if h:
         provisional = "" if maturity == "mature" else " · provisional (measurement still young)"
@@ -135,6 +146,10 @@ def main():
             + " · ".join(esc(d) for d in h["drivers"])
             + "</small></span></div>"
         )
+    parts.append(
+        f"<p class=muted>Period {esc(s['observed_from'])} → {esc(s['observed_to'])} "
+        f"({esc(s.get('observed_days', 0))} days) · maturity: <b>{esc(maturity)}</b></p>"
+    )
     parts.append(
         "<div class=kpi>"
         f"<div><b>{t['reads']}</b>reads</div>"
@@ -157,11 +172,17 @@ def main():
         "to improve routes, not to confuse discovery with understanding. "
         "<a href='https://github.com/Hedde/trigger_tree/blob/main/docs/glossary.md'>Glossary</a>.</p>"
     )
+    parts.append(
+        "<nav class=toc aria-label='Report sections'><b>Jump to:</b> "
+        "<a href='#heat'>heat</a><a href='#folders'>folders</a>"
+        "<a href='#untouched'>untouched</a><a href='#trend'>trend</a>"
+        "<a href='#routing'>routing</a><a href='#tasks'>tasks</a></nav>"
+    )
 
     heat_model = s.get("heat_model", {})
     half_life = heat_model.get("half_life_days", 30)
     half_life_label = f"{half_life:g}" if isinstance(half_life, (int, float)) else esc(half_life)
-    parts.append("<h2>Current heat</h2>")
+    parts.append("<h2 id=heat>Current heat</h2>")
     parts.append(
         "<p class=muted>Heat is recent attention with a "
         f"{half_life_label}-day half-life; lifetime reads never decay. "
@@ -214,7 +235,7 @@ def main():
         parts.append("</table></div>")
 
     if s.get("folders"):
-        parts.append("<h2>Folder heat &amp; cold map</h2>")
+        parts.append("<h2 id=folders>Folder heat &amp; cold map</h2>")
         parts.append(
             "<p class=muted>Folder heat sums current decayed file attention. Coverage and lifetime "
             "reads remain separate; cold means inactive now and never proves removal is safe.</p>"
@@ -249,7 +270,7 @@ def main():
             )
         parts.append("</table></div>")
 
-    parts.append("<h2>Untouched review</h2>")
+    parts.append("<h2 id=untouched>Untouched review</h2>")
     parts.append(f"<div class=note>{esc(MATURITY_NOTE[maturity])}</div>")
     candidates = sorted(
         s.get("review_candidates", []),
@@ -309,7 +330,7 @@ def main():
     if s.get("trend") and len(s["trend"]) > 1:
         max_bucket = max(b["reads"] + b["scans"] for b in s["trend"]) or 1
         parts.append(
-            "<h2>Trend</h2><p class=muted>Search/read ratio per period. Movement after "
+            "<h2 id=trend>Trend</h2><p class=muted>Search/read ratio per period. Movement after "
             "a note is correlation, not proof that the recorded edit caused it.</p>"
             "<div class=scroll><table>"
         )
@@ -357,7 +378,7 @@ def main():
         parts.append("</table></div>")
 
     if s.get("router_coverage"):
-        parts.append("<h2>Folder-router coverage</h2><div class=scroll><table>")
+        parts.append("<h2 id=routing>Folder-router coverage</h2><div class=scroll><table>")
         parts.append("<tr><th>Router</th><th>Listed</th><th>Unlisted direct files</th></tr>")
         for item in s["router_coverage"]:
             missing = "<br>".join("<code>" + esc(path) + "</code>" for path in item["unlisted"])
@@ -392,7 +413,7 @@ def main():
 
     if s.get("clusters"):
         parts.append(
-            "<h2>Task clusters</h2><p class=muted>Doc-and-skill sets per prompt, grouped "
+            "<h2 id=tasks>Task clusters</h2><p class=muted>Doc-and-skill sets per prompt, grouped "
             "by similarity (Jaccard ≥ 0.6) across sessions.</p><div class=scroll><table>"
         )
         parts.append("<tr><th>×</th><th>Variants</th><th>Example prompt</th><th>Paths</th></tr>")
@@ -420,6 +441,12 @@ def main():
             f"<p class=muted>Co-read pairs skipped for {skipped_co_reads} oversized prompt(s) "
             f"with more than {limit} paths; task clusters and read counts remain complete.</p>"
         )
+
+    generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    parts.append(
+        f"<footer>Generated {generated} · trigger-tree {esc(plugin_version())}<br>"
+        "100% local — this file was generated on your machine and never uploaded.</footer>"
+    )
 
     out_path = write_report("\n".join(parts))
     print(out_path)
