@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.13.0 — 2026-07-22
+
+- Publishes GitHub release notes automatically from the changelog on every version
+  tag: idempotent create-or-update, normalized `vX.Y.Z` titles, and a fixed install
+  footer after tests and release integrity pass.
+- Adds search presence to the static site — a canonical URL, SoftwareApplication
+  structured data, a sitemap and robots file, and three honestly phrased common
+  questions — with zero new external requests.
+- Keeps distribution submission drafts and the weekly scout prompt as local,
+  gitignored material; automated community posting remains explicitly out of scope.
+
 ## 1.12.0 — 2026-07-22
 
 - Records that installation may store a recognizable, gitignored 200-character

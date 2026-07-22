@@ -5,7 +5,11 @@ import sys
 from types import SimpleNamespace
 
 import pytest
-from conftest import FIXTURE, load_script
+from conftest import FIXTURE, REPO, load_script
+
+RELEASED_VERSION = json.load(
+    open(os.path.join(REPO, ".claude-plugin", "plugin.json"), encoding="utf-8")
+)["version"]
 
 
 def run_report(mod, monkeypatch, capsys, project):
@@ -23,7 +27,7 @@ def test_heat_color_and_escape(monkeypatch):
     assert mod.heat_color(10, 10) == mod.HEAT[-1]
     assert mod.esc(None) == "—"
     assert mod.esc("<b>") == "&lt;b&gt;"
-    assert mod.plugin_version() == "1.12.0"
+    assert mod.plugin_version() == RELEASED_VERSION
     monkeypatch.setattr(mod, "SCRIPT_DIR", "/missing")
     assert mod.plugin_version() == "unknown"
     assert mod._points([], 10, 10) == []
@@ -127,7 +131,7 @@ def test_full_report_on_fixture(monkeypatch, capsys):
         "class=toc",
         "id=heat",
         "100% local — this file was generated on your machine and never uploaded",
-        "trigger-tree 1.12.0",
+        f"trigger-tree {RELEASED_VERSION}",
     ):
         assert expected in html, expected
     assert html.index("id=search") < html.index("id=tasks") < html.index("id=routing")

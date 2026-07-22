@@ -42,6 +42,20 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "static, dependency-free, and has no analytics" in html
     assert "--muted:#9aa4af" in html
     assert 'src="https://' not in html
+    assert '<link rel="canonical" href="https://hedde.github.io/trigger_tree/">' in html
+    assert '"@type": "SoftwareApplication"' in html and "application/ld+json" in html
+    assert "Common questions" in html
+    assert "an unread guardrail fails" in html
+    assert "It reports discovery, not understanding." in html
+
+
+def test_search_presence_files_agree_on_the_canonical_url():
+    site = "https://hedde.github.io/trigger_tree/"
+    sitemap = open(f"{REPO}/sitemap.xml", encoding="utf-8").read()
+    robots = open(f"{REPO}/robots.txt", encoding="utf-8").read()
+    assert f"<loc>{site}</loc>" in sitemap
+    assert f"Sitemap: {site}sitemap.xml" in robots
+    assert "User-agent: *" in robots
 
 
 def test_social_card_has_link_preview_dimensions():

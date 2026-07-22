@@ -159,3 +159,30 @@ jobs:
       - run: python .github/scripts/release_integrity.py "$RELEASE_TAG"
         env:
           RELEASE_TAG: ${{ github.ref_name }}
+
+  release-notes:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [release-integrity, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Publish release notes from the changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python .github/scripts/release_notes.py "$RELEASE_TAG" > /tmp/release-body.md
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "$RELEASE_TAG" --notes-file /tmp/release-body.md
+          else
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "$RELEASE_TAG" --notes-file /tmp/release-body.md
+          fi

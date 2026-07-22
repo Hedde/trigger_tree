@@ -11,3 +11,4 @@ node_modules/
 htmlcov/
 .pytest_cache/
 .claude/worktrees/
+dist-submissions/

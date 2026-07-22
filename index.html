@@ -13,6 +13,21 @@
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="https://hedde.github.io/trigger_tree/">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://hedde.github.io/trigger_tree/">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "trigger-tree",
+  "description": "Local, zero-token documentation-discovery telemetry for AI coding agents: heat and cold maps, a documentation health grade, and evidence-backed router fixes.",
+  "url": "https://hedde.github.io/trigger_tree/",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "macOS, Linux, Windows",
+  "license": "https://github.com/Hedde/trigger_tree/blob/main/LICENSE",
+  "codeRepository": "https://github.com/Hedde/trigger_tree",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
 <style>
   /* Keep this brand block synchronized with scripts/tt-report.py CSS. */
@@ -180,6 +195,19 @@ codex plugin add trigger-tree@trigger-tree
     <tr><td><code>/tt setup [truncate|hash|off]</code></td><td>Wire the project, report watch coverage, and choose prompt privacy</td></tr>
     <tr><td><code>/tt uninstall</code></td><td>Remove statusline wiring while preserving telemetry for explicit deletion</td></tr>
   </table>
+
+  <h2>Common questions</h2>
+  <h3 style="margin:1.2rem 0 .3rem;font-size:1.05rem">Does Claude Code actually read my CLAUDE.md?</h3>
+  <p style="color:var(--muted);max-width:720px">Your root <code>CLAUDE.md</code> is injected at launch, so that part is
+  guaranteed — trigger-tree classifies it as always loaded and never judges it. The real question is whether the docs
+  it points to are ever discovered. That is what gets measured: every read of a watched doc, per prompt, per session.</p>
+  <h3 style="margin:1.2rem 0 .3rem;font-size:1.05rem">Why does my coding agent ignore our conventions?</h3>
+  <p style="color:var(--muted);max-width:720px">Often it never found the doc that states them — an unread guardrail fails
+  silently. The heat/cold map shows which conventions were actually consulted, and <code>/tt suggestions</code> proposes
+  router links for docs with evidence they are being missed. It reports discovery, not understanding.</p>
+  <h3 style="margin:1.2rem 0 .3rem;font-size:1.05rem">How can I measure documentation usage without sending data anywhere?</h3>
+  <p style="color:var(--muted);max-width:720px">The hooks log paths and metadata to a gitignored file inside your own
+  repository. No cloud, no analytics, no model tokens — <code>/tt doctor</code> shows exactly what is wired and recorded.</p>
 
   <footer>
     <p><a href="https://github.com/Hedde/trigger_tree">GitHub</a> ·
