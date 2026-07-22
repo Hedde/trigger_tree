@@ -80,6 +80,15 @@ def translate(payload):
 
 
 def main():
+    # Codex documents PLUGIN_ROOT for plugin-bundled hooks. Claude compatibility
+    # exports CLAUDE_PLUGIN_ROOT but not this Codex-specific presence marker.
+    if "--client" in sys.argv:
+        try:
+            client = sys.argv[sys.argv.index("--client") + 1]
+        except IndexError:
+            client = ""
+        if client == "codex" and not os.environ.get("PLUGIN_ROOT"):
+            return
     payload = read_payload(sys.stdin)
     route, normalized = translate(payload)
     if not route:

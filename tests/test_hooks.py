@@ -23,7 +23,11 @@ def test_every_documented_post_tool_use_has_a_logger_route():
         for group in groups:
             hook = group["hooks"][0]
             assert hook["command"] == "python3"
-            assert hook["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py"]
+            assert hook["args"] == [
+                "${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py",
+                "--client",
+                "claude",
+            ]
             assert "shell" not in hook and "commandWindows" not in hook
     failure = manifest["hooks"]["PostToolUseFailure"][0]
     assert failure["matcher"] == "Bash"
@@ -39,6 +43,8 @@ def test_codex_hooks_use_the_adapter_and_remain_silent():
                 assert hook["type"] == "command"
                 assert "${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py" in hook["command"]
                 assert "%CLAUDE_PLUGIN_ROOT%\\scripts\\tt-codex-hook.py" in hook["commandWindows"]
+                assert "--client codex" in hook["command"]
+                assert "--client codex" in hook["commandWindows"]
                 assert "${PLUGIN_ROOT}" not in hook["command"]
                 assert hook["timeout"] == 5
 
@@ -51,5 +57,5 @@ def test_claude_hook_exec_form_invokes_one_interpreter_without_retry(tmp_path):
     result = subprocess.run(
         [hook["command"], str(adapter)], input="{}", text=True, capture_output=True, check=False
     )
-    assert hook["command"] == "python3" and len(hook["args"]) == 1
+    assert hook["command"] == "python3" and len(hook["args"]) == 3
     assert result.returncode == 7 and result.stdout == "" and result.stderr == ""

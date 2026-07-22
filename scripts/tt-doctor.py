@@ -86,14 +86,26 @@ def hooks_health():
         "SessionEnd",
     }.issubset(hooks) and all(
         marker in commands
-        for marker in ("Bash", "Read", "Glob", "Grep", "Skill", "tt-codex-hook.py")
+        for marker in (
+            "Bash",
+            "Read",
+            "Glob",
+            "Grep",
+            "Skill",
+            "tt-codex-hook.py",
+            "--client",
+            "claude",
+        )
     )
     codex_manifest = load_json(os.path.join(PLUGIN_ROOT, "hooks", "hooks.json"))
     codex_hooks = codex_manifest.get("hooks", {}) if isinstance(codex_manifest, dict) else {}
     codex_commands = json.dumps(codex_manifest) if codex_manifest else ""
     codex_ok = {"SessionStart", "UserPromptSubmit", "PostToolUse", "Stop"}.issubset(
         codex_hooks
-    ) and all(marker in codex_commands for marker in ("tt-codex-hook.py", "CLAUDE_PLUGIN_ROOT"))
+    ) and all(
+        marker in codex_commands
+        for marker in ("tt-codex-hook.py", "CLAUDE_PLUGIN_ROOT", "--client codex")
+    )
     if claude_ok and codex_ok:
         return "PASS", "plugin hook files: Claude Code and Codex routes are intact"
     return "FAIL", "plugin hook files: missing logger routes — reinstall the plugin"

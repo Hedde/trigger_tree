@@ -158,6 +158,40 @@ def test_main_removes_temporary_project_root(tmp_path, monkeypatch):
     assert "TT_PROJECT_DIR" not in os.environ
 
 
+def test_client_marker_gates_codex_file_outside_codex_but_keeps_compatibility(
+    tmp_path, monkeypatch
+):
+    mod = load_script("tt-codex-hook.py", tmp_path)
+    payload = json.dumps({"hook_event_name": "UserPromptSubmit", "cwd": str(tmp_path)})
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    monkeypatch.setattr(sys, "argv", ["tt-codex-hook.py", "--client", "codex"])
+    monkeypatch.delenv("PLUGIN_ROOT", raising=False)
+    monkeypatch.setattr(
+        mod.runpy,
+        "run_path",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("gated hook ran")),
+    )
+    mod.main()
+
+    calls = []
+    monkeypatch.setenv("PLUGIN_ROOT", str(tmp_path))
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    monkeypatch.setattr(mod.runpy, "run_path", lambda *args, **kwargs: calls.append((args, kwargs)))
+    mod.main()
+    assert len(calls) == 1
+
+    monkeypatch.delenv("PLUGIN_ROOT")
+    monkeypatch.setattr(sys, "argv", ["tt-codex-hook.py"])
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    mod.main()
+    assert len(calls) == 2
+
+    monkeypatch.setattr(sys, "argv", ["tt-codex-hook.py", "--client"])
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    mod.main()
+    assert len(calls) == 3
+
+
 def test_real_codex_hook_logs_unified_exec_read_at_repo_root(tmp_path):
     docs = tmp_path / "docs"
     nested = tmp_path / "src" / "nested"
