@@ -19,10 +19,11 @@ inside the project you use it in:
   Bash reader arguments are checked after shell variables, substitutions, loops, and
   globs resolve; only matching normalized paths are retained, with event metadata.
 - **Skill invocations**: the name of invoked skills.
-- **Prompt markers**: setup defaults to a local 200-character preview. This is
-  configurable via `TT_LOG_PROMPTS` in `.trigger-tree/config.sh`:
-  - `truncate` (setup default) — first 200 characters, local and gitignored
-  - `hash` — a SHA-1 digest only, no text; also the fallback before setup
+- **Prompt markers**: installation defaults to a local 200-character preview, even
+  before or without running setup. This is configurable via `TT_LOG_PROMPTS` in
+  `.trigger-tree/config.sh`:
+  - `truncate` (installation and setup default) — first 200 characters, local and gitignored
+  - `hash` — a SHA-1 digest only, no text
   - `off` — a bare marker, nothing else
 - **Notes**: text you explicitly add with `/tt note`.
 

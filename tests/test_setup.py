@@ -156,8 +156,11 @@ def test_setup_permissions_and_security_disclosure_are_consistent(tmp_path):
     assert ((tmp_path / ".trigger-tree").stat().st_mode & 0o777) == 0o700
     repo = os.path.dirname(os.path.dirname(__file__))
     security = open(os.path.join(repo, "SECURITY.md"), encoding="utf-8").read()
-    assert "Interactive\nsetup explains and asks for that choice" in security
-    assert "recognizable 200-character preview" in security
+    assert "Interactive setup explains and asks for that choice" in security
+    assert "recognizable" in security and "200-character prompt preview" in security
+    privacy = open(os.path.join(repo, "PRIVACY.md"), encoding="utf-8").read()
+    assert "before or without running setup" in privacy
+    assert "also the fallback before setup" not in privacy
 
 
 def test_safe_destination_rejects_escape_non_directory_parent_and_directory_target(tmp_path):

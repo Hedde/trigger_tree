@@ -26,6 +26,10 @@ Documentation steers an AI coding assistant toward your team’s patterns and gu
 
 The Claude `/tt` skill is explicitly user-triggered. Codex installs the equivalent skill and lifecycle hooks through its plugin marketplace.
 
+Prompt logging defaults to a recognizable, gitignored local preview of at most 200
+characters as soon as the plugin is installed, even if setup is never run. `/tt setup`
+asks whether to keep `truncate` or switch future events to `hash` or `off`.
+
 ## Who gets what?
 
 | You are… | trigger-tree gives you… |

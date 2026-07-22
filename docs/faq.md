@@ -22,4 +22,13 @@ Ensure `python3` resolves on `PATH`. Claude’s documented exec-form hooks do no
 
 ## Can prompt privacy change later?
 
-Yes. `/tt setup truncate`, `hash`, or `off` changes future events and does not rewrite history.
+Yes. Installation defaults to a local, gitignored preview of at most 200 characters,
+including before setup. `/tt setup` asks for `truncate`, `hash`, or `off`; changing the
+mode affects future events and does not rewrite history.
+
+## How do I uninstall or publish the health badge?
+
+`/tt uninstall` removes trigger-tree wiring but deliberately preserves local telemetry
+and ignore entries for you to delete explicitly. `make badge-publish` publishes only the
+aggregate local docs-health endpoint to an existing `badges` branch; it never publishes
+paths or event history.
