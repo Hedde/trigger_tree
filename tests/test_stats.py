@@ -58,7 +58,7 @@ def test_badge_mode_writes_private_endpoint_json(tmp_path, monkeypatch, capsys):
     output = capsys.readouterr().out.strip()
     badge = tmp_path / ".trigger-tree" / "badge.json"
     assert output == str(badge)
-    assert json.loads(badge.read_text()) == {
+    assert json.loads(badge.read_text(encoding="utf-8")) == {
         "schemaVersion": 1,
         "label": "docs health",
         "message": "measuring…",
