@@ -15,8 +15,11 @@ Usage: python3 tt-setup.py [--prompt-mode hash|truncate|off]
 import argparse
 import json
 import os
+import re
 import stat
 import tempfile
+
+from tt_scope import is_poor_coverage, scan_markdown, suggested_regex
 
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -155,6 +158,50 @@ def write_prompt_mode(path, mode):
     return changed
 
 
+def write_assignment(path, name, value):
+    assert_safe_destination(path)
+    lines = open(path, encoding="utf-8").read().splitlines()
+    assignment = f"{name}='{value}'"
+    for index, line in enumerate(lines):
+        if line.strip().startswith(f"{name}="):
+            lines[index] = assignment
+            break
+    else:
+        lines.append(assignment)
+    atomic_write(path, "\n".join(lines) + "\n")
+
+
+def effective_watch_regex():
+    for path in (
+        os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        os.path.join(SCRIPT_DIR, "tt-config.sh"),
+    ):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except OSError:
+            continue
+        match = re.search(r"TT_WATCH_REGEX='([^']+)'", text)
+        if match:
+            return match.group(1)
+    return r"(?!)"
+
+
+def audit_watch_scope(apply_suggestion=False):
+    result = scan_markdown(ROOT, effective_watch_regex())
+    suffix = f" (scan capped at {result['visited']} files)" if result["capped"] else ""
+    print(f"watched: {result['watched']} of {result['markdown']} markdown files{suffix}")
+    if not is_poor_coverage(result):
+        return
+    proposal = suggested_regex(result["paths"])
+    if not proposal:
+        return
+    print(f"suggested TT_WATCH_REGEX: {proposal}")
+    if apply_suggestion:
+        path = os.path.join(ROOT, ".trigger-tree", "config.sh")
+        write_assignment(path, "TT_WATCH_REGEX", proposal)
+        report("updated", ".trigger-tree/config.sh (applied suggested TT_WATCH_REGEX)")
+
+
 def configure_prompts(mode, explicit=False):
     dst_dir = os.path.join(ROOT, ".trigger-tree")
     assert_safe_destination(dst_dir, allow_directory=True)
@@ -177,6 +224,7 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--with-config", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--prompt-mode", choices=("truncate", "hash", "off"))
+    parser.add_argument("--apply-watch-suggestion", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -186,6 +234,7 @@ def main(argv=None):
     copy_statusline()
     register_statusline()
     configure_prompts(args.prompt_mode or "truncate", explicit=args.prompt_mode is not None)
+    audit_watch_scope(args.apply_watch_suggestion)
     print("done — restart the session (or wait for settings reload) to activate the statusline")
 
 

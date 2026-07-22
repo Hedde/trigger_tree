@@ -10,6 +10,7 @@ def test_full_setup_and_idempotency(tmp_path, monkeypatch, capsys):
     mod.main([])
     out = capsys.readouterr().out
     assert "updated" in out and "copied" in out and "created" in out
+    assert "watched: 0 of 0 markdown files" in out
     assert os.path.isfile(tmp_path / ".claude" / "tt-statusline.py")
     assert os.path.isfile(tmp_path / ".trigger-tree" / "config.sh")
     assert "TT_LOG_PROMPTS='truncate'" in (tmp_path / ".trigger-tree" / "config.sh").read_text()
@@ -147,3 +148,53 @@ def test_safe_destination_rejects_escape_non_directory_parent_and_directory_targ
     directory.mkdir()
     with pytest.raises(RuntimeError, match="non-regular destination"):
         mod.assert_safe_destination(directory)
+
+
+def test_watch_scope_scanner_handles_layouts_skips_and_cap(tmp_path):
+    mod = load_script("tt-setup.py", tmp_path)
+    assert mod.scan_markdown(tmp_path, r"^docs/", limit=5)["markdown"] == 0
+    (tmp_path / "README.md").write_text("root")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "guide.md").write_text("guide")
+    ignored = tmp_path / "node_modules"
+    ignored.mkdir()
+    (ignored / "ignored.md").write_text("ignored")
+    result = mod.scan_markdown(tmp_path, r"^docs/", limit=10)
+    assert (result["markdown"], result["watched"], result["capped"]) == (2, 1, False)
+    assert "README\\.md" in mod.suggested_regex(result["paths"])
+    capped = mod.scan_markdown(tmp_path, r"^docs/", limit=1)
+    assert capped["visited"] == 1 and capped["capped"] is True
+
+
+def test_setup_proposes_then_explicitly_applies_observed_watch_scope(tmp_path, capsys):
+    (tmp_path / "README.md").write_text("root")
+    mod = load_script("tt-setup.py", tmp_path)
+    mod.main([])
+    output = capsys.readouterr().out
+    assert "watched: 0 of 1 markdown files" in output
+    assert "suggested TT_WATCH_REGEX" in output
+    config = tmp_path / ".trigger-tree" / "config.sh"
+    assert "README\\.md" not in config.read_text()
+
+    mod.main(["--apply-watch-suggestion"])
+    assert "README\\.md" in config.read_text()
+    assert "applied suggested TT_WATCH_REGEX" in capsys.readouterr().out
+
+
+def test_watch_scope_config_fallbacks_and_assignment_append(tmp_path, monkeypatch, capsys):
+    mod = load_script("tt-setup.py", tmp_path)
+    config = tmp_path / "config.sh"
+    config.write_text("TT_LOG_PROMPTS='hash'\n")
+    mod.write_assignment(config, "TT_WATCH_REGEX", r"^README\.md$")
+    assert "TT_WATCH_REGEX='^README\\.md$'" in config.read_text()
+
+    monkeypatch.setattr("builtins.open", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError()))
+    assert mod.effective_watch_regex() == r"(?!)"
+    monkeypatch.setattr(
+        mod,
+        "scan_markdown",
+        lambda *_args: {"visited": 5000, "markdown": 1, "watched": 0, "paths": [], "capped": True},
+    )
+    mod.audit_watch_scope()
+    assert "scan capped at 5000 files" in capsys.readouterr().out

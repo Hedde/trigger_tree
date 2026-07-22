@@ -22,7 +22,7 @@ def test_doctor_all_checks_pass(tmp_path, capsys):
     mod = load_script("tt-doctor.py", tmp_path)
     assert mod.main() == 0
     out = capsys.readouterr().out
-    assert out.count("✓") == 6
+    assert out.count("✓") == 8
     assert "1 usable events, latest 2026-07-17T10:00:00Z" in out
     assert "Python" not in out  # message uses stable lowercase wording
     assert "all checks passed" in out
@@ -33,8 +33,8 @@ def test_doctor_warns_before_first_event_and_without_statusline(tmp_path, capsys
     mod = load_script("tt-doctor.py", tmp_path)
     assert mod.main() == 0
     out = capsys.readouterr().out
-    assert out.count("!") == 2
-    assert "telemetry healthy — 2 optional setup warnings" in out
+    assert out.count("!") == 3
+    assert "telemetry healthy — 3 optional setup warnings" in out
 
 
 def test_doctor_fails_actionably_on_broken_project(tmp_path, monkeypatch, capsys):
@@ -46,7 +46,66 @@ def test_doctor_fails_actionably_on_broken_project(tmp_path, monkeypatch, capsys
     out = capsys.readouterr().out
     assert out.count("✗") == 3
     assert "run /tt setup" in out and "reinstall the plugin" in out
-    assert "attention needed — 3 failed, 1 warnings" in out
+    assert "attention needed — 3 failed, 2 warnings" in out
+
+
+def test_doctor_liveness_distinguishes_current_missing_recent_and_stale(tmp_path, monkeypatch):
+    history = tmp_path / ".trigger-tree"
+    history.mkdir()
+    log = history / "history.jsonl"
+    log.write_text(
+        '{"schema_version":1,"t":"session","session":"CURRENT","ts":"2026-07-22T10:00:00Z"}\n'
+    )
+    mod = load_script("tt-doctor.py", tmp_path)
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "CURRENT")
+    assert mod.liveness_health()[0] == "PASS"
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "MISSING")
+    state, message = mod.liveness_health()
+    assert (
+        state == "FAIL" and "/hooks" in message and "restart" in message and "reinstall" in message
+    )
+    monkeypatch.delenv("CLAUDE_SESSION_ID")
+    monkeypatch.setattr(mod.time, "time", lambda: 2_000_000_000)
+    state, message = mod.liveness_health()
+    assert state == "WARN" and "stale" in message and "informational" in message
+
+
+def test_doctor_liveness_accepts_recent_session_state_without_history(tmp_path, monkeypatch):
+    sessions = tmp_path / ".trigger-tree" / "sessions"
+    sessions.mkdir(parents=True)
+    state_file = sessions / "state.json"
+    state_file.write_text("{}")
+    mod = load_script("tt-doctor.py", tmp_path)
+    monkeypatch.setattr(mod.time, "time", lambda: state_file.stat().st_mtime)
+    assert mod.liveness_health() == ("PASS", "hook liveness: recent session/read activity found")
+
+
+def test_doctor_coverage_reports_zero_low_and_healthy(tmp_path):
+    (tmp_path / "README.md").write_text("root")
+    mod = load_script("tt-doctor.py", tmp_path)
+    state, message = mod.coverage_health()
+    assert state == "FAIL" and "TT_WATCH_REGEX" in message and ".trigger-tree/config.sh" in message
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "watched.md").write_text("watched")
+    for name in ("ONE.md", "TWO.md", "THREE.md"):
+        (tmp_path / name).write_text(name)
+    assert mod.coverage_health()[0] == "WARN"
+    for name in ("ONE.md", "TWO.md", "THREE.md", "README.md"):
+        (tmp_path / name).unlink()
+    assert mod.coverage_health()[0] == "PASS"
+
+
+def test_liveness_skips_disappearing_history_and_invalid_timestamps(tmp_path, monkeypatch):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    history = telemetry / "history.jsonl"
+    history.write_text('{"t":"session","ts":null}\n')
+    mod = load_script("tt-doctor.py", tmp_path)
+    assert mod.liveness_health()[0] == "WARN"
+    monkeypatch.setattr(mod.glob, "glob", lambda _pattern: [str(tmp_path / "gone.jsonl")])
+    assert mod._lifecycle_events() == []
 
 
 def test_doctor_handles_unreadable_or_invalid_files(tmp_path, monkeypatch):

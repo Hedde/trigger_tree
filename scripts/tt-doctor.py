@@ -6,6 +6,10 @@ import json
 import os
 import re
 import sys
+import time
+from datetime import datetime
+
+from tt_scope import is_poor_coverage, scan_markdown
 
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -95,6 +99,85 @@ def hooks_health():
     return "FAIL", "plugin hook files: missing logger routes — reinstall the plugin"
 
 
+def watch_regex():
+    for path in (
+        os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        os.path.join(PLUGIN_ROOT, "scripts", "tt-config.sh"),
+    ):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except OSError:
+            continue
+        match = re.search(r"TT_WATCH_REGEX='([^']+)'", text)
+        if match:
+            return match.group(1)
+    return r"(?!)"
+
+
+def coverage_health():
+    result = scan_markdown(ROOT, watch_regex())
+    summary = f"coverage: {result['watched']} of {result['markdown']} markdown files watched"
+    remediation = "set TT_WATCH_REGEX in .trigger-tree/config.sh"
+    if result["markdown"] and result["watched"] == 0:
+        return "FAIL", f"{summary} — {remediation}"
+    if is_poor_coverage(result):
+        return "WARN", f"{summary} (very low) — {remediation}"
+    return "PASS", summary
+
+
+def _lifecycle_events():
+    events = []
+    for path in sorted(glob.glob(os.path.join(ROOT, ".trigger-tree", "history*.jsonl"))):
+        try:
+            lines = open(path, encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        with lines:
+            for line in lines:
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(event, dict) and event.get("t") in ("session", "read"):
+                    events.append(event)
+    return events
+
+
+def liveness_health():
+    events = _lifecycle_events()
+    current = os.environ.get("CLAUDE_SESSION_ID")
+    if current:
+        if any(event.get("t") == "session" and event.get("session") == current for event in events):
+            return "PASS", "hook liveness: current session start was recorded"
+        return (
+            "FAIL",
+            "hook liveness: current session start is absent — check /hooks, restart the session, then reinstall the plugin if still absent",
+        )
+    state_paths = glob.glob(os.path.join(ROOT, ".trigger-tree", "sessions", "*.json"))
+    newest_state = max((os.path.getmtime(path) for path in state_paths), default=0)
+    timestamps = []
+    for event in events:
+        try:
+            timestamps.append(
+                datetime.fromisoformat(event.get("ts", "").replace("Z", "+00:00")).timestamp()
+            )
+        except (AttributeError, TypeError, ValueError):
+            pass
+    newest = max(timestamps + [newest_state], default=0)
+    if not newest:
+        return (
+            "WARN",
+            "hook liveness: no hook events have ever been recorded — run /tt setup and start a fresh session",
+        )
+    age_days = max(0, int((time.time() - newest) / 86400))
+    if age_days > 7:
+        return (
+            "WARN",
+            f"hook liveness: events exist but are stale ({age_days} days) — informational; start a fresh session to verify",
+        )
+    return "PASS", "hook liveness: recent session/read activity found"
+
+
 def config_health():
     path = os.path.join(ROOT, ".trigger-tree", "config.sh")
     if not os.path.isfile(path):
@@ -165,7 +248,9 @@ def statusline_health():
 def main():
     checks = [
         hooks_health(),
+        liveness_health(),
         config_health(),
+        coverage_health(),
         python_health(),
         ignore_health(),
         statusline_health(),

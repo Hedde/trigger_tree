@@ -19,6 +19,7 @@ __all__ = ["REPO", "SCRIPTS", "FIXTURE", "load_script"]
 def load_script(filename, project_root):
     old = os.environ.get("CLAUDE_PROJECT_DIR")
     os.environ["CLAUDE_PROJECT_DIR"] = str(project_root)
+    sys.path.insert(0, SCRIPTS)
     try:
         name = filename.replace("-", "_").replace(".py", "") + "_" + uuid.uuid4().hex[:8]
         spec = importlib.util.spec_from_file_location(name, os.path.join(SCRIPTS, filename))
@@ -27,6 +28,7 @@ def load_script(filename, project_root):
         spec.loader.exec_module(mod)
         return mod
     finally:
+        sys.path.remove(SCRIPTS)
         if old is None:
             os.environ.pop("CLAUDE_PROJECT_DIR", None)
         else:

@@ -126,7 +126,7 @@ outcome in natural language; the bundled `trigger-tree` skill runs the same loca
 | **`/tt insights`** | Heat/cold map analysis: router reachability, search concentration, trend, task clusters + HTML report |
 | **`/tt suggestions`** | Concise scope + max 5 evidence-backed fixes; full stats stay off stdout |
 | **`/tt note <text>`** | Annotate the timeline ("sharpened UX router") — visible in the trend |
-| **`/tt doctor`** | Verify hooks, privacy, statusline, and live telemetry with actionable fixes |
+| **`/tt doctor`** | Verify hook files and liveness, watch coverage, privacy, statusline, and telemetry |
 | **`/tt setup [truncate\|hash\|off]`** | Wire the project and choose recognizable local previews or privacy-first markers |
 
 Tips are intentionally client-specific. Claude advice follows Anthropic's guidance to
@@ -304,6 +304,13 @@ Per-project settings live in `.trigger-tree/config.sh` (created by `/tt setup`):
 | `TT_ROTATE_BYTES` | 5 MB | rotate history.jsonl to a timestamped archive beyond this size |
 | `TT_EXPERIMENTAL_OUTCOMES` | `off` | `on` enables a local, correlational committed-vs-abandoned session view |
 
+The default watch scope is a starting point, not a claim about every repository layout.
+`/tt setup` always reports how many local Markdown files it covers and proposes an
+observed-location regex when coverage is poor; it does not apply that regex unless
+`tt-setup.py --apply-watch-suggestion` is explicitly requested. `/tt doctor` fails on
+zero matches and warns when the watched share is very low, naming the exact
+`TT_WATCH_REGEX` setting in `.trigger-tree/config.sh` to adjust.
+
 The experimental outcome view records whether the repository HEAD changed during a
 session and the latest locally observed test-command result. It compares documents
 read in committed versus abandoned sessions. This is correlation only: it does not
@@ -399,9 +406,10 @@ session (or start a fresh one). Since v0.3.7 the confirmation line prints the
 running version — if it doesn't match the [latest release](https://github.com/Hedde/trigger_tree/releases),
 reload. A *real* crash keeps the pane open with the error since v0.3.3.
 
-**How do I know this repository is wired correctly?** Run `/tt doctor`. It checks
-the plugin hooks, local-data gitignore, statusline registration, and whether this
-exact repository has received valid telemetry. `/tt watch` always binds its split
+**How do I know this repository is wired correctly?** Run `/tt doctor`. It distinguishes
+intact packaged hook files from evidence that hooks actually fired, checks watch-regex
+coverage, local-data gitignore, statusline registration, and whether this exact
+repository has received valid telemetry. `/tt watch` always binds its split
 to the repository that invoked it and tails new hook events in real time.
 
 **Can I change prompt logging?** Yes: `/tt setup truncate` stores recognizable
