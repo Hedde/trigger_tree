@@ -1,9 +1,11 @@
 {
   "hooks": {
-    "SessionEnd": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py outcome || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py outcome"}]}],
+    "SessionStart": [{"hooks": [{"type": "command", "command": "if command -v python3 >/dev/null 2>&1; then exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py\"; else exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py\"; fi", "timeout": 5}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "if command -v python3 >/dev/null 2>&1; then exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py\"; else exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py\"; fi", "timeout": 5}]}],
+    "SessionEnd": [{"hooks": [{"type": "command", "command": "if command -v python3 >/dev/null 2>&1; then exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py\"; else exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py\"; fi", "timeout": 5}]}],
     "PostToolUse": [
-      {"matcher": "Skill", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py skill || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py skill"}]}
+      {"matcher": "Bash|Read|Glob|Grep|Skill|mcp__.*(read|search|grep|find).*", "hooks": [{"type": "command", "command": "if command -v python3 >/dev/null 2>&1; then exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py\"; else exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py\"; fi", "timeout": 5}]}
     ],
-    "PostToolUseFailure": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py bash-failure || python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/tt-log.py bash-failure"}]}]
+    "PostToolUseFailure": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "if command -v python3 >/dev/null 2>&1; then exec python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py\"; else exec python \"${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py\"; fi", "timeout": 5}]}]
   }
 }

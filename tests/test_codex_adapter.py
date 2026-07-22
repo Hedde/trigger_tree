@@ -30,6 +30,18 @@ def test_translate_codex_lifecycle_and_tool_payloads(tmp_path, monkeypatch):
         {"hook_event_name": "PostToolUse", "tool_name": "Read", "tool_input": None}
     )
     assert route == "read" and native_read["tool_input"] == {}
+    assert (
+        mod.translate(
+            {"hook_event_name": "PostToolUse", "tool_name": "Skill", "tool_input": {"skill": "tt"}}
+        )[0]
+        == "skill"
+    )
+    assert mod.translate({"hook_event_name": "PostToolUseFailure", "tool_name": "Bash"})[0] == (
+        "bash-failure"
+    )
+    assert mod.translate({"hook_event_name": "PostToolUseFailure", "tool_name": "Read"})[0] is None
+    route, ended = mod.translate({"hook_event_name": "SessionEnd"})
+    assert route == "outcome" and ended["reason"] == "claude-session-end"
 
     route, read = mod.translate(
         {

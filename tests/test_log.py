@@ -52,6 +52,7 @@ def test_logger_maintains_bounded_statusline_summary_across_rotation(tmp_path):
     assert state["files"] == ["docs/a.md"]
     assert state["scans"] == 1
     assert state["last"]["path"] == "docs"
+    assert state["recent_events"] == []
     assert list((tmp_path / ".trigger-tree").glob("history-*.jsonl"))
 
 
@@ -76,6 +77,7 @@ def test_session_summary_migrates_existing_rotated_history_without_reset(tmp_pat
         "files": ["docs/new.md", "docs/old.md"],
         "scans": 1,
         "last": {"t": "read", "path": "docs/new.md", "ts": "2026-01-03T00:00:00Z"},
+        "recent_events": [],
     }
 
 
@@ -126,7 +128,56 @@ def test_session_summary_skips_history_that_disappears(tmp_path, monkeypatch):
         "files": [],
         "scans": 0,
         "last": None,
+        "recent_events": [],
     }
+
+
+def test_duplicate_tool_event_is_dropped_from_recent_session_window(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    payload = json.dumps(
+        {
+            "session_id": "S",
+            "tool_use_id": "toolu-1",
+            "tool_name": "Read",
+            "tool_input": {"file_path": str(tmp_path / "docs" / "a.md")},
+        }
+    )
+    run_main(mod, monkeypatch, ["read"], payload)
+    run_main(mod, monkeypatch, ["read"], payload)
+    assert [(event["t"], event["path"]) for event in read_history(tmp_path)] == [
+        ("read", "docs/a.md")
+    ]
+
+
+def test_dedup_identity_keeps_distinct_paths_and_exempts_events_without_tool_id(
+    tmp_path, monkeypatch
+):
+    mod = load_script("tt-log.py", tmp_path)
+    for path in ("docs/a.md", "docs/b.md"):
+        run_main(
+            mod,
+            monkeypatch,
+            ["read"],
+            json.dumps(
+                {
+                    "session_id": "S",
+                    "tool_use_id": "toolu-1",
+                    "tool_name": "Read",
+                    "tool_input": {"file_path": str(tmp_path / path)},
+                }
+            ),
+        )
+    run_main(mod, monkeypatch, ["prompt"], '{"session_id":"S","prompt":"same"}')
+    run_main(mod, monkeypatch, ["prompt"], '{"session_id":"S","prompt":"same"}')
+    assert [event["t"] for event in read_history(tmp_path)] == ["read", "read", "prompt", "prompt"]
+
+
+def test_dedup_cache_never_reads_a_nonregular_state_file(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    monkeypatch.setattr(mod.os, "lstat", lambda _path: SimpleNamespace(st_mode=stat.S_IFLNK))
+    assert not mod._already_recorded(
+        str(tmp_path), {"session": "S", "tool_use_id": "toolu-1", "t": "read"}
+    )
 
 
 def test_session_summary_atomic_cleanup_and_nonregular_history_fd(tmp_path, monkeypatch):

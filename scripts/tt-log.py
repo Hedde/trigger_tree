@@ -74,7 +74,9 @@ def _session_state_path(hist_dir, session):
 
 def _update_session_state(hist_dir, obj):
     """Keep statusline work bounded and independent from history rotation."""
-    if obj.get("t") not in ("session", "read", "scan") or not obj.get("session"):
+    if not obj.get("session") or (
+        obj.get("t") not in ("session", "read", "scan") and not obj.get("tool_use_id")
+    ):
         return
     state_dir = os.path.join(hist_dir, "sessions")
     if os.path.lexists(state_dir):
@@ -95,11 +97,14 @@ def _update_session_state(hist_dir, obj):
         if obj["t"] == "session" and obj.get("source") == "startup":
             # A fresh SessionStart cannot have earlier reads. Create its empty cache
             # now so the first read never scans every archive while holding the lock.
-            state = {"files": [], "scans": 0, "last": None}
+            state = {"files": [], "scans": 0, "last": None, "recent_events": []}
         else:
             # Resume/compaction and pre-cache upgrades may already have history.
             state = _session_state_from_history(hist_dir, obj["session"])
             seeded_from_history = True
+    state.setdefault("recent_events", [])
+    if obj.get("tool_use_id"):
+        state["recent_events"] = (state["recent_events"] + [_event_identity(obj)])[-64:]
     if obj["t"] == "session":
         pass
     elif seeded_from_history:
@@ -109,7 +114,7 @@ def _update_session_state(hist_dir, obj):
     elif obj["t"] == "read":
         state["files"] = sorted(set(state.get("files", [])) | {obj["path"]})
         state["last"] = {"t": obj["t"], "path": obj["path"], "ts": obj.get("ts", "")}
-    else:
+    elif obj["t"] == "scan":
         state["scans"] = int(state.get("scans", 0)) + 1
         state["last"] = {"t": obj["t"], "path": obj["path"], "ts": obj.get("ts", "")}
     fd, temporary = tempfile.mkstemp(prefix=".session.", dir=state_dir, text=True)
@@ -144,7 +149,27 @@ def _session_state_from_history(hist_dir, session):
                     scans += 1
                 if last is None or event.get("ts", "") >= last.get("ts", ""):
                     last = {"t": event["t"], "path": event["path"], "ts": event.get("ts", "")}
-    return {"files": sorted(files), "scans": scans, "last": last}
+    return {"files": sorted(files), "scans": scans, "last": last, "recent_events": []}
+
+
+def _event_identity(obj):
+    """Return the bounded idempotency identity for one tool-backed event."""
+    return [str(obj.get("tool_use_id", "")), str(obj.get("t", "")), str(obj.get("path", ""))]
+
+
+def _already_recorded(hist_dir, obj):
+    """Drop duplicate harness deliveries without scanning telemetry history."""
+    if not obj.get("tool_use_id") or not obj.get("session"):
+        return False
+    path = _session_state_path(hist_dir, obj["session"])
+    try:
+        mode = os.lstat(path).st_mode
+        if stat.S_ISLNK(mode) or not stat.S_ISREG(mode):
+            return False
+        state = json.loads(open(path, encoding="utf-8").read())
+    except (OSError, ValueError):
+        return False
+    return _event_identity(obj) in state.get("recent_events", [])
 
 
 def append(obj, rotate_bytes):
@@ -197,6 +222,8 @@ def append(obj, rotate_bytes):
 
 
 def _append_locked(obj, rotate_bytes, hist_dir):
+    if _already_recorded(hist_dir, obj):
+        return
     hist = os.path.join(hist_dir, "history.jsonl")
     try:
         if os.path.lexists(hist):

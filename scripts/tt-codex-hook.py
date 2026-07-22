@@ -27,6 +27,8 @@ def normalize_tool(payload):
         route = "bash"
     elif tool in ("Read", "Glob", "Grep"):
         route = "read"
+    elif tool == "Skill":
+        route = "skill"
     elif tool.startswith("mcp__"):
         target = next(
             (
@@ -61,6 +63,12 @@ def translate(payload):
         return "prompt", payload
     if event == "PostToolUse":
         return normalize_tool(payload)
+    if event == "PostToolUseFailure" and payload.get("tool_name") == "Bash":
+        return "bash-failure", payload
+    if event == "SessionEnd":
+        normalized = dict(payload)
+        normalized["reason"] = payload.get("reason", "claude-session-end")
+        return "outcome", normalized
     if event == "Stop":
         if not os.environ.get("PLUGIN_ROOT"):
             return None, payload

@@ -73,12 +73,17 @@ def history_health():
 def hooks_health():
     claude_manifest = load_json(os.path.join(PLUGIN_ROOT, "hooks", "claude-hooks.json"))
     hooks = claude_manifest.get("hooks", {}) if isinstance(claude_manifest, dict) else {}
-    post = hooks.get("PostToolUse", [])
-    matchers = {entry.get("matcher", "") for entry in post if isinstance(entry, dict)}
     commands = json.dumps(claude_manifest) if claude_manifest else ""
-    session_end = hooks.get("SessionEnd", [])
-    failure = hooks.get("PostToolUseFailure", [])
-    claude_ok = session_end and failure and {"Skill"}.issubset(matchers) and "tt-log.py" in commands
+    claude_ok = {
+        "SessionStart",
+        "UserPromptSubmit",
+        "PostToolUse",
+        "PostToolUseFailure",
+        "SessionEnd",
+    }.issubset(hooks) and all(
+        marker in commands
+        for marker in ("Bash", "Read", "Glob", "Grep", "Skill", "tt-codex-hook.py")
+    )
     codex_manifest = load_json(os.path.join(PLUGIN_ROOT, "hooks", "hooks.json"))
     codex_hooks = codex_manifest.get("hooks", {}) if isinstance(codex_manifest, dict) else {}
     codex_commands = json.dumps(codex_manifest) if codex_manifest else ""
@@ -86,8 +91,8 @@ def hooks_health():
         codex_hooks
     ) and all(marker in codex_commands for marker in ("tt-codex-hook.py", "CLAUDE_PLUGIN_ROOT"))
     if claude_ok and codex_ok:
-        return "PASS", "plugin hooks: Claude Code and Codex telemetry registered"
-    return "FAIL", "plugin hooks: missing or misregistered logger routes — reinstall the plugin"
+        return "PASS", "plugin hook files: Claude Code and Codex routes are intact"
+    return "FAIL", "plugin hook files: missing logger routes — reinstall the plugin"
 
 
 def config_health():
