@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 HIST = os.path.join(ROOT, ".trigger-tree", "history.jsonl")
+BADGE = os.path.join(ROOT, ".trigger-tree", "badge.json")
 
 RESET = "\033[0m"
 FRESH = "\033[1;38;5;114m"  # bright green
@@ -86,7 +87,9 @@ def main():
 
     dirs = {os.path.dirname(p) for p in files}
     depth = max((p.count("/") for p in files), default=0)
-    stats = f"{len(files)} files · {scans} scans · {len(dirs)} folders · depth {depth}"
+    grade = mature_grade()
+    stats = f"{grade} · " if grade else ""
+    stats += f"{len(files)} files · {scans} scans · {len(dirs)} folders · depth {depth}"
 
     age = 10**9
     if last_time is not None:
@@ -101,6 +104,17 @@ def main():
 
     path = terminal_safe(last["path"]) + ("/" if last.get("t") == "scan" else "")
     print(f"🌳 {stats} {color}{dot} {path}{RESET}")
+
+
+def mature_grade():
+    """Read the optional public-safe badge cache; measuring badges have no grade."""
+    try:
+        payload = json.loads(open(BADGE, encoding="utf-8").read())
+    except (OSError, ValueError):
+        return None
+    message = payload.get("message")
+    match = re.fullmatch(r"([A-F]) \(\d{1,3}\)", message) if isinstance(message, str) else None
+    return match.group(1) if match else None
 
 
 def _collect_history(fh, session, files):

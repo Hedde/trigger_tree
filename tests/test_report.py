@@ -45,6 +45,8 @@ def test_full_report_on_fixture(monkeypatch, capsys):
         "Most often read together",
         "cold-start",
         "Documentation health",
+        "a rule that is never read protects nothing",
+        "class='note grade'",
         "provisional",
         "no index file",
         "Unread routers",
@@ -65,6 +67,7 @@ def test_report_on_empty_project(tmp_path, monkeypatch, capsys):
     assert "Measurement just started" in html
     assert "docs/a.md" in html  # untouched listing
     assert "not a removal recommendation" in html
+    assert "--cold:#5c8fe6" in html and "--hot:#e53935" in html
     if os.name != "nt":
         assert stat.S_IMODE(os.stat(out_path).st_mode) == 0o600
 

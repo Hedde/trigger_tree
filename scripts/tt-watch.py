@@ -751,6 +751,14 @@ class App:
             body.append(c256(DEAD, f"   … {hidden_extra} files hidden"))
         if focus_summary:
             body.append(c256(DEAD, focus_summary))
+        if not browsing and not body and not self.total_reads and not self.total_scans:
+            body.extend(
+                [
+                    c256(WHITE, "  No discovery evidence yet.", bold=True),
+                    c256(DIM, "  Work normally — reads and explicit searches light up here."),
+                    c256(COOL, "  Want the loop now? Run /tt watch demo."),
+                ]
+            )
 
         lines = header + body
         lines.append("")
@@ -791,7 +799,7 @@ class App:
             )
         else:
             if self.last_event is None:
-                beat = "listening for doc reads (injected context never shows here)"
+                beat = "listening for doc reads; searches and prompts appear as they arrive"
             else:
                 age = now - self.last_event
                 beat = (

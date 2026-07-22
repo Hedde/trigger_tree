@@ -18,7 +18,8 @@ import tempfile
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-HEAT = ["#9aa0a6", "#7cb342", "#9ccc65", "#c0ca33", "#fdd835", "#ffb300", "#fb8c00", "#e53935"]
+# Website brand ramp; TUI approximations are 75, 80, 114, 214, and 196.
+HEAT = ["#4a5361", "#5c8fe6", "#38bfc3", "#7cb342", "#b9f6a0", "#ffb300", "#f57c00", "#e53935"]
 
 MATURITY_NOTE = {
     "cold-start": "Measurement just started — review candidates are provisional.",
@@ -27,12 +28,13 @@ MATURITY_NOTE = {
 }
 
 CSS = """
-:root { --bg:#fff; --fg:#1f2328; --muted:#6a737d; --line:#e1e4e8; --card:#f6f8fa; }
+:root { --bg:#fff; --fg:#1f2328; --muted:#59636e; --line:#d0d7de; --card:#f6f8fa;
+        --cold:#5c8fe6; --cool:#38bfc3; --active:#7cb342; --warm:#ffb300; --hot:#e53935; }
 @media (prefers-color-scheme: dark) {
-  :root { --bg:#101418; --fg:#e6edf3; --muted:#8b949e; --line:#30363d; --card:#161b22; }
+  :root { --bg:#0c1014; --fg:#e6edf3; --muted:#9aa4af; --line:#1f262e; --card:#101418; }
 }
-:root[data-theme="dark"] { --bg:#101418; --fg:#e6edf3; --muted:#8b949e; --line:#30363d; --card:#161b22; }
-:root[data-theme="light"] { --bg:#fff; --fg:#1f2328; --muted:#6a737d; --line:#e1e4e8; --card:#f6f8fa; }
+:root[data-theme="dark"] { --bg:#0c1014; --fg:#e6edf3; --muted:#9aa4af; --line:#1f262e; --card:#101418; }
+:root[data-theme="light"] { --bg:#fff; --fg:#1f2328; --muted:#59636e; --line:#d0d7de; --card:#f6f8fa; }
 body { background:var(--bg); color:var(--fg); font:15px/1.55 -apple-system,'Segoe UI',sans-serif;
        max-width:880px; margin:2rem auto; padding:0 1.25rem; }
 h1 { font-size:1.5rem; } h2 { font-size:1.1rem; margin-top:2rem; border-bottom:1px solid var(--line); padding-bottom:.3rem; }
@@ -45,6 +47,8 @@ th { color:var(--muted); font-weight:600; }
 .kpi div { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.6rem 1rem; }
 .kpi b { font-size:1.35rem; display:block; }
 .note { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.6rem 1rem; margin:1rem 0; }
+.grade { display:grid; grid-template-columns:auto 1fr; gap:1.25rem; align-items:center; border-left:5px solid var(--active); padding:1rem 1.25rem; }
+.grade-letter { font:700 3.5rem/1 ui-monospace,monospace; }
 .untouched { color:var(--muted); }
 code { background:var(--card); padding:.1em .35em; border-radius:4px; font-size:.9em; }
 .scroll { overflow-x:auto; }
@@ -115,7 +119,7 @@ def main():
     max_heat = max((f.get("heat", 0) for f in heated_files), default=1)
 
     parts = [f"<title>trigger-tree Report</title><style>{CSS}</style>"]
-    parts.append("<h1>🌳 trigger-tree — documentation telemetry</h1>")
+    parts.append("<h1>🌳 trigger-tree — documentation health</h1>")
     parts.append(
         f"<p class=muted>Period {esc(s['observed_from'])} → {esc(s['observed_to'])} "
         f"({esc(s.get('observed_days', 0))} days) · maturity: <b>{esc(maturity)}</b></p>"
@@ -124,9 +128,9 @@ def main():
     if h:
         provisional = "" if maturity == "mature" else " · provisional (measurement still young)"
         parts.append(
-            "<div class=note style='display:flex;gap:1.1rem;align-items:center'>"
-            f"<span style='font-size:2.4rem;font-weight:700'>{esc(h['grade'])}</span>"
-            f"<span><b>Documentation health — {h['score']}/100</b>{esc(provisional)}<br>"
+            "<div class='note grade'>"
+            f"<span class=grade-letter>{esc(h['grade'])}</span>"
+            f"<span><b>Documentation health · {h['score']}/100</b>{esc(provisional)}<br>"
             "<small class=muted>"
             + " · ".join(esc(d) for d in h["drivers"])
             + "</small></span></div>"
@@ -147,6 +151,11 @@ def main():
         f"{t['always_loaded_files']} always loaded. Evaluable coverage reconciles as "
         f"{t['touched_current_files']} touched + {t['untouched_current_files']} untouched = "
         f"{t['evaluable_files']}.</p>"
+    )
+    parts.append(
+        "<p><b>a rule that is never read protects nothing</b> — use the evidence below "
+        "to improve routes, not to confuse discovery with understanding. "
+        "<a href='https://github.com/Hedde/trigger_tree/blob/main/docs/glossary.md'>Glossary</a>.</p>"
     )
 
     heat_model = s.get("heat_model", {})

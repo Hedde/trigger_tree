@@ -53,6 +53,20 @@ def test_session_summary_survives_history_rotation_and_avoids_rescan(tmp_path, m
     assert "docs/new/" in out
 
 
+def test_statusline_includes_only_cached_mature_grade(tmp_path, monkeypatch, capsys):
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    write_history(
+        tmp_path,
+        [json.dumps({"t": "read", "ts": now, "session": "S", "path": "docs/a.md"})],
+    )
+    badge = tmp_path / ".trigger-tree" / "badge.json"
+    badge.write_text(json.dumps({"message": "measuring…"}))
+    mod = load_script("tt-statusline.py", tmp_path)
+    assert " B ·" not in run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
+    badge.write_text(json.dumps({"message": "B (82)"}))
+    assert "🌳 B · 1 files" in run_statusline(mod, monkeypatch, capsys, '{"session_id":"S"}')
+
+
 def test_session_summary_with_invalid_last_timestamp_is_cold(tmp_path, monkeypatch, capsys):
     sessions = tmp_path / ".trigger-tree" / "sessions"
     sessions.mkdir(parents=True)

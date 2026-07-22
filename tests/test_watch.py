@@ -878,6 +878,15 @@ def test_crowded_dashboard_never_clips_tip_or_navigation_footer():
     assert "←/→ prompts · q quit" in rendered
 
 
+def test_empty_dashboard_explains_how_evidence_appears():
+    mod = load_script("tt-watch.py", FIXTURE)
+    rendered = plain(mod.App([]).render(0, width=100, height=30))
+    assert "No discovery evidence yet" in rendered
+    assert "reads and explicit searches light up here" in rendered
+    assert "/tt watch demo" in rendered
+    assert "searches and prompts appear as they arrive" in rendered
+
+
 def test_main_exits_on_keyboard_interrupt(monkeypatch, capsys):
     mod = load_script("tt-watch.py", FIXTURE)
     monkeypatch.setattr(sys, "argv", ["tt-watch.py"])  # no --seconds: only KI can stop it
