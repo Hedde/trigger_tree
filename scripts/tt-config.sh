@@ -18,10 +18,9 @@ TT_ALWAYS_LOADED_REGEX='(^|/)(CLAUDE|AGENTS)\.md$|(^|/)CLAUDE\.local\.md$|^\.cla
 # never treated as an archive candidate. Safety paths are protected regardless.
 TT_CRITICAL_GLOB=''
 
-# Plugin fallback: hash, so installing without /tt setup never stores prompt text.
-# Setup writes truncate (first 200 local characters) into the project copy by default;
-# hash and off remain explicit alternatives.
-TT_LOG_PROMPTS='hash'
+# Default: a recognizable preview of the first 200 characters, stored only in the
+# project's gitignored telemetry. Setup offers truncate, hash, and off explicitly.
+TT_LOG_PROMPTS='truncate'
 
 # Rotate history.jsonl to history-<timestamp>.jsonl when it exceeds this many bytes.
 TT_ROTATE_BYTES='5242880'

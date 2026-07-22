@@ -157,9 +157,11 @@ JSON never exposes a provisional letter; before mature measurement it says `meas
 
 ## `$1` = "setup"
 
-1. Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-setup.py"`. If `$2` is
-   `truncate`, `hash`, or `off`, append `--prompt-mode "$2"`. The default creates
-   truncated local previews; an existing config is preserved unless a mode is explicit.
+1. If `$2` is absent, ask which local prompt mode to use: `truncate` (recommended;
+   first 200 characters), `hash` (no prompt text), or `off` (marker only). Then run
+   `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-setup.py" --prompt-mode "$MODE"`.
+   If `$2` is already `truncate`, `hash`, or `off`, use it without asking. An existing
+   config is preserved only when the script is run without an explicit mode.
 2. Show the script's summary lines verbatim (they report created/updated/skipped per
    step), nothing else.
 

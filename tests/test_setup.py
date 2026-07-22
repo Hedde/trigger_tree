@@ -53,6 +53,30 @@ def test_setup_explicit_prompt_modes_update_only_prompt_setting(tmp_path, capsys
     assert "first 200 characters" in capsys.readouterr().out
 
 
+def test_new_interactive_setup_asks_with_truncate_default(tmp_path, capsys):
+    mod = load_script("tt-setup.py", tmp_path)
+    tty = type("TTY", (), {"isatty": lambda self: True})()
+    answers = iter(("invalid", ""))
+    mode, explicit = mod.choose_prompt_mode(
+        None, False, stream=tty, input_fn=lambda _prompt: next(answers)
+    )
+    assert (mode, explicit) == ("truncate", True)
+    assert "Prompt telemetry stays local" in capsys.readouterr().out
+
+    mode, explicit = mod.choose_prompt_mode(
+        None, False, stream=tty, input_fn=lambda _prompt: "hash"
+    )
+    assert (mode, explicit) == ("hash", True)
+
+
+def test_prompt_choice_never_blocks_automation_or_overwrites_existing(tmp_path):
+    mod = load_script("tt-setup.py", tmp_path)
+    pipe = type("Pipe", (), {"isatty": lambda self: False})()
+    assert mod.choose_prompt_mode(None, False, stream=pipe) == ("truncate", False)
+    assert mod.choose_prompt_mode(None, True, stream=pipe) == ("truncate", False)
+    assert mod.choose_prompt_mode("off", True, stream=pipe) == ("off", True)
+
+
 def test_existing_config_is_preserved_without_explicit_mode(tmp_path, capsys):
     config_dir = tmp_path / ".trigger-tree"
     config_dir.mkdir()
@@ -132,8 +156,8 @@ def test_setup_permissions_and_security_disclosure_are_consistent(tmp_path):
     assert ((tmp_path / ".trigger-tree").stat().st_mode & 0o777) == 0o700
     repo = os.path.dirname(os.path.dirname(__file__))
     security = open(os.path.join(repo, "SECURITY.md"), encoding="utf-8").read()
-    assert "recommended `/tt setup` flow stores" in security
-    assert "200-character local preview by default" in security
+    assert "Interactive\nsetup explains and asks for that choice" in security
+    assert "recognizable 200-character preview" in security
 
 
 def test_safe_destination_rejects_escape_non_directory_parent_and_directory_target(tmp_path):

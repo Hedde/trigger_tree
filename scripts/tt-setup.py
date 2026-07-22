@@ -17,6 +17,7 @@ import json
 import os
 import re
 import stat
+import sys
 import tempfile
 
 from tt_scope import is_poor_coverage, scan_markdown, suggested_regex
@@ -139,6 +140,28 @@ def prompt_mode_message(mode):
     return "prompt privacy: markers only; no text or hash stored"
 
 
+def choose_prompt_mode(requested, config_exists, stream=None, input_fn=input):
+    """Choose once for a new config; never block automation or rewrite an existing choice."""
+    if requested:
+        return requested, True
+    if config_exists:
+        return "truncate", False
+    stream = stream or sys.stdin
+    if not stream.isatty():
+        return "truncate", False
+    print("Prompt telemetry stays local and gitignored.")
+    print("  truncate: recognizable first 200 characters (default)")
+    print("  hash: stable fingerprint, no prompt text")
+    print("  off: event marker only")
+    while True:
+        answer = input_fn("Prompt mode [truncate/hash/off]: ").strip().lower()
+        aliases = {"": "truncate", "t": "truncate", "h": "hash", "o": "off"}
+        answer = aliases.get(answer, answer)
+        if answer in ("truncate", "hash", "off"):
+            return answer, True
+        print("Choose truncate, hash, or off.")
+
+
 def write_prompt_mode(path, mode):
     assert_safe_destination(path)
     with open(path, encoding="utf-8") as fh:
@@ -230,10 +253,12 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
+    config_exists = os.path.isfile(os.path.join(ROOT, ".trigger-tree", "config.sh"))
+    prompt_mode, explicit = choose_prompt_mode(args.prompt_mode, config_exists)
     ensure_gitignore()
     copy_statusline()
     register_statusline()
-    configure_prompts(args.prompt_mode or "truncate", explicit=args.prompt_mode is not None)
+    configure_prompts(prompt_mode, explicit=explicit)
     audit_watch_scope(args.apply_watch_suggestion)
     print("done — restart the session (or wait for settings reload) to activate the statusline")
 

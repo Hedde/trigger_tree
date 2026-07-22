@@ -18,8 +18,9 @@ Use the scripts under the plugin root. Resolve it by walking two directories up 
 - Tips: run `python3 scripts/tt-tips.py --client codex` and return its output verbatim.
 - Note: run `python3 scripts/tt-log.py note "<text>"`.
 - Doctor: run `python3 scripts/tt-doctor.py` and return its diagnostics verbatim.
-- Setup: run `python3 scripts/tt-setup.py`; pass `--prompt-mode truncate|hash|off`
-  when requested. Explain that truncate stores the first 200 prompt characters locally.
+- Setup: ask for `truncate` (recommended; first 200 prompt characters stored locally),
+  `hash` (no prompt text), or `off` (marker only), then pass the answer explicitly as
+  `python3 scripts/tt-setup.py --prompt-mode truncate|hash|off`.
 - Uninstall: run `python3 scripts/tt-uninstall.py`; explain that telemetry and ignore
   entries remain until the user explicitly deletes them.
 

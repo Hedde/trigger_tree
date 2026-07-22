@@ -4,10 +4,10 @@
 
 trigger-tree is local-only by design: telemetry is written to
 `$PROJECT/.trigger-tree/` on your machine and never leaves it. No network calls, no
-external services, no dependencies. Before setup, prompt markers use a short SHA-1
-fingerprint and contain no prompt text. The recommended `/tt setup` flow stores a
-recognizable 200-character local preview by default and explains that choice. Projects
-can instead choose `TT_LOG_PROMPTS=hash` or `TT_LOG_PROMPTS=off` during setup.
+external services, no dependencies. Before and after setup, the default stores a
+recognizable 200-character preview in the project's gitignored telemetry. Interactive
+setup explains and asks for that choice. Projects can instead choose
+`TT_LOG_PROMPTS=hash` (no prompt text) or `TT_LOG_PROMPTS=off` during setup.
 
 ## Supported versions
 
