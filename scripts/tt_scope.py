@@ -2,6 +2,7 @@
 
 import os
 import re
+from fnmatch import fnmatch
 
 DEFAULT_LIMIT = 5000
 SKIP_DIRS = {
@@ -21,8 +22,22 @@ SKIP_DIRS = {
 }
 
 
-def scan_markdown(root, watch_regex, limit=DEFAULT_LIMIT):
-    """Return visited/Markdown/watched counts without following links or walking forever."""
+def parse_ignore(value):
+    """Split a comma-separated glob list; empty entries drop out."""
+    return tuple(glob.strip() for glob in (value or "").split(",") if glob.strip())
+
+
+def is_ignored(path, ignore_globs):
+    return any(fnmatch(path, glob) for glob in ignore_globs)
+
+
+def scan_markdown(root, watch_regex, limit=DEFAULT_LIMIT, ignore_globs=()):
+    """Return visited/Markdown/watched counts without following links or walking forever.
+
+    Paths matching an ignore glob are acknowledged as intentionally unwatched and
+    leave both the path list and the markdown denominator — unless the watch regex
+    matches them, because a watched doc can never be ignored away.
+    """
     pattern = re.compile(watch_regex)
     visited = markdown = watched = 0
     paths = []
@@ -44,10 +59,13 @@ def scan_markdown(root, watch_regex, limit=DEFAULT_LIMIT):
             visited += 1
             if not name.lower().endswith((".md", ".markdown")):
                 continue
-            markdown += 1
             relative = os.path.relpath(os.path.join(current, name), root).replace(os.sep, "/")
+            is_watched = bool(pattern.search(relative))
+            if not is_watched and is_ignored(relative, ignore_globs):
+                continue
+            markdown += 1
             paths.append(relative)
-            watched += bool(pattern.search(relative))
+            watched += is_watched
     return {
         "visited": visited,
         "markdown": markdown,

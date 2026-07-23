@@ -5,6 +5,7 @@
 | Variable | Default | Meaning |
 |---|---|---|
 | `TT_WATCH_REGEX` | docs/agents/skills/briefs plus root `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` | Documentation reads to count |
+| `TT_SCOPE_IGNORE` | empty | comma-separated globs acknowledging intentionally unwatched markdown; leaves gate findings, SARIF, and the watch-scope denominator |
 | `TT_SCAN_REGEX` | documentation folders | Search targets to count |
 | `TT_ALWAYS_LOADED_REGEX` | `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, guidance, and skills | Context excluded from cold-path review |
 | `TT_CRITICAL_GLOB` | empty | Comma-separated rare-but-critical paths |

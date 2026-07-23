@@ -194,3 +194,18 @@ def test_doctor_detects_python_version_drift(tmp_path, monkeypatch):
         "FAIL",
         "python: 3.9 unsupported — configure Python 3.10–3.13",
     )
+
+
+def test_coverage_health_respects_acknowledged_scope(tmp_path, monkeypatch):
+    mod = load_script("tt-doctor.py", tmp_path)
+    monkeypatch.setattr(mod, "ROOT", str(tmp_path))
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("doc")
+    (tmp_path / "CHANGELOG.md").write_text("log")
+    (tmp_path / ".trigger-tree").mkdir()
+    (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_SCOPE_IGNORE='CHANGELOG.md'\n")
+    assert mod.scope_ignore() == ("CHANGELOG.md",)
+    state, message = mod.coverage_health()
+    assert "1 of 1 markdown files watched" in message
+    monkeypatch.setattr(mod, "ROOT", str(tmp_path / "leeg"))
+    assert mod.scope_ignore() == ()  # valt terug op de lege plugin-default

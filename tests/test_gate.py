@@ -330,3 +330,28 @@ def test_structure_stats_runs_the_real_analysis_without_telemetry(monkeypatch):
     stats = mod.structure_stats()
     assert stats["totals"]["reads"] == 0  # telemetry ignored by design
     assert stats["router_coverage"]
+
+
+def test_scope_ignore_acknowledges_files_but_never_watched_ones(tmp_path, monkeypatch):
+    mod = load_script("tt-gate.py", tmp_path)
+    monkeypatch.setattr(mod, "ROOT", str(tmp_path))
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "kept.md").write_text("doc")
+    (tmp_path / "CHANGELOG.md").write_text("log")
+    (tmp_path / "NOTES.md").write_text("notes")
+    (tmp_path / ".trigger-tree").mkdir()
+    (tmp_path / ".trigger-tree" / "config.sh").write_text(
+        "TT_WATCH_REGEX='^docs/.*$'\nTT_SCOPE_IGNORE='CHANGELOG.md,docs/*'\n"
+    )
+    assert mod.scope_ignore() == ("CHANGELOG.md", "docs/*")
+    scope = mod.scan_markdown(str(tmp_path), "^docs/.*$", ignore_globs=mod.scope_ignore())
+    # CHANGELOG erkend en weg; docs/kept.md matcht de watch-regex en blijft dus staan
+    assert scope["markdown"] == 2 and scope["watched"] == 1
+    assert sorted(scope["paths"]) == ["NOTES.md", "docs/kept.md"]
+    assert mod._conf_value("TT_ONBEKEND") == ""
+
+
+def test_scope_ignore_falls_back_to_plugin_default(tmp_path, monkeypatch):
+    mod = load_script("tt-gate.py", tmp_path)
+    monkeypatch.setattr(mod, "ROOT", str(tmp_path))
+    assert mod.scope_ignore() == ()  # plugin default is leeg

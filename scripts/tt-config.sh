@@ -16,6 +16,12 @@ TT_ALWAYS_LOADED_REGEX='(^|/)(CLAUDE|AGENTS|GEMINI)\.md$|(^|/)CLAUDE\.local\.md$
 # Example project override additions for other instruction systems:
 # TT_ALWAYS_LOADED_REGEX='...|^\.github/copilot-instructions\.md$|^\.cursor/rules/'
 
+# Comma-separated fnmatch globs for markdown that is intentionally NOT agent
+# documentation (issue templates, changelogs). Acknowledged files leave the
+# watch-scope findings and denominator; a path the watch regex matches is never
+# ignored. Example value: .github/* plus CHANGELOG.md, comma-separated.
+TT_SCOPE_IGNORE=''
+
 # Comma-separated globs for rare-but-critical documentation that must be reviewed,
 # never treated as an archive candidate. Safety paths are protected regardless.
 TT_CRITICAL_GLOB=''

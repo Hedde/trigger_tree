@@ -1,5 +1,6 @@
 !.trigger-tree/
 .trigger-tree/*
+!.trigger-tree/config.sh
 !.trigger-tree/gate.json
 !tests/fixture-project/.trigger-tree/
 !tests/fixture-project/.trigger-tree/**

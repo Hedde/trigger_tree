@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime
 
-from tt_scope import is_poor_coverage, scan_markdown
+from tt_scope import is_poor_coverage, parse_ignore, scan_markdown
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -120,14 +120,29 @@ def watch_regex():
             text = open(path, encoding="utf-8").read()
         except OSError:
             continue
-        match = re.search(r"TT_WATCH_REGEX='([^']+)'", text)
+        match = re.search(r"(?m)^TT_WATCH_REGEX='([^']+)'", text)
         if match:
             return match.group(1)
     return r"(?!)"
 
 
+def scope_ignore():
+    for path in (
+        os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        os.path.join(PLUGIN_ROOT, "scripts", "tt-config.sh"),
+    ):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except OSError:
+            continue
+        match = re.search(r"(?m)^TT_SCOPE_IGNORE='([^']*)'", text)
+        if match:
+            return parse_ignore(match.group(1))
+    return ()
+
+
 def coverage_health():
-    result = scan_markdown(ROOT, watch_regex())
+    result = scan_markdown(ROOT, watch_regex(), ignore_globs=scope_ignore())
     summary = f"coverage: {result['watched']} of {result['markdown']} markdown files watched"
     remediation = "set TT_WATCH_REGEX in .trigger-tree/config.sh"
     if result["markdown"] and result["watched"] == 0:

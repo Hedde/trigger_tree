@@ -42,7 +42,11 @@ Be precise about the boundary — three layers, three tools:
    correct: issue templates, changelogs, and other human-only files belong
    outside the measurement. The component is capped at 10 of the 100 points for
    exactly this reason. Extend `TT_WATCH_REGEX` only for files agents should
-   actually read.
+   actually read. Reviewed a file and decided it should stay unwatched?
+   Acknowledge it in `TT_SCOPE_IGNORE` (comma-separated globs in
+   `.trigger-tree/config.sh`): acknowledged files leave the findings, the SARIF,
+   and the denominator — visibly, in a committed and reviewable config line. A
+   path the watch regex matches is never ignored.
 
 ## Usage
 

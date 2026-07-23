@@ -15,5 +15,6 @@ Use this page as the router for the full reference.
 | Develop, test, or release trigger-tree | [Development](development.md) |
 | Decode a term | [Glossary](glossary.md) |
 | Read the `/tt` command contract | [skills/tt/SKILL.md](../skills/tt/SKILL.md) |
+| Read the Codex workflow contract | [codex-skills/trigger-tree/SKILL.md](../codex-skills/trigger-tree/SKILL.md) |
 
 Start with the [root README](../README.md) for the ten-second product overview.

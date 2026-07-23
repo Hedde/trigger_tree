@@ -17,7 +17,7 @@ import subprocess
 import sys
 import tempfile
 
-from tt_scope import scan_markdown
+from tt_scope import is_ignored, parse_ignore, scan_markdown
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
@@ -73,6 +73,25 @@ def structure_stats():
     return json.loads(result.stdout)
 
 
+def _conf_value(key):
+    for path in (
+        os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        os.path.join(SCRIPT_DIR, "tt-config.sh"),
+    ):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except OSError:
+            continue
+        match = re.search(r"(?m)^" + key + r"='([^']*)'", text)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def scope_ignore():
+    return parse_ignore(_conf_value("TT_SCOPE_IGNORE"))
+
+
 def watch_regex():
     for path in (
         os.path.join(ROOT, ".trigger-tree", "config.sh"),
@@ -82,7 +101,7 @@ def watch_regex():
             text = open(path, encoding="utf-8").read()
         except OSError:
             continue
-        match = re.search(r"TT_WATCH_REGEX='([^']+)'", text)
+        match = re.search(r"(?m)^TT_WATCH_REGEX='([^']+)'", text)
         if match:
             return match.group(1)
     return r"(?!)"
@@ -129,7 +148,8 @@ def measure(stats):
     without_entry = sorted(f["folder"] for f in folders if not f.get("has_index"))
 
     pattern = re.compile(watch_regex())
-    scope = scan_markdown(ROOT, pattern.pattern)
+    ignore_globs = scope_ignore()
+    scope = scan_markdown(ROOT, pattern.pattern, ignore_globs=ignore_globs)
     unwatched = sorted(path for path in scope["paths"] if not pattern.search(path))
     components = {
         "routed": _fraction(listed, members),
