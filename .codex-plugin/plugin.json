@@ -19,7 +19,7 @@
   "skills": "./codex-skills/",
   "interface": {
     "displayName": "trigger-tree",
-    "shortDescription": "See which documentation your coding agents discover.",
+    "shortDescription": "See which docs your AI reads",
     "longDescription": "Local, zero-token documentation telemetry with a live dashboard, decaying heat maps, health diagnostics, and evidence-backed router fixes.",
     "developerName": "Hedde van der Heide",
     "category": "Developer Tools",
