@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.19.2 — 2026-07-23
+
+- Ships the inline README badge row in a release, because the GitHub Marketplace
+  listing renders the README of the latest published release rather than the
+  default branch — the fix on `main` alone never reached the listing.
+
 ## 1.19.1 — 2026-07-23
 
 - Shortens the action description to fit the GitHub Marketplace 125-character
