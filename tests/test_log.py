@@ -1057,6 +1057,7 @@ def test_user_config_path_prefers_the_env_override(tmp_path, monkeypatch):
     monkeypatch.setenv("TT_USER_CONFIG", "/elders/config.sh")
     assert mod.user_config_path() == "/elders/config.sh"
     monkeypatch.delenv("TT_USER_CONFIG")
-    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("HOME", str(tmp_path))  # POSIX expanduser
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))  # Windows expanduser
     expected = os.path.join(str(tmp_path), ".trigger-tree", "config.sh")
     assert mod.user_config_path() == expected
