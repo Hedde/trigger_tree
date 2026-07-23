@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.21.2 — 2026-07-23
+
+- Documents Codex hook trust: after an install or upgrade Codex silently skips
+  untrusted hooks, and non-interactive `codex exec` runs never persist trust —
+  the quick start, FAQ, and website now say to review and trust the four hooks
+  in the TUI, and to repeat the review after an upgrade that changes a hook
+  (#11, reported by @BartWaardenburg).
+- `tt doctor` reads the persisted Codex trust state (`$CODEX_HOME/config.toml`)
+  whenever a Codex install carries the plugin: untrusted or partially trusted
+  hooks warn with the exact remedy instead of a generic missing-liveness hint.
+  The trusted hashes themselves are Codex-internal, so doctor states what it
+  can verify and what it cannot (#11).
+- SARIF output reports the real tool version for pip installs by falling back
+  to the package metadata when the plugin manifest is not in the wheel.
+- The README quick start renders as per-client command blocks instead of a
+  two-column table that misaligned on narrow viewports.
+
 ## 1.21.1 — 2026-07-23
 
 - Parses git-listed paths NUL-separated and decodes them as UTF-8 explicitly, so

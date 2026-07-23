@@ -1,7 +1,7 @@
 {
   "name": "trigger-tree",
   "displayName": "trigger-tree",
-  "version": "1.21.1",
+  "version": "1.21.2",
   "description": "See which docs your AI actually discovers. Local, zero-token documentation telemetry with a live dashboard, heat maps, health diagnostics, and evidence-backed router fixes. macOS/Linux/Windows.",
   "author": {
     "name": "Hedde van der Heide"
@@ -9,6 +9,11 @@
   "homepage": "https://github.com/Hedde/trigger_tree",
   "repository": "https://github.com/Hedde/trigger_tree",
   "license": "MIT",
-  "keywords": ["documentation", "telemetry", "observability", "docs-as-code"],
+  "keywords": [
+    "documentation",
+    "telemetry",
+    "observability",
+    "docs-as-code"
+  ],
   "hooks": "./hooks/claude-hooks.json"
 }

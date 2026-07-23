@@ -1,6 +1,6 @@
 {
   "name": "trigger-tree",
-  "version": "1.21.1",
+  "version": "1.21.2",
   "description": "Local, zero-token documentation discovery telemetry for Codex and Claude Code.",
   "author": {
     "name": "Hedde van der Heide",
@@ -9,7 +9,13 @@
   "homepage": "https://hedde.github.io/trigger_tree/",
   "repository": "https://github.com/Hedde/trigger_tree",
   "license": "MIT",
-  "keywords": ["documentation", "telemetry", "observability", "docs-as-code", "codex"],
+  "keywords": [
+    "documentation",
+    "telemetry",
+    "observability",
+    "docs-as-code",
+    "codex"
+  ],
   "skills": "./codex-skills/",
   "interface": {
     "displayName": "trigger-tree",
@@ -17,7 +23,10 @@
     "longDescription": "Local, zero-token documentation telemetry with a live dashboard, decaying heat maps, health diagnostics, and evidence-backed router fixes.",
     "developerName": "Hedde van der Heide",
     "category": "Developer Tools",
-    "capabilities": ["Interactive", "Local telemetry"],
+    "capabilities": [
+      "Interactive",
+      "Local telemetry"
+    ],
     "websiteURL": "https://hedde.github.io/trigger_tree/",
     "privacyPolicyURL": "https://github.com/Hedde/trigger_tree/blob/main/PRIVACY.md",
     "defaultPrompt": [
