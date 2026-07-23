@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.18.2 — 2026-07-23
+
+- Reframes the watch-scope findings as a review prompt: leaving human-only files
+  (issue templates, changelogs) unwatched is named as a valid choice instead of an
+  implied defect.
+- Documents the gate's honest boundaries in the README, on the site, and in the CI
+  gate reference: it verifies link wiring, never whether the root context file
+  actually instructs routing (that is what local telemetry proves), and a root
+  entry-file existence check is named as a planned addition.
+
 ## 1.18.1 — 2026-07-23
 
 - Names the markdown files outside the watch scope as a fourth offender category,
