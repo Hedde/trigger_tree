@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.19.0 — 2026-07-23
+
+- Exports gate findings as deterministic SARIF 2.1.0 (`--sarif`, action input
+  `sarif`): one rule per category with warning/note levels, file locations for
+  per-file code-scanning annotations, and score/components/verdict in the run
+  properties; this repository uploads its own report to GitHub code scanning.
+- Stops the test suite from appending fixture reports to the real CI job summary:
+  the hermetic-environment scrub now also covers `GITHUB_STEP_SUMMARY`, so the run
+  page shows exactly one gate verdict, now prefixed ✅/❌.
+- Bumps the pinned action reference in all usage snippets.
+
 ## 1.18.2 — 2026-07-23
 
 - Reframes the watch-scope findings as a review prompt: leaving human-only files
