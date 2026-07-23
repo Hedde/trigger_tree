@@ -234,13 +234,22 @@ def test_sarif_verdicts_cover_failure_and_baseline_update(tmp_path, monkeypatch)
 
 def test_tool_version_comes_from_the_manifest_with_fallback(tmp_path, monkeypatch):
     mod = gate(tmp_path, monkeypatch)
+    import importlib.metadata as md
     import json as json_module
 
     real = json_module.load(
         open(os.path.join(REPO, ".claude-plugin", "plugin.json"), encoding="utf-8")
     )["version"]
     assert mod._version() == real
+    # Zonder manifest (pip-install) telt de package-metadata; zonder beide: unknown.
     monkeypatch.setattr(mod, "SCRIPT_DIR", str(tmp_path / "nergens" / "scripts"))
+    monkeypatch.setattr(mod.importlib.metadata, "version", lambda name: "9.9.9")
+    assert mod._version() == "9.9.9"
+
+    def missing(name):
+        raise md.PackageNotFoundError(name)
+
+    monkeypatch.setattr(mod.importlib.metadata, "version", missing)
     assert mod._version() == "unknown"
 
 

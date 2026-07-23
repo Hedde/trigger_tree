@@ -9,6 +9,7 @@ Exit codes: 0 pass, 1 gate failed, 2 usage or execution error.
 """
 
 import argparse
+import importlib.metadata
 import json
 import os
 import re
@@ -238,6 +239,12 @@ def _version():
     try:
         return json.loads(open(manifest, encoding="utf-8").read())["version"]
     except (OSError, ValueError, KeyError):
+        pass
+    # Wheels ship scripts/ without the plugin manifest; pip installs carry the
+    # same version in the package metadata instead.
+    try:
+        return importlib.metadata.version("trigger-tree")
+    except importlib.metadata.PackageNotFoundError:
         return "unknown"
 
 
