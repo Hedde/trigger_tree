@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 
+from tt_runtime import user_config_path
 from tt_scope import parse_ignore, scan_markdown
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -78,6 +79,7 @@ def structure_stats():
 def _conf_value(key):
     for path in (
         os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        user_config_path(),
         os.path.join(SCRIPT_DIR, "tt-config.sh"),
     ):
         try:
@@ -97,6 +99,7 @@ def scope_ignore():
 def watch_regex():
     for path in (
         os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        user_config_path(),
         os.path.join(SCRIPT_DIR, "tt-config.sh"),
     ):
         try:

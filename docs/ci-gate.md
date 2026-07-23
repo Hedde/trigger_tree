@@ -53,7 +53,7 @@ Be precise about the boundary — three layers, three tools:
 GitHub Actions (installs its own pinned version, runs inside your runner):
 
 ```yaml
-- uses: Hedde/trigger_tree@v1.22.0
+- uses: Hedde/trigger_tree@v1.23.0
   with:
     min-score: "70"        # optional absolute floor
     badge: "discoverability.json"   # optional shields.io endpoint output
@@ -88,7 +88,7 @@ it to GitHub code scanning for per-file annotations on pull requests, or attach 
 as a build artifact for any other tooling:
 
 ```yaml
-- uses: Hedde/trigger_tree@v1.22.0
+- uses: Hedde/trigger_tree@v1.23.0
   with:
     sarif: "tt-gate.sarif"
 - uses: github/codeql-action/upload-sarif@4187e74d05793876e9989daffde9c3e66b4acd07 # v3
@@ -97,6 +97,7 @@ as a build artifact for any other tooling:
 ```
 
 On GitHub Actions the verdict also lands on the run's step summary automatically.
+A complete copy-paste workflow: [examples/github-actions.yml](../examples/github-actions.yml).
 
 ## GitLab CI
 
@@ -119,6 +120,7 @@ docs-gate:
       - public/docs-discoverability.json
 ```
 
+A complete copy-paste job: [examples/gitlab-ci.yml](../examples/gitlab-ci.yml).
 The committed baseline ratchet works identically. For a project badge, point a
 [shields endpoint](https://shields.io/badges/endpoint-badge) at the artifact's raw
 URL (`/-/jobs/artifacts/main/raw/public/docs-discoverability.json?job=docs-gate`)

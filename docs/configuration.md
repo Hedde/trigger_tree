@@ -1,6 +1,11 @@
 # Configuration
 
-`/tt setup` creates `.trigger-tree/config.sh`.
+`/tt setup` creates `.trigger-tree/config.sh`. Every key resolves in three
+layers — bundled plugin default, then the user-wide `~/.trigger-tree/config.sh`
+(location overridable via `TT_USER_CONFIG`), then the project file — and the
+project always wins. The user layer exists so one person can set a default such
+as `TT_LOG_PROMPTS='off'` for every repository before any project has run setup;
+`tt doctor` reports the effective prompt mode and which layer selected it.
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -9,7 +14,7 @@
 | `TT_SCAN_REGEX` | documentation folders | Search targets to count |
 | `TT_ALWAYS_LOADED_REGEX` | `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, guidance, and skills | Context excluded from cold-path review |
 | `TT_CRITICAL_GLOB` | empty | Comma-separated rare-but-critical paths |
-| `TT_LOG_PROMPTS` | `truncate` | `truncate`, `hash`, or `off` for future prompts |
+| `TT_LOG_PROMPTS` | `hash` | `truncate`, `hash`, or `off` for future prompts; setup recommends `truncate` per project |
 | `TT_ROTATE_BYTES` | 5 MB | History rotation threshold |
 | `TT_EXPERIMENTAL_OUTCOMES` | `off` | Local correlational committed/abandoned view |
 

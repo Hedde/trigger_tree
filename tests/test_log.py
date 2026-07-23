@@ -1036,3 +1036,27 @@ def test_shell_capture_exports_and_stamps_client(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     run_main(mod, monkeypatch, ["shell-read", "cat", str(tmp_path / "docs" / "watched.md")])
     assert read_history(tmp_path)[-1]["client"] == "claude"
+
+
+def test_user_config_layer_sits_between_plugin_default_and_project_override(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    monkeypatch.setattr(mod, "ROOT", str(tmp_path))
+    user_config = tmp_path / "user-config.sh"
+    user_config.write_text("TT_LOG_PROMPTS='off'\n# voorbeeld: TT_ROTATE_BYTES='1'\n")
+    monkeypatch.setenv("TT_USER_CONFIG", str(user_config))
+    cfg = mod.conf()
+    assert cfg["TT_LOG_PROMPTS"] == "off"  # userlaag overstemt de plugin-default
+    assert cfg["TT_ROTATE_BYTES"] == "5242880"  # verankerd: comment-voorbeeld telt niet
+    (tmp_path / ".trigger-tree").mkdir()
+    (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_LOG_PROMPTS='truncate'\n")
+    assert mod.conf()["TT_LOG_PROMPTS"] == "truncate"  # project overstemt de userlaag
+
+
+def test_user_config_path_prefers_the_env_override(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    monkeypatch.setenv("TT_USER_CONFIG", "/elders/config.sh")
+    assert mod.user_config_path() == "/elders/config.sh"
+    monkeypatch.delenv("TT_USER_CONFIG")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    expected = os.path.join(str(tmp_path), ".trigger-tree", "config.sh")
+    assert mod.user_config_path() == expected

@@ -1,0 +1,27 @@
+# Docs discoverability gate — GitHub Actions example.
+# Copy into .github/workflows/docs-gate.yml. The SARIF upload gives per-file
+# annotations in code scanning; drop that step (and security-events) if unused.
+name: docs-gate
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write # only needed for the SARIF upload
+
+jobs:
+  docs-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: Hedde/trigger_tree@v1.23.0
+        with:
+          min-score: "70"
+          badge: "docs-discoverability.json"
+          sarif: "tt-gate.sarif"
+      - uses: github/codeql-action/upload-sarif@4187e74d05793876e9989daffde9c3e66b4acd07 # v3
+        if: always()
+        with:
+          sarif_file: tt-gate.sarif

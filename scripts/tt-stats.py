@@ -29,6 +29,8 @@ from fnmatch import fnmatch
 from itertools import combinations
 from statistics import median
 
+from tt_runtime import user_config_path
+
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -49,10 +51,12 @@ EVENT_TYPES = {"session", "prompt", "read", "scan", "skill", "note", "outcome"}
 
 
 def _conf_texts():
-    # Layered: project override → plugin default. Broken entries never crash.
+    # Layered: project override → user default → plugin default. Broken entries
+    # never crash.
     texts = []
     for path in (
         os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        user_config_path(),
         os.path.join(SCRIPT_DIR, "tt-config.sh"),
     ):
         try:
@@ -64,7 +68,7 @@ def _conf_texts():
 
 def _conf_regex(name, fallback):
     for text in _conf_texts():
-        m = re.search(name + r"='([^']+)'", text)
+        m = re.search(r"(?m)^" + name + r"='([^']+)'", text)
         if m:
             try:
                 return re.compile(m.group(1))

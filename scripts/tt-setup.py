@@ -20,6 +20,7 @@ import stat
 import sys
 import tempfile
 
+from tt_runtime import user_config_path
 from tt_scope import is_poor_coverage, scan_markdown, suggested_regex
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
@@ -197,13 +198,14 @@ def write_assignment(path, name, value):
 def effective_watch_regex():
     for path in (
         os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        user_config_path(),
         os.path.join(SCRIPT_DIR, "tt-config.sh"),
     ):
         try:
             text = open(path, encoding="utf-8").read()
         except OSError:
             continue
-        match = re.search(r"TT_WATCH_REGEX='([^']+)'", text)
+        match = re.search(r"(?m)^TT_WATCH_REGEX='([^']+)'", text)
         if match:
             return match.group(1)
     return r"(?!)"

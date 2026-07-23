@@ -22,8 +22,9 @@ def test_doctor_all_checks_pass(tmp_path, capsys):
     mod = load_script("tt-doctor.py", tmp_path)
     assert mod.main() == 0
     out = capsys.readouterr().out
-    assert out.count("✓") == 8
+    assert out.count("✓") == 9
     assert "1 usable events, latest 2026-07-17T10:00:00Z" in out
+    assert "prompt logging: hash (set by the plugin default)" in out
     assert "Python:" not in out  # the label stays lowercase; paths may contain Python
     assert "all checks passed" in out
 
@@ -262,3 +263,23 @@ def test_doctor_output_includes_codex_trust_when_state_is_available(tmp_path, mo
     assert mod.main() == 0
     out = capsys.readouterr().out
     assert "! codex trust: hooks are installed but not trusted" in out
+
+
+def test_prompts_health_reports_the_selecting_layer_and_rejects_invalid(tmp_path, monkeypatch):
+    mod = load_script("tt-doctor.py", tmp_path)
+    # Zonder leesbare lagen geldt de ingebouwde fallback.
+    monkeypatch.setattr(mod, "PLUGIN_ROOT", str(tmp_path / "nergens"))
+    state, message = mod.prompts_health()
+    assert state == "PASS" and "hash (set by the built-in fallback)" in message
+    user_config = tmp_path / "user-config.sh"
+    user_config.write_text("TT_LOG_PROMPTS='off'\n")
+    monkeypatch.setenv("TT_USER_CONFIG", str(user_config))
+    state, message = mod.prompts_health()
+    assert state == "PASS" and "off (set by the user default)" in message
+    (tmp_path / ".trigger-tree").mkdir()
+    (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_LOG_PROMPTS='truncate'\n")
+    state, message = mod.prompts_health()
+    assert state == "PASS" and "truncate (set by the project override)" in message
+    (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_LOG_PROMPTS='alles'\n")
+    state, message = mod.prompts_health()
+    assert state == "FAIL" and "invalid mode 'alles' from the project override" in message

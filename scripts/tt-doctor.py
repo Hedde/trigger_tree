@@ -9,6 +9,7 @@ import sys
 import time
 from datetime import datetime
 
+from tt_runtime import user_config_path
 from tt_scope import is_poor_coverage, parse_ignore, scan_markdown
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
@@ -153,6 +154,7 @@ def codex_trust_health():
 def watch_regex():
     for path in (
         os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        user_config_path(),
         os.path.join(PLUGIN_ROOT, "scripts", "tt-config.sh"),
     ):
         try:
@@ -168,6 +170,7 @@ def watch_regex():
 def scope_ignore():
     for path in (
         os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        user_config_path(),
         os.path.join(PLUGIN_ROOT, "scripts", "tt-config.sh"),
     ):
         try:
@@ -282,6 +285,28 @@ def config_health():
     return "PASS", "config: project override parses and validates"
 
 
+def prompts_health():
+    """Report the effective prompt privacy mode and which layer selected it (issue #13)."""
+    mode, source = "hash", "built-in fallback"
+    for label, path in (
+        ("plugin default", os.path.join(PLUGIN_ROOT, "scripts", "tt-config.sh")),
+        ("user default", user_config_path()),
+        ("project override", os.path.join(ROOT, ".trigger-tree", "config.sh")),
+    ):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except OSError:
+            continue
+        match = re.search(r"(?m)^TT_LOG_PROMPTS='([^']+)'", text)
+        if match:
+            mode, source = match.group(1), label
+    if mode not in ("hash", "truncate", "off"):
+        return "FAIL", (
+            f"prompt logging: invalid mode '{mode}' from the {source} — use hash, truncate, or off"
+        )
+    return "PASS", f"prompt logging: {mode} (set by the {source})"
+
+
 def python_health():
     current = sys.version_info[:2]
     if SUPPORTED_PYTHON[0] <= current <= SUPPORTED_PYTHON[1]:
@@ -324,6 +349,7 @@ def main():
             liveness_health(),
             codex_trust_health(),
             config_health(),
+            prompts_health(),
             coverage_health(),
             python_health(),
             ignore_health(),

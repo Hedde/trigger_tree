@@ -23,9 +23,13 @@ Ensure `python3` resolves on `PATH`. Claude’s documented exec-form hooks do no
 ## Can prompt privacy change later?
 
 Yes. Before a project runs setup only hashes are stored — hooks are user-wide,
-and other repositories have not consented yet. `/tt setup` asks per project for
-`truncate` (a local, gitignored preview of at most 200 characters), `hash`, or
-`off`; changing the mode affects future events and does not rewrite history.
+and other repositories have not consented yet. Prefer no linkable hashes at all
+before setup? Set `TT_LOG_PROMPTS='off'` in the user-wide
+`~/.trigger-tree/config.sh`: it applies to every repository, and `tt doctor`
+reports the effective mode with the layer that selected it. `/tt setup` asks per
+project for `truncate` (a local, gitignored preview of at most 200 characters),
+`hash`, or `off`; the project choice wins over the user default, and changing
+the mode affects future events without rewriting history.
 
 ## How do I uninstall or publish the health badge?
 

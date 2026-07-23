@@ -21,13 +21,15 @@ __all__ = ["REPO", "SCRIPTS", "FIXTURE", "load_script"]
 def scrub_ambient_trigger_tree_environment():
     """Keep dogfooding hook exports from changing the suite's baseline.
 
-    CODEX_HOME points at an empty directory so a developer's real Codex trust
-    state never leaks into doctor tests.
+    CODEX_HOME and TT_USER_CONFIG point at empty locations so a developer's
+    real Codex trust state and user-wide config never leak into tests.
     """
     for name in tuple(os.environ):
         if name.startswith("TT_") or name in ("CLAUDE_PROJECT_DIR", "GITHUB_STEP_SUMMARY"):
             os.environ.pop(name, None)
-    os.environ["CODEX_HOME"] = os.path.join(tempfile.mkdtemp(prefix="tt-suite-"), "codex-home")
+    suite_dir = tempfile.mkdtemp(prefix="tt-suite-")
+    os.environ["CODEX_HOME"] = os.path.join(suite_dir, "codex-home")
+    os.environ["TT_USER_CONFIG"] = os.path.join(suite_dir, "user-config.sh")
 
 
 def load_script(filename, project_root):

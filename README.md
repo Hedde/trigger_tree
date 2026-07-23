@@ -50,8 +50,10 @@ Prefer a standalone CLI — for CI, git-hook ingestion, or dashboards without a 
 
 Before a project runs setup, prompt logging stores only a short hash — plugin
 installs are user-wide, so no repository records prompt text without its own
-explicit choice. `/tt setup` asks per project: `truncate` (recommended,
-recognizable 200-character previews), `hash`, or `off`.
+explicit choice. A user-wide default in `~/.trigger-tree/config.sh` (for
+example `TT_LOG_PROMPTS='off'`) tightens that for every repository at once;
+`/tt setup` still asks per project — `truncate` (recommended, recognizable
+200-character previews), `hash`, or `off` — and the project choice wins.
 
 ## Who gets what?
 
@@ -92,13 +94,14 @@ entry points, watch scope — so it is deterministic, needs no telemetry, and up
 nothing. Discoverable never means discovered; read telemetry stays local.
 
 ```yaml
-- uses: Hedde/trigger_tree@v1.22.0   # or: pip install trigger-tree && tt gate
+- uses: Hedde/trigger_tree@v1.23.0   # or: pip install trigger-tree && tt gate
 ```
 
 Commit a baseline once with `tt gate --update-baseline` and every PR that makes your
 docs harder to discover fails with the exact file and fix. Findings export as
 SARIF for GitHub code-scanning annotations and as a CodeClimate report
-(`--code-quality`) for GitLab's merge-request Code Quality widget. The gate checks the wiring, not the words: whether your `CLAUDE.md` actually
+(`--code-quality`) for GitLab's merge-request Code Quality widget — copy-paste
+workflows for both live in [examples/](examples/). The gate checks the wiring, not the words: whether your `CLAUDE.md` actually
 instructs agents to follow the routers is proven by local telemetry, not by the
 gate. Boundaries and details: [CI gate](docs/ci-gate.md).
 

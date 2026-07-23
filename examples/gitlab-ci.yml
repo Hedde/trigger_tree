@@ -1,0 +1,15 @@
+# Docs discoverability gate — GitLab CI example.
+# Copy this job into your .gitlab-ci.yml. The Code Quality report renders as a
+# widget on merge requests; the badge JSON works with a shields.io endpoint
+# pointed at the artifact's raw URL (Settings → General → Badges).
+docs-gate:
+  image: python:3.13-slim
+  script:
+    - pip install trigger-tree
+    - tt gate --min-score 70 --code-quality gl-code-quality-report.json --badge public/docs-discoverability.json
+  artifacts:
+    when: always
+    reports:
+      codequality: gl-code-quality-report.json
+    paths:
+      - public/docs-discoverability.json

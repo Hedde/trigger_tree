@@ -32,7 +32,7 @@ import sys
 import tempfile
 import time
 
-from tt_runtime import project_root
+from tt_runtime import project_root, user_config_path
 
 ROOT = project_root()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -51,10 +51,12 @@ DEFAULTS = {
 
 
 def conf():
-    # Layered per key: plugin default first, project override wins where present.
+    # Layered per key: plugin default, then user-wide default, then project
+    # override (issue #13). Anchored so commented examples never match.
     out = dict(DEFAULTS)
     for path in (
         os.path.join(SCRIPT_DIR, "tt-config.sh"),
+        user_config_path(),
         os.path.join(ROOT, ".trigger-tree", "config.sh"),
     ):
         try:
@@ -62,7 +64,7 @@ def conf():
         except OSError:
             continue
         for key in DEFAULTS:
-            m = re.search(key + r"='([^']+)'", text)
+            m = re.search(r"(?m)^" + key + r"='([^']+)'", text)
             if m:
                 out[key] = m.group(1)
     return out

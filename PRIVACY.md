@@ -23,7 +23,9 @@ inside the project you use it in:
   plugin installs are user-wide, and no repository records prompt text without
   its own explicit choice. Configurable via `TT_LOG_PROMPTS` in
   `.trigger-tree/config.sh`:
-  - `hash` (the fallback before setup) — a SHA-1 digest only, no text
+  - `hash` (the fallback before setup) — a SHA-1 digest only, no text; a
+    user-wide `~/.trigger-tree/config.sh` can set `off` as the pre-setup
+    default for every repository, and the project's own choice always wins
   - `truncate` (recommended during setup) — first 200 characters, local and gitignored
   - `off` — a bare marker, nothing else
 - **Notes**: text you explicitly add with `/tt note`.

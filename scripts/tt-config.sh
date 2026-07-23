@@ -1,4 +1,6 @@
 # trigger-tree — default configuration.
+# Layering: this file < user-wide ~/.trigger-tree/config.sh (or TT_USER_CONFIG)
+# < project .trigger-tree/config.sh. The project always wins.
 # Override per project: create $PROJECT/.trigger-tree/config.sh with the same variables.
 # Paths are relative to the project root.
 

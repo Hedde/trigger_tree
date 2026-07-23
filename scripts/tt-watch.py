@@ -31,6 +31,8 @@ import unicodedata
 from collections import Counter, deque
 from datetime import datetime, timezone
 
+from tt_runtime import user_config_path
+
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 HIST = os.path.join(ROOT, ".trigger-tree", "history.jsonl")
 
@@ -50,6 +52,7 @@ def _conf_texts():
     texts = []
     for path in (
         os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        user_config_path(),
         os.path.join(SCRIPT_DIR, "tt-config.sh"),
     ):
         try:
@@ -61,7 +64,7 @@ def _conf_texts():
 
 def _conf_regex(name, fallback):
     for text in _conf_texts():
-        m = re.search(name + r"='([^']+)'", text)
+        m = re.search(r"(?m)^" + name + r"='([^']+)'", text)
         if m:
             try:
                 return re.compile(m.group(1))
