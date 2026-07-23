@@ -33,7 +33,10 @@ def test_release_body_appends_install_footer_once():
     body = release_notes.release_body("v2.0.0", CHANGELOG)
     assert body.startswith("- Second entry line.")
     assert body.count("/plugin install trigger-tree@trigger-tree") == 1
-    assert "codex plugin install trigger-tree" in body
+    # Codex pint op de eigen tag; `codex plugin install` bestaat niet (issue #12).
+    assert "codex plugin marketplace add Hedde/trigger_tree --ref v2.0.0" in body
+    assert "codex plugin add trigger-tree@trigger-tree" in body
+    assert "codex plugin install" not in body
 
 
 def test_unknown_and_empty_versions_fail_loudly():

@@ -8,6 +8,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
+# Install commands must exist in README.md too — the docs-currency guard keeps
+# this footer from drifting to a command the CLIs no longer accept (issue #12).
 FOOTER = """
 ---
 
@@ -18,11 +20,11 @@ FOOTER = """
 /plugin install trigger-tree@trigger-tree
 ```
 
-**Install (Codex)**
+**Install (Codex, pinned to this release)**
 
 ```
-codex plugin marketplace add Hedde/trigger_tree
-codex plugin install trigger-tree
+codex plugin marketplace add Hedde/trigger_tree --ref {tag}
+codex plugin add trigger-tree@trigger-tree
 ```
 
 [Website](https://hedde.github.io/trigger_tree/) · [Documentation](https://github.com/Hedde/trigger_tree/tree/main/docs) · [Changelog](https://github.com/Hedde/trigger_tree/blob/main/CHANGELOG.md) · [Privacy](https://github.com/Hedde/trigger_tree/blob/main/PRIVACY.md)
@@ -43,7 +45,7 @@ def changelog_section(text: str, version: str) -> str:
 
 def release_body(tag: str, changelog_text: str) -> str:
     version = tag.removeprefix("v")
-    return changelog_section(changelog_text, version) + "\n" + FOOTER
+    return changelog_section(changelog_text, version) + "\n" + FOOTER.format(tag=tag)
 
 
 def main(tag: str) -> None:

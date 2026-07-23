@@ -117,12 +117,26 @@ def test_docs_currency_rejects_induced_command_and_link_drift(tmp_path):
         "- Status: run it\n- Tips: run it\n", encoding="utf-8"
     )
     (tmp_path / "index.html").write_text("/tt status", encoding="utf-8")
+    (tmp_path / ".github/scripts").mkdir(parents=True)
+    (tmp_path / ".github/scripts/release_notes.py").write_text(
+        'FOOTER = """\ncodex plugin marketplace add Hedde/trigger_tree --ref {tag}\n"""\n',
+        encoding="utf-8",
+    )
     (tmp_path / "README.md").write_text("/tt missing\n[broken](docs/gone.md)\n", encoding="utf-8")
     with pytest.raises(SystemExit, match="README.md command drift"):
         mod.check_docs_currency(tmp_path)
 
     (tmp_path / "README.md").write_text(
-        "/tt status — docs\n[broken](docs/gone.md)\n", encoding="utf-8"
+        "/tt status — docs\ncodex plugin install trigger-tree\n[broken](docs/gone.md)\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit, match="release-notes install snippet drifts"):
+        mod.check_docs_currency(tmp_path)
+
+    (tmp_path / "README.md").write_text(
+        "/tt status — docs\ncodex plugin marketplace add Hedde/trigger_tree\n"
+        "[broken](docs/gone.md)\n",
+        encoding="utf-8",
     )
     with pytest.raises(SystemExit, match="broken relative link"):
         mod.check_docs_currency(tmp_path)

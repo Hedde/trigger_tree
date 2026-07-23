@@ -65,6 +65,14 @@ def check_docs_currency(root: Path = ROOT) -> None:
     labels = set(re.findall(r"^- ([A-Za-z ]+):", codex, re.M))
     codex_commands = {CODEX_LABELS.get(label.lower(), label.lower()) for label in labels}
     require_commands("Codex workflows", codex_commands, public | CLAUDE_SECTION_ONLY)
+
+    # Release bodies advertise install commands too; every command in the
+    # footer template must exist verbatim in the README (issue #12).
+    notes = (root / ".github/scripts/release_notes.py").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    for command in re.findall(r"(?m)^((?:/plugin|codex plugin) .+)$", notes):
+        if command.replace(" --ref {tag}", "") not in readme:
+            fail(f"release-notes install snippet drifts from README.md: {command}")
     check_relative_links(root)
 
 
