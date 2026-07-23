@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.18.0 — 2026-07-23
+
+- Adds `tt gate` / `/tt gate`: a deterministic, telemetry-free CI gate for static
+  documentation discoverability — router coverage, orphaned docs, folder entry
+  points, and watch scope — with a committed no-regression baseline, an optional
+  absolute threshold, shields.io badge output, and exact per-file findings.
+  Discoverable never means discovered: read telemetry stays local and is not used.
+- Ships a composite GitHub Action at the repository root
+  (`uses: Hedde/trigger_tree@v1.18.0`) that installs its own pinned version inside
+  the runner and uploads nothing; any other CI uses `pip install trigger-tree`.
+- Eats the dogfood: this repository runs the gate through the published action on
+  every build, commits its 95% baseline, links the /tt command contract from the
+  docs router (fixing its own orphan finding), and publishes a live
+  docs-discoverability badge alongside coverage.
+
 ## 1.17.0 — 2026-07-22
 
 - Publishes an example insights report on the website, generated from fixed
