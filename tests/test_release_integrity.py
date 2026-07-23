@@ -117,6 +117,10 @@ def test_docs_currency_rejects_induced_command_and_link_drift(tmp_path):
         "- Status: run it\n- Tips: run it\n", encoding="utf-8"
     )
     (tmp_path / "index.html").write_text("/tt status", encoding="utf-8")
+    (tmp_path / ".agents/plugins").mkdir(parents=True)
+    (tmp_path / ".agents/plugins/marketplace.json").write_text(
+        '{"plugins": [{"source": "./"}]}', encoding="utf-8"
+    )
     (tmp_path / ".github/scripts").mkdir(parents=True)
     (tmp_path / ".github/scripts/release_notes.py").write_text(
         'FOOTER = """\ncodex plugin marketplace add Hedde/trigger_tree --ref {tag}\n"""\n',
@@ -137,6 +141,17 @@ def test_docs_currency_rejects_induced_command_and_link_drift(tmp_path):
         "/tt status — docs\ncodex plugin marketplace add Hedde/trigger_tree\n"
         "[broken](docs/gone.md)\n",
         encoding="utf-8",
+    )
+    # Een hardcoded ref in de Codex-bron ondermijnt tag-pinning (issue #6).
+    (tmp_path / ".agents/plugins/marketplace.json").write_text(
+        '{"plugins": [{"source": {"source": "url", "url": "x", "ref": "main"}}]}',
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit, match="must be './' to stay pinnable"):
+        mod.check_docs_currency(tmp_path)
+
+    (tmp_path / ".agents/plugins/marketplace.json").write_text(
+        '{"plugins": [{"source": "./"}]}', encoding="utf-8"
     )
     with pytest.raises(SystemExit, match="broken relative link"):
         mod.check_docs_currency(tmp_path)

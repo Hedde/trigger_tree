@@ -73,6 +73,19 @@ def check_docs_currency(root: Path = ROOT) -> None:
     for command in re.findall(r"(?m)^((?:/plugin|codex plugin) .+)$", notes):
         if command.replace(" --ref {tag}", "") not in readme:
             fail(f"release-notes install snippet drifts from README.md: {command}")
+
+    # Codex resolves the plugin from this manifest. A URL source with a
+    # hardcoded ref defeats tag pinning (issue #6): the source must stay
+    # relative so a pinned marketplace checkout installs its own bytes.
+    codex_market = json.loads(
+        (root / ".agents/plugins/marketplace.json").read_text(encoding="utf-8")
+    )
+    for plugin in codex_market["plugins"]:
+        if plugin.get("source") != "./":
+            fail(
+                "Codex marketplace plugin source must be './' to stay pinnable, "
+                f"got {plugin.get('source')!r}"
+            )
     check_relative_links(root)
 
 

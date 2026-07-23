@@ -30,7 +30,7 @@ def test_codex_manifest_is_complete_and_references_real_components():
         assert (ROOT / interface[field].removeprefix("./")).is_file()
 
 
-def test_codex_marketplace_installs_repository_root_from_git():
+def test_codex_marketplace_installs_the_checkout_itself():
     market = json.loads(
         (ROOT / ".agents" / "plugins" / "marketplace.json").read_text(encoding="utf-8")
     )
@@ -39,11 +39,9 @@ def test_codex_marketplace_installs_repository_root_from_git():
     assert len(market["plugins"]) == 1
     entry = market["plugins"][0]
     assert entry["name"] == "trigger-tree"
-    assert entry["source"] == {
-        "source": "url",
-        "url": "https://github.com/Hedde/trigger_tree.git",
-        "ref": "main",
-    }
+    # Relatief, zodat een op een tag gepinde marketplace-checkout zijn eigen
+    # bytes installeert — een hardcoded url+ref volgde altijd main (issue #6).
+    assert entry["source"] == "./"
     assert entry["policy"] == {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL",
