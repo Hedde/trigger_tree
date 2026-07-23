@@ -26,15 +26,31 @@ SCHEMA = 1
 WEIGHTS = {"routed": 40, "linked": 30, "entry_points": 20, "watch_scope": 10}
 SHOWN_OFFENDERS = 5
 OFFENDER_KINDS = (
-    ("unlisted", "Unlisted in their folder router", "add a link in the folder's entry point"),
-    ("orphans", "Orphans (no doc links to them)", "link from a router or related doc"),
+    (
+        "unlisted",
+        "TTD001",
+        "warning",
+        "Unlisted in their folder router",
+        "add a link in the folder's entry point",
+    ),
+    (
+        "orphans",
+        "TTD002",
+        "warning",
+        "Orphans (no doc links to them)",
+        "link from a router or related doc",
+    ),
     (
         "folders_without_entry_point",
+        "TTD003",
+        "warning",
         "Folders without an entry point",
         "add README.md, _index.md, or index.md",
     ),
     (
         "unwatched",
+        "TTD004",
+        "note",
         "Outside the watch scope",
         "watch it via TT_WATCH_REGEX if agents should read it; leaving human-only "
         "files (templates, changelogs) unwatched is a valid choice",
@@ -196,6 +212,59 @@ def _offenders(label, paths, fix):
     return lines
 
 
+def _version():
+    manifest = os.path.join(os.path.dirname(SCRIPT_DIR), ".claude-plugin", "plugin.json")
+    try:
+        return json.loads(open(manifest, encoding="utf-8").read())["version"]
+    except (OSError, ValueError, KeyError):
+        return "unknown"
+
+
+def sarif_payload(result, score, verdict):
+    """SARIF 2.1.0: the standard exchange format for static-analysis findings."""
+    rules, findings = [], []
+    for key, rule_id, level, label, fix in OFFENDER_KINDS:
+        rules.append(
+            {
+                "id": rule_id,
+                "name": key.replace("_", "-"),
+                "shortDescription": {"text": label},
+                "help": {"text": fix},
+            }
+        )
+        for path in result[key]:
+            findings.append(
+                {
+                    "ruleId": rule_id,
+                    "level": level,
+                    "message": {"text": f"{label}: {path} — {fix}"},
+                    "locations": [{"physicalLocation": {"artifactLocation": {"uri": path}}}],
+                }
+            )
+    return {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "trigger-tree-gate",
+                        "informationUri": "https://github.com/Hedde/trigger_tree",
+                        "version": _version(),
+                        "rules": rules,
+                    }
+                },
+                "results": findings,
+                "properties": {
+                    "score": score,
+                    "components": result["components"],
+                    "verdict": verdict,
+                },
+            }
+        ],
+    }
+
+
 def _write_step_summary(result, score, status_lines):
     """Mirror the verdict onto the GitHub run page when CI provides the hook."""
     path = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -205,7 +274,7 @@ def _write_step_summary(result, score, status_lines):
     for name, value in sorted(result["components"].items()):
         lines.append(f"| {name.replace('_', ' ')} | {value}% |")
     lines.append("")
-    for key, label, fix in OFFENDER_KINDS:
+    for key, _rule, _level, label, fix in OFFENDER_KINDS:
         paths = result[key]
         if not paths:
             continue
@@ -226,6 +295,7 @@ def run(argv=None):
     parser.add_argument("--baseline", default=BASELINE_PATH)
     parser.add_argument("--update-baseline", action="store_true")
     parser.add_argument("--badge", default=None, metavar="PATH")
+    parser.add_argument("--sarif", default=None, metavar="PATH")
     args = parser.parse_args(argv)
 
     result = measure(structure_stats())
@@ -237,7 +307,7 @@ def run(argv=None):
     if not result["evaluable_docs"]:
         print("No watched documentation found — nothing to gate (see TT_WATCH_REGEX).")
 
-    for key, label, fix in OFFENDER_KINDS:
+    for key, _rule, _level, label, fix in OFFENDER_KINDS:
         for line in _offenders(label, result[key], fix):
             print(line)
 
@@ -251,7 +321,9 @@ def run(argv=None):
     if args.update_baseline:
         write_json(baseline_path, {"schema": SCHEMA, "score": score})
         print(f"baseline updated: {args.baseline} (score {score})")
-        _write_step_summary(result, score, [f"baseline updated to {score}"])
+        if args.sarif:
+            write_json(args.sarif, sarif_payload(result, score, "baseline-updated"))
+        _write_step_summary(result, score, [f"✅ baseline updated to {score}"])
         return 0
 
     failures = []
@@ -267,7 +339,9 @@ def run(argv=None):
     if failures:
         for failure in failures:
             print(f"GATE FAILED: {failure}")
-        _write_step_summary(result, score, [f"GATE FAILED: {failure}" for failure in failures])
+        if args.sarif:
+            write_json(args.sarif, sarif_payload(result, score, "failed"))
+        _write_step_summary(result, score, [f"❌ GATE FAILED: {failure}" for failure in failures])
         return 1
     if baseline is None and args.min_score is None:
         print(
@@ -275,7 +349,9 @@ def run(argv=None):
             f"{args.baseline} to enforce no-regression on every PR."
         )
     print("gate passed")
-    _write_step_summary(result, score, ["gate passed"])
+    if args.sarif:
+        write_json(args.sarif, sarif_payload(result, score, "passed"))
+    _write_step_summary(result, score, ["✅ gate passed"])
     return 0
 
 

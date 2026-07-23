@@ -49,7 +49,7 @@ Be precise about the boundary — three layers, three tools:
 GitHub Actions (installs its own pinned version, runs inside your runner):
 
 ```yaml
-- uses: Hedde/trigger_tree@v1.18.0
+- uses: Hedde/trigger_tree@v1.19.0
   with:
     min-score: "70"        # optional absolute floor
     badge: "discoverability.json"   # optional shields.io endpoint output
@@ -72,6 +72,27 @@ With a committed baseline, the gate fails any change that lowers the score and
 names the exact offending files with the edit that fixes them. Raising the bar is
 deliberate: fix findings, re-run `--update-baseline`, commit. `/tt setup` keeps the
 gitignore exception for `gate.json` in place.
+
+## Machine-readable output (SARIF)
+
+`--sarif PATH` writes a deterministic [SARIF 2.1.0](https://sarifweb.azurewebsites.net/)
+report — the standard exchange format for static-analysis findings — with one rule
+per category (`TTD001` unlisted router member, `TTD002` orphan, `TTD003` missing
+folder entry point, `TTD004` outside watch scope; the first three are warnings, the
+fourth a note) and the score, components, and verdict in the run properties. Upload
+it to GitHub code scanning for per-file annotations on pull requests, or attach it
+as a build artifact for any other tooling:
+
+```yaml
+- uses: Hedde/trigger_tree@v1.19.0
+  with:
+    sarif: "tt-gate.sarif"
+- uses: github/codeql-action/upload-sarif@4187e74d05793876e9989daffde9c3e66b4acd07 # v3
+  with:
+    sarif_file: tt-gate.sarif
+```
+
+On GitHub Actions the verdict also lands on the run's step summary automatically.
 
 ## Exit codes
 

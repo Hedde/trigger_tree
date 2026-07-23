@@ -5,7 +5,7 @@ import subprocess
 import sys
 
 import pytest
-from conftest import FIXTURE, load_script
+from conftest import FIXTURE, REPO, load_script
 
 STATS = {
     "router_coverage": [
@@ -145,13 +145,14 @@ def test_step_summary_written_for_pass_fail_and_baseline_update(tmp_path, monkey
     assert "### 🌳 docs discoverability: 57%" in text
     assert "| watch scope | 50% |" in text
     assert "`docs/ui/gap.md` — add a link in the folder's entry point" in text
-    assert "**gate passed**" in text
+    assert "**✅ gate passed**" in text
     assert mod.run(["--update-baseline"]) == 0
-    assert "**baseline updated to 57**" in summary.read_text(encoding="utf-8")
+    assert "**✅ baseline updated to 57**" in summary.read_text(encoding="utf-8")
     (tmp_path / ".trigger-tree" / "gate.json").write_text('{"schema": 1, "score": 90}')
     assert mod.run([]) == 1
-    assert "**GATE FAILED: score 57 regressed below the committed baseline 90" in summary.read_text(
-        encoding="utf-8"
+    assert (
+        "**❌ GATE FAILED: score 57 regressed below the committed baseline 90"
+        in summary.read_text(encoding="utf-8")
     )
     capsys.readouterr()
 
@@ -188,6 +189,58 @@ def test_step_summary_absent_without_ci_hook(tmp_path, monkeypatch):
         ["x"],
     )
     assert not list(tmp_path.glob("*.md"))
+
+
+def test_sarif_report_follows_the_standard_and_is_deterministic(tmp_path, monkeypatch):
+    mod = gate(tmp_path, monkeypatch)
+    sarif_path = tmp_path / "gate.sarif"
+    assert mod.run(["--sarif", str(sarif_path)]) == 0
+    first = sarif_path.read_bytes()
+    report = json.loads(first)
+    assert report["version"] == "2.1.0" and "sarif-2.1.0" in report["$schema"]
+    run = report["runs"][0]
+    assert run["tool"]["driver"]["name"] == "trigger-tree-gate"
+    assert [rule["id"] for rule in run["tool"]["driver"]["rules"]] == [
+        "TTD001",
+        "TTD002",
+        "TTD003",
+        "TTD004",
+    ]
+    by_rule = {}
+    for finding in run["results"]:
+        by_rule.setdefault(finding["ruleId"], []).append(finding)
+    assert by_rule["TTD001"][0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == (
+        "docs/ui/gap.md"
+    )
+    assert by_rule["TTD001"][0]["level"] == "warning"
+    assert by_rule["TTD004"][0]["level"] == "note"
+    assert run["properties"]["verdict"] == "passed" and run["properties"]["score"] == 57
+    assert mod.run(["--sarif", str(sarif_path)]) == 0
+    assert sarif_path.read_bytes() == first  # byte-identiek: deterministisch
+
+
+def test_sarif_verdicts_cover_failure_and_baseline_update(tmp_path, monkeypatch):
+    mod = gate(tmp_path, monkeypatch)
+    sarif_path = tmp_path / "gate.sarif"
+    assert mod.run(["--update-baseline", "--sarif", str(sarif_path)]) == 0
+    assert json.loads(sarif_path.read_text())["runs"][0]["properties"]["verdict"] == (
+        "baseline-updated"
+    )
+    (tmp_path / ".trigger-tree" / "gate.json").write_text('{"schema": 1, "score": 90}')
+    assert mod.run(["--sarif", str(sarif_path)]) == 1
+    assert json.loads(sarif_path.read_text())["runs"][0]["properties"]["verdict"] == "failed"
+
+
+def test_tool_version_comes_from_the_manifest_with_fallback(tmp_path, monkeypatch):
+    mod = gate(tmp_path, monkeypatch)
+    import json as json_module
+
+    real = json_module.load(
+        open(os.path.join(REPO, ".claude-plugin", "plugin.json"), encoding="utf-8")
+    )["version"]
+    assert mod._version() == real
+    monkeypatch.setattr(mod, "SCRIPT_DIR", str(tmp_path / "nergens" / "scripts"))
+    assert mod._version() == "unknown"
 
 
 def test_offender_lists_are_capped(tmp_path, monkeypatch):

@@ -16,6 +16,10 @@ inputs:
     description: "Optional path to write a shields.io endpoint JSON for a docs-discoverability badge."
     required: false
     default: ""
+  sarif:
+    description: "Optional path to write a SARIF 2.1.0 report for code-scanning upload or artifact publishing."
+    required: false
+    default: ""
 runs:
   using: "composite"
   steps:
@@ -25,9 +29,11 @@ runs:
         MIN_SCORE: ${{ inputs.min-score }}
         BASELINE: ${{ inputs.baseline }}
         BADGE: ${{ inputs.badge }}
+        SARIF: ${{ inputs.sarif }}
       run: |
         python3 -m pip install --quiet "${{ github.action_path }}"
         set -- --baseline "$BASELINE"
         if [ -n "$MIN_SCORE" ]; then set -- "$@" --min-score "$MIN_SCORE"; fi
         if [ -n "$BADGE" ]; then set -- "$@" --badge "$BADGE"; fi
+        if [ -n "$SARIF" ]; then set -- "$@" --sarif "$SARIF"; fi
         tt gate "$@"
