@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.18.1 — 2026-07-23
+
+- Names the markdown files outside the watch scope as a fourth offender category,
+  so a lowered watch-scope component is as actionable as the other three.
+- Writes the gate verdict — score table, findings, pass/fail — to the GitHub run's
+  step summary when CI provides the hook, so reviewers see why a score is not 100%
+  without opening the job log.
+
 ## 1.18.0 — 2026-07-23
 
 - Adds `tt gate` / `/tt gate`: a deterministic, telemetry-free CI gate for static
