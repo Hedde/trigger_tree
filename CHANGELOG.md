@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.23.2 — 2026-07-23
+
+- Codex tag pinning now pins the installed bytes (#6 reopen, verified by
+  @BartWaardenburg): the Codex marketplace manifest hardcoded its plugin
+  source to the repository's `main` ref, so a marketplace added with
+  `--ref vX.Y.Z` still installed whatever `main` contained. The source is
+  now relative (`./`), which makes a pinned marketplace checkout install
+  its own bytes — verified against Codex CLI 0.145.0 with a checkout whose
+  version deliberately differed from `main`. A release-integrity guard now
+  fails any change that reintroduces a hardcoded ref. Pinning works for
+  tags from v1.23.2 onward; earlier tags carry the old manifest and still
+  resolve `main`.
+
 ## 1.23.1 — 2026-07-23
 
 - The dashboard launcher fails gracefully in GUI-less runtimes (#14): sandboxed
