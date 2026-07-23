@@ -36,7 +36,8 @@ OFFENDER_KINDS = (
     (
         "unwatched",
         "Outside the watch scope",
-        "extend TT_WATCH_REGEX in .trigger-tree/config.sh or move under a watched folder",
+        "watch it via TT_WATCH_REGEX if agents should read it; leaving human-only "
+        "files (templates, changelogs) unwatched is a valid choice",
     ),
 )
 

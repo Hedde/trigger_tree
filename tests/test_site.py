@@ -76,6 +76,7 @@ def test_ci_gate_section_shows_the_committed_baseline_honestly():
     assert "Gate your CI on discoverability" in html
     assert "uses: Hedde/trigger_tree@v" in html
     assert "Discoverable never means discovered" in html
+    assert "proven by telemetry, not by the gate" in html
     baseline = json.load(open(f"{REPO}/.trigger-tree/gate.json", encoding="utf-8"))
     assert f'<span class="pill-value">{baseline["score"]}%</span>' in html
 

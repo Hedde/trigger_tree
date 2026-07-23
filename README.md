@@ -78,7 +78,9 @@ nothing. Discoverable never means discovered; read telemetry stays local.
 ```
 
 Commit a baseline once with `tt gate --update-baseline` and every PR that makes your
-docs harder to discover fails with the exact file and fix. Details: [CI gate](docs/ci-gate.md).
+docs harder to discover fails with the exact file and fix. The gate checks the wiring, not the words: whether your `CLAUDE.md` actually
+instructs agents to follow the routers is proven by local telemetry, not by the
+gate. Boundaries and details: [CI gate](docs/ci-gate.md).
 
 ## Where it fits
 

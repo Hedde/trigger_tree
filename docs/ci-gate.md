@@ -22,6 +22,28 @@ markdown files outside the watch scope. On GitHub Actions the same verdict is
 written to the run's step summary, so the score table and findings appear on the
 run page without opening the log.
 
+## What the gate does not measure
+
+Be precise about the boundary — three layers, three tools:
+
+1. **Instruction layer — not measured.** The gate verifies that link paths exist,
+   never whether your root `CLAUDE.md` actually *instructs* agents to follow them.
+   "Start at the docs router" and a passing mention of the same path score
+   identically; judging prose semantics would break determinism. Whether the
+   instruction works is proven by the local telemetry: a green gate with a cold
+   heat map and rising search activity is the classic signal that the wiring is
+   fine but the instruction fails.
+2. **Root entry existence — known gap.** A repository without any root context
+   file can currently score 100% while agents have no starting point at all. A
+   deterministic existence check (root `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`
+   present and linking at least one watched doc) is a planned addition.
+3. **Watch scope is a review prompt, not a defect list.** Files listed under
+   "Outside the watch scope" are markdown the gate cannot see — which is often
+   correct: issue templates, changelogs, and other human-only files belong
+   outside the measurement. The component is capped at 10 of the 100 points for
+   exactly this reason. Extend `TT_WATCH_REGEX` only for files agents should
+   actually read.
+
 ## Usage
 
 GitHub Actions (installs its own pinned version, runs inside your runner):
