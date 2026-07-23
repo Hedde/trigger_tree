@@ -14,6 +14,9 @@
   every build, commits its 95% baseline, links the /tt command contract from the
   docs router (fixing its own orphan finding), and publishes a live
   docs-discoverability badge alongside coverage.
+- Showcases the gate on the website with a self-contained baseline pill that a test
+  locks to the committed `.trigger-tree/gate.json`, so the shown score can never
+  drift from the enforced one.
 
 ## 1.17.0 — 2026-07-22
 

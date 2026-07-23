@@ -78,6 +78,9 @@
               border:1px solid var(--line); border-radius:6px; font:.75rem ui-monospace,monospace;
               padding:.25rem .55rem; cursor:pointer; }
   .copy-btn:hover { color:var(--fg); border-color:var(--muted); }
+  .pill { display:inline-flex; font:.8rem ui-monospace,Menlo,monospace; border-radius:4px; overflow:hidden; margin:.35rem 0; }
+  .pill-label { background:#3a4450; color:#fff; padding:.28rem .6rem; }
+  .pill-value { background:var(--green); color:#0c1014; padding:.28rem .6rem; font-weight:700; }
   .health-story { display:grid; grid-template-columns:8rem 1fr; gap:1.5rem; align-items:start;
                   border-top:1px solid var(--line); padding:1.4rem 0; }
   .health-grade { font:700 1.35rem/1.2 ui-monospace,Menlo,monospace; color:var(--green); text-align:left; padding-top:.15rem; }
@@ -175,6 +178,15 @@
     <div><b>Documentation linters</b><p>Is the documentation structurally or stylistically valid?</p></div>
     <div><b>trigger-tree</b><p>Which local project docs did the coding assistant discover?</p></div>
   </div>
+
+  <h2>Gate your CI on discoverability</h2>
+  <p class="install-note" style="max-width:720px;margin-top:0">The gate scores repository structure only —
+  router coverage, orphaned docs, folder entry points, watch scope. Deterministic, telemetry-free, and
+  nothing leaves your runner. Discoverable never means discovered; what agents actually read stays local.</p>
+  <pre class="block">- uses: Hedde/trigger_tree@v1.18.0   # or: pip install trigger-tree &amp;&amp; tt gate</pre>
+  <p class="install-note">Commit a baseline once (<code>tt gate --update-baseline</code>) and every PR that makes
+  your docs harder to discover fails with the exact file and the fix — plus a live README badge:</p>
+  <span class="pill" title="this repository's committed gate baseline"><span class="pill-label">docs discoverability</span><span class="pill-value">95%</span></span>
 
   <h2>Install</h2>
   <div class="install-grid">

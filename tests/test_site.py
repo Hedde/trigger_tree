@@ -1,3 +1,5 @@
+import json
+
 from conftest import REPO
 
 
@@ -67,6 +69,15 @@ def test_example_report_is_published_and_labeled_synthetic():
     assert "Example report</b> — generated from synthetic demo data" in report
     assert "never leave your machine" in report
     assert 'src="http' not in report and "https://cdn" not in report
+
+
+def test_ci_gate_section_shows_the_committed_baseline_honestly():
+    html = open(f"{REPO}/index.html", encoding="utf-8").read()
+    assert "Gate your CI on discoverability" in html
+    assert "uses: Hedde/trigger_tree@v" in html
+    assert "Discoverable never means discovered" in html
+    baseline = json.load(open(f"{REPO}/.trigger-tree/gate.json", encoding="utf-8"))
+    assert f'<span class="pill-value">{baseline["score"]}%</span>' in html
 
 
 def test_search_presence_files_agree_on_the_canonical_url():
