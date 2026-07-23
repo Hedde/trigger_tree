@@ -1,0 +1,33 @@
+name: "trigger-tree docs discoverability gate"
+description: "Deterministic, telemetry-free CI gate for documentation discoverability: router coverage, orphaned docs, folder entry points, and watch scope. Nothing is uploaded — the analysis runs inside your runner."
+branding:
+  icon: "book-open"
+  color: "green"
+inputs:
+  min-score:
+    description: "Fail when the discoverability score is below this number (0-100). Empty disables the absolute threshold."
+    required: false
+    default: ""
+  baseline:
+    description: "Path to the committed baseline JSON; the gate fails on regression below it. Create it with `tt gate --update-baseline`."
+    required: false
+    default: ".trigger-tree/gate.json"
+  badge:
+    description: "Optional path to write a shields.io endpoint JSON for a docs-discoverability badge."
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - name: Run the discoverability gate
+      shell: bash
+      env:
+        MIN_SCORE: ${{ inputs.min-score }}
+        BASELINE: ${{ inputs.baseline }}
+        BADGE: ${{ inputs.badge }}
+      run: |
+        python3 -m pip install --quiet "${{ github.action_path }}"
+        set -- --baseline "$BASELINE"
+        if [ -n "$MIN_SCORE" ]; then set -- "$@" --min-score "$MIN_SCORE"; fi
+        if [ -n "$BADGE" ]; then set -- "$@" --badge "$BADGE"; fi
+        tt gate "$@"

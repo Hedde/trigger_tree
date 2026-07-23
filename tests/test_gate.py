@@ -1,0 +1,199 @@
+import json
+import os
+import subprocess
+import sys
+
+import pytest
+from conftest import FIXTURE, load_script
+
+STATS = {
+    "router_coverage": [
+        {
+            "folder": "docs/ui",
+            "router": "docs/ui/index.md",
+            "files": 3,
+            "listed": 2,
+            "unlisted": ["docs/ui/_tpl.md", "docs/ui/gap.md"],
+        }
+    ],
+    "untouched_detail": [
+        {
+            "path": "docs/ui/index.md",
+            "inbound_refs": 1,
+            "is_router": True,
+            "router_mentions_target": True,
+            "template": False,
+        },
+        {
+            "path": "docs/ui/gap.md",
+            "inbound_refs": 0,
+            "is_router": False,
+            "router_mentions_target": False,
+            "template": False,
+        },
+        {
+            "path": "docs/ui/linked.md",
+            "inbound_refs": 2,
+            "is_router": False,
+            "router_mentions_target": True,
+            "template": False,
+        },
+        {"path": "docs/ui/_tpl.md", "inbound_refs": 0, "template": True},
+        {
+            "path": "skills/x/SKILL.md",
+            "inbound_refs": 0,
+            "is_router": False,
+            "router_mentions_target": False,
+            "template": False,
+        },
+    ],
+    "folders": [
+        {"folder": "(root)", "files": 1, "has_index": True},
+        {"folder": ".claude/rules", "files": 1, "has_index": False},
+        {"folder": "docs/ui", "files": 3, "has_index": True},
+        {"folder": "docs/ops", "files": 2, "has_index": False},
+        {"folder": "skills/x", "files": 1, "has_index": False},
+        {"folder": "docs/empty", "files": 0, "has_index": False},
+    ],
+}
+
+
+def gate(tmp_path, monkeypatch, stats=STATS, watched=(1, 2)):
+    mod = load_script("tt-gate.py", tmp_path)
+    monkeypatch.setattr(mod, "ROOT", str(tmp_path))
+    monkeypatch.setattr(mod, "structure_stats", lambda: json.loads(json.dumps(stats)))
+    monkeypatch.setattr(
+        mod, "scan_markdown", lambda *_args, **_kw: {"watched": watched[0], "markdown": watched[1]}
+    )
+    return mod
+
+
+def test_measure_scores_components_and_names_offenders(tmp_path, monkeypatch):
+    mod = gate(tmp_path, monkeypatch)
+    result = mod.measure(mod.structure_stats())
+    assert result["unlisted"] == ["docs/ui/gap.md"]  # template filtered
+    assert result["orphans"] == ["docs/ui/gap.md", "skills/x/SKILL.md"]
+    assert result["folders_without_entry_point"] == ["docs/ops"]  # skill package skipped
+    assert result["components"] == {
+        "routed": 67,
+        "linked": 50,
+        "entry_points": 50,
+        "watch_scope": 50,
+    }
+    assert result["score"] == 57
+    assert mod._fraction(0, 0) == 1.0
+
+
+def test_badge_colors_cover_the_full_ramp(tmp_path, monkeypatch):
+    mod = gate(tmp_path, monkeypatch)
+    ramp = {95: "brightgreen", 85: "green", 75: "yellow", 65: "orange", 10: "red"}
+    for score, color in ramp.items():
+        payload = mod.badge_payload(score)
+        assert payload["color"] == color and payload["message"] == f"{score}%"
+        assert payload["label"] == "docs discoverability"
+
+
+def test_run_reports_hint_without_baseline_and_writes_badge(tmp_path, monkeypatch, capsys):
+    mod = gate(tmp_path, monkeypatch)
+    badge = tmp_path / "badge.json"
+    assert mod.run(["--badge", str(badge)]) == 0
+    out = capsys.readouterr().out
+    assert "docs discoverability: 57%" in out
+    assert "docs/ui/gap.md — add a link in the folder's entry point" in out
+    assert "docs/ops — add README.md, _index.md, or index.md" in out
+    assert "No baseline committed yet" in out and "gate passed" in out
+    assert json.loads(badge.read_text())["message"] == "57%"
+
+
+def test_baseline_ratchet_fails_on_regression_and_updates(tmp_path, monkeypatch, capsys):
+    mod = gate(tmp_path, monkeypatch)
+    assert mod.run(["--update-baseline"]) == 0
+    baseline = tmp_path / ".trigger-tree" / "gate.json"
+    assert json.loads(baseline.read_text()) == {"schema": 1, "score": 57}
+    assert mod.run([]) == 0  # equal score passes
+    baseline.write_text(json.dumps({"schema": 1, "score": 90}))
+    assert mod.run([]) == 1
+    assert "regressed below the committed baseline 90" in capsys.readouterr().out
+    assert mod.run(["--baseline", str(baseline)]) == 1  # absolute path branch
+
+
+def test_min_score_gate_and_vacuous_empty_repo(tmp_path, monkeypatch, capsys):
+    mod = gate(tmp_path, monkeypatch)
+    assert mod.run(["--min-score", "80"]) == 1
+    assert "below --min-score 80" in capsys.readouterr().out
+    empty = {"router_coverage": [], "untouched_detail": [], "folders": []}
+    mod2 = gate(tmp_path, monkeypatch, stats=empty, watched=(0, 0))
+    assert mod2.run([]) == 0
+    assert "nothing to gate" in capsys.readouterr().out
+
+
+def test_offender_lists_are_capped(tmp_path, monkeypatch):
+    mod = gate(tmp_path, monkeypatch)
+    lines = mod._offenders("Orphans", [f"docs/{index}.md" for index in range(7)], "fix it")
+    assert lines[0] == "Orphans (7):" and "… +2 more" in lines[-1]
+    assert mod._offenders("Orphans", [], "fix it") == []
+
+
+def test_baseline_validation_fails_loudly(tmp_path, monkeypatch, capsys):
+    mod = gate(tmp_path, monkeypatch)
+    bad = tmp_path / "bad.json"
+    bad.write_text("not json")
+    monkeypatch.setattr(sys, "argv", ["tt-gate.py", "--baseline", str(bad)])
+    assert mod.main() == 2
+    assert "not valid JSON" in capsys.readouterr().err
+    bad.write_text(json.dumps({"schema": 99}))
+    assert mod.main() == 2
+    assert mod.load_baseline(str(tmp_path / "missing.json")) is None
+
+
+def test_analysis_failure_exits_two(tmp_path, monkeypatch, capsys):
+    mod = gate(tmp_path, monkeypatch)
+
+    def boom():
+        raise subprocess.CalledProcessError(1, ["tt-stats"], stderr="stats exploded")
+
+    monkeypatch.setattr(mod, "structure_stats", boom)
+    monkeypatch.setattr(sys, "argv", ["tt-gate.py"])
+    assert mod.main() == 2
+    assert "stats exploded" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission semantics")
+def test_write_json_refuses_symlinked_destination(tmp_path, monkeypatch):
+    mod = gate(tmp_path, monkeypatch)
+    target = tmp_path / "elsewhere.json"
+    target.write_text("{}")
+    link = tmp_path / "link.json"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("symlinks unavailable")
+    with pytest.raises(RuntimeError, match="symlinked"):
+        mod.write_json(str(link), {})
+
+
+def test_write_json_cleans_up_when_serialization_fails(tmp_path, monkeypatch):
+    mod = gate(tmp_path, monkeypatch)
+    with pytest.raises(TypeError):
+        mod.write_json(str(tmp_path / "x.json"), {"bad": object()})
+    assert not (tmp_path / "x.json").exists()
+    assert not [name for name in os.listdir(tmp_path) if name.startswith(".gate.")]
+
+
+def test_watch_regex_prefers_project_override_and_survives_missing_files(tmp_path, monkeypatch):
+    mod = load_script("tt-gate.py", tmp_path)
+    monkeypatch.setattr(mod, "ROOT", str(tmp_path))
+    assert mod.watch_regex() != "(?!)"  # plugin fallback config found
+    (tmp_path / ".trigger-tree").mkdir()
+    (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_WATCH_REGEX='^only/.*$'\n")
+    assert mod.watch_regex() == "^only/.*$"
+    monkeypatch.setattr(mod, "SCRIPT_DIR", str(tmp_path / "nowhere"))
+    (tmp_path / ".trigger-tree" / "config.sh").unlink()
+    assert mod.watch_regex() == "(?!)"
+
+
+def test_structure_stats_runs_the_real_analysis_without_telemetry(monkeypatch):
+    mod = load_script("tt-gate.py", FIXTURE)
+    stats = mod.structure_stats()
+    assert stats["totals"]["reads"] == 0  # telemetry ignored by design
+    assert stats["router_coverage"]

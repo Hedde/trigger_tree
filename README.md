@@ -9,6 +9,7 @@
 [![release](https://img.shields.io/github/v/release/Hedde/trigger_tree?label=release)](https://github.com/Hedde/trigger_tree/releases/latest)
 [![PyPI](https://img.shields.io/pypi/v/trigger-tree?label=pypi)](https://pypi.org/project/trigger-tree/)
 [![platforms](https://img.shields.io/badge/platforms-macOS%20·%20Linux%20·%20Windows-lightgrey.svg)](docs/platform-support.md)
+[![docs discoverability](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fdocs-discoverability.json)](docs/ci-gate.md)
 [![docs health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fdocs-health.json)](docs/heat-model.md)
 
 <p align="center"><a href="https://hedde.github.io/trigger_tree/"><img src="https://raw.githubusercontent.com/Hedde/trigger_tree/main/docs/assets/demo.gif" alt="Real terminal recording of the live trigger-tree dashboard: doc reads pulse through the tree, sorting, prompt browsing, and the privacy settings panel" width="900"></a></p>
@@ -55,6 +56,7 @@ asks whether to keep `truncate` or switch future events to `hash` or `off`.
 | `/tt suggestions` | Up to five evidence-backed routing improvements |
 | `/tt badge` | Write a public-safe docs-health endpoint JSON |
 | `/tt note <text>` | Add a local timeline annotation |
+| `/tt gate` | Deterministic discoverability score; gate CI on regressions |
 | `/tt uninstall` | Remove wiring without deleting telemetry |
 
 Search telemetry is a conservative lower bound; see [measurement boundaries](docs/heat-model.md).
@@ -64,6 +66,19 @@ Search telemetry is a conservative lower bound; see [measurement boundaries](doc
 1. **Hooks log shell-side** to the gitignored `.trigger-tree/history.jsonl`; failures never interrupt the coding session.
 2. **A deterministic aggregator computes every metric** with Python’s standard library; the model interprets but never counts.
 3. **Discovery remains model-driven**: trigger-tree measures your routers and reads without injecting context or changing routing.
+
+## Gate your CI on discoverability
+
+The gate scores repository structure only — router coverage, orphaned docs, folder
+entry points, watch scope — so it is deterministic, needs no telemetry, and uploads
+nothing. Discoverable never means discovered; read telemetry stays local.
+
+```yaml
+- uses: Hedde/trigger_tree@v1.18.0   # or: pip install trigger-tree && tt gate
+```
+
+Commit a baseline once with `tt gate --update-baseline` and every PR that makes your
+docs harder to discover fails with the exact file and fix. Details: [CI gate](docs/ci-gate.md).
 
 ## Where it fits
 

@@ -412,9 +412,11 @@ def main():
     parser.add_argument("history", nargs="?")
     parser.add_argument("--client", choices=("auto", "claude", "codex"), default="auto")
     parser.add_argument("--badge", action="store_true")
+    parser.add_argument("--no-telemetry", action="store_true")
     args = parser.parse_args()
     client = detect_client(args.client)
-    events, history_diagnostics = load_events_with_diagnostics(history_files(args.history))
+    paths = [] if args.no_telemetry else history_files(args.history)
+    events, history_diagnostics = load_events_with_diagnostics(paths)
     docs = inventory()
 
     reads = [e for e in events if e.get("t") == "read"]

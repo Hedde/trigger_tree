@@ -25,7 +25,7 @@ from tt_scope import is_poor_coverage, scan_markdown, suggested_regex
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-GITIGNORE_LINES = [".trigger-tree/*", "!.trigger-tree/config.sh"]
+GITIGNORE_LINES = [".trigger-tree/*", "!.trigger-tree/config.sh", "!.trigger-tree/gate.json"]
 # python3-with-fallback so the same registration works on macOS/Linux/Windows(Git Bash)
 STATUSLINE_CMD = (
     'python3 "$CLAUDE_PROJECT_DIR"/.claude/tt-statusline.py 2>/dev/null'

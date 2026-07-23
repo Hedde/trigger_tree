@@ -18,6 +18,7 @@ elsewhere. Keep output concise and never print raw telemetry unless requested.
 - Insights: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-report.py" --client codex` and link the generated local HTML report.
 - Suggestions: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-suggestions.py"` and return its output verbatim.
 - Badge: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-stats.py" --client codex --badge` and return the written path.
+- Gate: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-gate.py"` and return its output verbatim.
 - Tips: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-tips.py" --client codex` and return its output verbatim.
 - Note: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-log.py" note "<text>"`.
 - Doctor: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-doctor.py"` and return its diagnostics verbatim.

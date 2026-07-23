@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""CI gate for static documentation discoverability. Deterministic, telemetry-free.
+
+Scores repository structure only — router listings, inbound links, folder entry
+points, watch scope — so the result is identical on every machine and in CI.
+Discoverable never means discovered: read telemetry stays local and is not used.
+
+Exit codes: 0 pass, 1 gate failed, 2 usage or execution error.
+"""
+
+import argparse
+import json
+import os
+import stat
+import subprocess
+import sys
+import tempfile
+
+from tt_scope import scan_markdown
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+BASELINE_PATH = os.path.join(".trigger-tree", "gate.json")
+SCHEMA = 1
+WEIGHTS = {"routed": 40, "linked": 30, "entry_points": 20, "watch_scope": 10}
+SHOWN_OFFENDERS = 5
+
+
+def _fraction(numerator, denominator):
+    return 1.0 if denominator == 0 else numerator / denominator
+
+
+def structure_stats():
+    """Run tt-stats without telemetry so the payload is a pure function of the repo."""
+    result = subprocess.run(
+        [sys.executable, os.path.join(SCRIPT_DIR, "tt-stats.py"), "--no-telemetry"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return json.loads(result.stdout)
+
+
+def watch_regex():
+    for path in (
+        os.path.join(ROOT, ".trigger-tree", "config.sh"),
+        os.path.join(SCRIPT_DIR, "tt-config.sh"),
+    ):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except OSError:
+            continue
+        import re
+
+        match = re.search(r"TT_WATCH_REGEX='([^']+)'", text)
+        if match:
+            return match.group(1)
+    return r"(?!)"
+
+
+def measure(stats):
+    """Return components, offender lists, and the weighted 0-100 score."""
+    coverage = stats.get("router_coverage", [])
+    listed = sum(item.get("listed", 0) for item in coverage)
+    members = sum(item.get("files", 0) for item in coverage)
+    unlisted = sorted(
+        path
+        for item in coverage
+        for path in item.get("unlisted", [])
+        if not path.rsplit("/", 1)[-1].startswith("_")
+    )
+
+    detail = stats.get("untouched_detail", [])
+    evaluable = [item for item in detail if not item.get("template", False)]
+    orphans = sorted(
+        item["path"]
+        for item in evaluable
+        if not item.get("inbound_refs")
+        and not item.get("is_router")
+        and not item.get("router_mentions_target")
+    )
+
+    skill_only = {
+        item["path"].rsplit("/", 1)[0] for item in detail if item["path"].endswith("/SKILL.md")
+    }
+    doc_folders = {
+        item["path"].rsplit("/", 1)[0] for item in detail if not item["path"].endswith("/SKILL.md")
+    }
+    folders = [
+        folder
+        for folder in stats.get("folders", [])
+        if folder["folder"] != "(root)"
+        and not folder["folder"].startswith(".claude/")
+        and folder.get("files")
+        # A folder whose members are all SKILL.md files is a skill package, not a
+        # docs folder — requiring an index there would punish every plugin repo.
+        and not (folder["folder"] in skill_only and folder["folder"] not in doc_folders)
+    ]
+    without_entry = sorted(f["folder"] for f in folders if not f.get("has_index"))
+
+    scope = scan_markdown(ROOT, watch_regex())
+    components = {
+        "routed": _fraction(listed, members),
+        "linked": _fraction(len(evaluable) - len(orphans), len(evaluable)),
+        "entry_points": _fraction(len(folders) - len(without_entry), len(folders)),
+        "watch_scope": _fraction(scope["watched"], scope["markdown"]),
+    }
+    score = round(sum(WEIGHTS[name] * value for name, value in components.items()))
+    return {
+        "score": score,
+        "components": {name: round(value * 100) for name, value in components.items()},
+        "orphans": orphans,
+        "unlisted": unlisted,
+        "folders_without_entry_point": without_entry,
+        "evaluable_docs": len(evaluable),
+    }
+
+
+def badge_payload(score):
+    color = (
+        "brightgreen"
+        if score >= 90
+        else (
+            "green"
+            if score >= 80
+            else "yellow" if score >= 70 else "orange" if score >= 60 else "red"
+        )
+    )
+    return {
+        "schemaVersion": 1,
+        "label": "docs discoverability",
+        "message": f"{score}%",
+        "color": color,
+    }
+
+
+def _refuse_unsafe(path):
+    if os.path.lexists(path):
+        mode = os.lstat(path).st_mode
+        if stat.S_ISLNK(mode) or not stat.S_ISREG(mode):
+            raise RuntimeError(f"refusing non-regular or symlinked destination: {path}")
+
+
+def write_json(path, payload):
+    directory = os.path.dirname(path) or "."
+    os.makedirs(directory, exist_ok=True)
+    _refuse_unsafe(path)
+    fd, temporary = tempfile.mkstemp(prefix=".gate.", dir=directory, text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def load_baseline(path):
+    try:
+        data = json.loads(open(path, encoding="utf-8").read())
+    except OSError:
+        return None
+    except ValueError:
+        raise RuntimeError(f"baseline {path} is not valid JSON") from None
+    if not isinstance(data, dict) or data.get("schema") != SCHEMA:
+        raise RuntimeError(f"baseline {path} has an unsupported schema")
+    return data
+
+
+def _offenders(label, paths, fix):
+    lines = []
+    if paths:
+        lines.append(f"{label} ({len(paths)}):")
+        for path in paths[:SHOWN_OFFENDERS]:
+            lines.append(f"  - {path} — {fix}")
+        if len(paths) > SHOWN_OFFENDERS:
+            lines.append(f"  … +{len(paths) - SHOWN_OFFENDERS} more")
+    return lines
+
+
+def run(argv=None):
+    parser = argparse.ArgumentParser(prog="tt gate", description=__doc__)
+    parser.add_argument("--min-score", type=int, default=None)
+    parser.add_argument("--baseline", default=BASELINE_PATH)
+    parser.add_argument("--update-baseline", action="store_true")
+    parser.add_argument("--badge", default=None, metavar="PATH")
+    args = parser.parse_args(argv)
+
+    result = measure(structure_stats())
+    score = result["score"]
+    parts = " · ".join(
+        f"{name.replace('_', ' ')} {value}%" for name, value in sorted(result["components"].items())
+    )
+    print(f"🌳 docs discoverability: {score}% ({parts})")
+    if not result["evaluable_docs"]:
+        print("No watched documentation found — nothing to gate (see TT_WATCH_REGEX).")
+
+    for line in _offenders(
+        "Unlisted in their folder router",
+        result["unlisted"],
+        "add a link in the folder's entry point",
+    ):
+        print(line)
+    for line in _offenders(
+        "Orphans (no doc links to them)", result["orphans"], "link from a router or related doc"
+    ):
+        print(line)
+    for line in _offenders(
+        "Folders without an entry point",
+        result["folders_without_entry_point"],
+        "add README.md, _index.md, or index.md",
+    ):
+        print(line)
+
+    if args.badge:
+        write_json(args.badge, badge_payload(score))
+        print(f"badge written: {args.badge}")
+
+    baseline_path = (
+        os.path.join(ROOT, args.baseline) if not os.path.isabs(args.baseline) else args.baseline
+    )
+    if args.update_baseline:
+        write_json(baseline_path, {"schema": SCHEMA, "score": score})
+        print(f"baseline updated: {args.baseline} (score {score})")
+        return 0
+
+    failures = []
+    if args.min_score is not None and score < args.min_score:
+        failures.append(f"score {score} is below --min-score {args.min_score}")
+    baseline = load_baseline(baseline_path)
+    if baseline is not None and score < baseline["score"]:
+        failures.append(
+            f"score {score} regressed below the committed baseline {baseline['score']} "
+            f"({args.baseline}) — fix the findings above or deliberately re-baseline "
+            f"with --update-baseline"
+        )
+    if failures:
+        for failure in failures:
+            print(f"GATE FAILED: {failure}")
+        return 1
+    if baseline is None and args.min_score is None:
+        print(
+            "No baseline committed yet — run `tt gate --update-baseline` and commit "
+            f"{args.baseline} to enforce no-regression on every PR."
+        )
+    print("gate passed")
+    return 0
+
+
+def main():
+    try:
+        return run()
+    except RuntimeError as error:
+        print(f"tt gate: {error}", file=sys.stderr)
+        return 2
+    except subprocess.CalledProcessError as error:
+        print(f"tt gate: analysis failed: {error.stderr.strip()[:200]}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

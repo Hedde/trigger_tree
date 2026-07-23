@@ -105,13 +105,25 @@ jobs:
           PCT=$(coverage report --format=total)
           COLOR=$(python3 -c "p=float('$PCT'); print('brightgreen' if p>=90 else 'green' if p>=80 else 'yellow' if p>=70 else 'orange' if p>=60 else 'red')")
           git clone --quiet --single-branch --branch badges "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" /tmp/badges
+          python3 scripts/tt-gate.py --badge /tmp/badges/docs-discoverability.json
           cd /tmp/badges
           printf '{"schemaVersion": 1, "label": "coverage", "message": "%s%%", "color": "%s"}\n' "$PCT" "$COLOR" > coverage.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add coverage.json
-          git diff --cached --quiet || git commit -m "chore: publish measured coverage"
+          git add coverage.json docs-discoverability.json
+          git diff --cached --quiet || git commit -m "chore: publish project badges"
           git push origin badges
+
+  discoverability:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Dogfood the gate through the published action
+        uses: ./
 
   shellcheck:
     runs-on: ubuntu-latest

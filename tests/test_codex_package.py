@@ -69,6 +69,7 @@ def test_claude_command_contract_uses_plugin_root_and_only_real_scripts():
     references = re.findall(r"\$\{CLAUDE_PLUGIN_ROOT\}/scripts/([\w.-]+)", text)
     assert set(references) == {
         "tt-doctor.py",
+        "tt-gate.py",
         "tt-log.py",
         "tt-open.sh",
         "tt-report.py",

@@ -1,6 +1,6 @@
 ---
 name: tt
-description: See which docs your AI actually discovers with local, zero-token telemetry. Subcommands; /tt status, /tt watch [demo|replay], /tt insights, /tt suggestions, /tt badge, /tt note <text>, /tt doctor, /tt setup, /tt uninstall, /tt help.
+description: See which docs your AI actually discovers with local, zero-token telemetry. Subcommands; /tt status, /tt watch [demo|replay], /tt insights, /tt suggestions, /tt badge, /tt gate, /tt note <text>, /tt doctor, /tt setup, /tt uninstall, /tt help.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Artifact
 arguments:
@@ -43,6 +43,7 @@ Show exactly this, nothing above or below it:
 > | `/tt note <text>` | Annotate the timeline (e.g. "sharpened UX router") — shows up in the trend |
 > | `/tt doctor` | Verify hooks, privacy, statusline, and telemetry with actionable fixes |
 > | `/tt setup [truncate\|hash\|off]` | Wire the project; choose recognizable previews or privacy-first prompt markers |
+> | `/tt gate` | Deterministic discoverability score; CI-ready gate with committed baseline |
 > | `/tt uninstall` | Remove statusline wiring; keep local telemetry for explicit deletion |
 > | `/tt help` | This overview |
 >
@@ -175,6 +176,15 @@ JSON never exposes a provisional letter; before mature measurement it says `meas
 Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-doctor.py"` (fall back to
 `python` if needed). Show its output verbatim. A failed check is a diagnostic result,
 not a skill error: still show the complete output.
+
+## `$1` = "gate"
+
+Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-gate.py"` (fall back to
+`python` if needed), passing through any extra arguments (`--update-baseline`,
+`--min-score`, `--badge`). The score, components, and findings are static repository
+facts — no telemetry — and the tool result already shows them; do not repeat them.
+Reply with exactly one line: `Gate passed — score <N>%.` or
+`Gate failed — see the findings above.`
 
 ## `$1` = "uninstall"
 

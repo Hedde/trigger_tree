@@ -1,4 +1,5 @@
 .trigger-tree/
+!.trigger-tree/gate.json
 !tests/fixture-project/.trigger-tree/
 !tests/fixture-project/.trigger-tree/**
 tests/fixture-project/.trigger-tree/report.html
