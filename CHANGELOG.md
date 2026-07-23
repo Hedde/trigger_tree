@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.22.0 — 2026-07-23
+
+- GitLab CI support for the gate: `tt gate --code-quality PATH` writes a
+  deterministic CodeClimate issue list — the format GitLab renders as a Code
+  Quality widget on merge requests — with a stable fingerprint per rule and
+  path so pipelines announce only new findings. The CI-gate guide documents
+  the `.gitlab-ci.yml` job, the artifact wiring, and the badge route; the
+  gate itself was already a plain pip-installable CLI, so no wrapper is
+  needed on GitLab.
+
 ## 1.21.3 — 2026-07-23
 
 - Corrects the GitHub release body footer: the Codex install is generated as
