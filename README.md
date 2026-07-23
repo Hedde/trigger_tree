@@ -92,12 +92,13 @@ entry points, watch scope — so it is deterministic, needs no telemetry, and up
 nothing. Discoverable never means discovered; read telemetry stays local.
 
 ```yaml
-- uses: Hedde/trigger_tree@v1.21.0   # or: pip install trigger-tree && tt gate
+- uses: Hedde/trigger_tree@v1.22.0   # or: pip install trigger-tree && tt gate
 ```
 
 Commit a baseline once with `tt gate --update-baseline` and every PR that makes your
 docs harder to discover fails with the exact file and fix. Findings export as
-SARIF for code-scanning annotations. The gate checks the wiring, not the words: whether your `CLAUDE.md` actually
+SARIF for GitHub code-scanning annotations and as a CodeClimate report
+(`--code-quality`) for GitLab's merge-request Code Quality widget. The gate checks the wiring, not the words: whether your `CLAUDE.md` actually
 instructs agents to follow the routers is proven by local telemetry, not by the
 gate. Boundaries and details: [CI gate](docs/ci-gate.md).
 

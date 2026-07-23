@@ -9,6 +9,7 @@ Exit codes: 0 pass, 1 gate failed, 2 usage or execution error.
 """
 
 import argparse
+import hashlib
 import importlib.metadata
 import json
 import os
@@ -293,6 +294,30 @@ def sarif_payload(result, score, verdict):
     }
 
 
+def code_quality_payload(result):
+    """CodeClimate issue list: what GitLab CI renders as a Code Quality report.
+
+    Fingerprints are stable per (rule, path) so GitLab can diff findings between
+    pipelines instead of re-announcing every known offender on each run.
+    """
+    issues = []
+    for key, rule_id, level, label, fix in OFFENDER_KINDS:
+        severity = "major" if level == "warning" else "minor"
+        for path in result[key]:
+            issues.append(
+                {
+                    "type": "issue",
+                    "check_name": rule_id,
+                    "description": f"{label}: {path} — {fix}",
+                    "categories": ["Clarity"],
+                    "severity": severity,
+                    "fingerprint": hashlib.sha256(f"{rule_id}:{path}".encode()).hexdigest(),
+                    "location": {"path": path, "lines": {"begin": 1}},
+                }
+            )
+    return issues
+
+
 def _write_step_summary(result, score, status_lines):
     """Mirror the verdict onto the GitHub run page when CI provides the hook."""
     path = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -324,6 +349,7 @@ def run(argv=None):
     parser.add_argument("--update-baseline", action="store_true")
     parser.add_argument("--badge", default=None, metavar="PATH")
     parser.add_argument("--sarif", default=None, metavar="PATH")
+    parser.add_argument("--code-quality", default=None, metavar="PATH")
     args = parser.parse_args(argv)
 
     result = measure(structure_stats())
@@ -344,6 +370,10 @@ def run(argv=None):
     if args.badge:
         write_json(args.badge, badge_payload(score))
         print(f"badge written: {args.badge}")
+    # The issue list is verdict-independent, so it is written before gating.
+    if args.code_quality:
+        write_json(args.code_quality, code_quality_payload(result))
+        print(f"code quality report written: {args.code_quality}")
 
     baseline_path = (
         os.path.join(ROOT, args.baseline) if not os.path.isabs(args.baseline) else args.baseline

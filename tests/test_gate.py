@@ -397,3 +397,30 @@ def test_git_aware_scan_respects_gitignore_and_skips(tmp_path, monkeypatch):
     assert capped["capped"] is True and capped["visited"] == 1
     acknowledged = mod.scan_markdown(str(tmp_path), r"^docs/", ignore_globs=(".agents/*",))
     assert ".agents/codex.md" not in acknowledged["paths"] and acknowledged["markdown"] == 2
+
+
+def test_code_quality_report_matches_gitlab_expectations_and_is_deterministic(
+    tmp_path, monkeypatch
+):
+    mod = gate(tmp_path, monkeypatch)
+    report_path = tmp_path / "gl-code-quality-report.json"
+    assert mod.run(["--code-quality", str(report_path)]) == 0
+    first = report_path.read_bytes()
+    issues = json.loads(first)
+    assert isinstance(issues, list) and issues
+    for issue in issues:
+        assert issue["type"] == "issue"
+        assert issue["check_name"].startswith("TTD")
+        assert len(issue["fingerprint"]) == 64
+        assert issue["location"]["lines"]["begin"] == 1
+    by_rule = {issue["check_name"]: issue for issue in issues}
+    assert by_rule["TTD001"]["severity"] == "major"  # warning-niveau
+    assert by_rule["TTD001"]["location"]["path"] == "docs/ui/gap.md"
+    assert by_rule["TTD004"]["severity"] == "minor"  # note-niveau
+    assert mod.run(["--code-quality", str(report_path)]) == 0
+    assert report_path.read_bytes() == first  # byte-identiek: deterministisch
+
+    # Ook bij een gefaalde gate staat het rapport er — GitLab wil het altijd zien.
+    report_path.unlink()
+    assert mod.run(["--min-score", "100", "--code-quality", str(report_path)]) == 1
+    assert json.loads(report_path.read_text())
