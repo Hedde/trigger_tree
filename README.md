@@ -18,16 +18,17 @@ Documentation steers an AI coding assistant toward your team’s patterns and gu
 
 | Claude Code | Codex |
 |---|---|
-| `/plugin marketplace add Hedde/trigger_tree`<br>`/plugin install trigger-tree@trigger-tree`<br>`/reload-plugins`<br>`/tt watch demo`<br>`/tt setup` · `/tt doctor`<br>Work normally, then `/tt insights` | `codex plugin marketplace add Hedde/trigger_tree`<br>`codex plugin install trigger-tree`<br>Restart Codex<br>Ask it to run `python3 "$PLUGIN_ROOT/scripts/tt-watch.py" --demo`<br>Use the bundled trigger-tree skill for setup, doctor, and insights |
+| `/plugin marketplace add Hedde/trigger_tree`<br>`/plugin install trigger-tree@trigger-tree`<br>`/reload-plugins`<br>`/tt watch demo`<br>`/tt setup` · `/tt doctor`<br>Work normally, then `/tt insights` | `codex plugin marketplace add Hedde/trigger_tree`<br>`codex plugin add trigger-tree@trigger-tree`<br>Restart Codex<br>Ask it to run `python3 "$PLUGIN_ROOT/scripts/tt-watch.py" --demo`<br>Use the bundled trigger-tree skill for setup, doctor, and insights |
 
 The Claude `/tt` skill is explicitly user-triggered. Codex installs the equivalent skill and lifecycle hooks through its plugin marketplace.
 
 Prefer a standalone CLI — for CI, git-hook ingestion, or dashboards without a plugin?
 `pipx install trigger-tree` (or `uvx --from trigger-tree tt`), then `tt doctor`, `tt watch --demo`, `tt stats`.
 
-Prompt logging defaults to a recognizable, gitignored local preview of at most 200
-characters as soon as the plugin is installed, even if setup is never run. `/tt setup`
-asks whether to keep `truncate` or switch future events to `hash` or `off`.
+Before a project runs setup, prompt logging stores only a short hash — plugin
+installs are user-wide, so no repository records prompt text without its own
+explicit choice. `/tt setup` asks per project: `truncate` (recommended,
+recognizable 200-character previews), `hash`, or `off`.
 
 ## Who gets what?
 

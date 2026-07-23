@@ -368,7 +368,7 @@ def test_conf_unreadable_falls_back_to_defaults(tmp_path):
     try:
         mod = load_script("tt-log.py", tmp_path)
         cfg_out = mod.conf()
-        assert cfg_out["TT_LOG_PROMPTS"] == "truncate"  # unreadable override → plugin default
+        assert cfg_out["TT_LOG_PROMPTS"] == "hash"  # unreadable override → plugin default
         assert "agents" in cfg_out["TT_WATCH_REGEX"]  # plugin default file wins over DEFAULTS
     finally:
         cfg.chmod(0o644)
@@ -376,9 +376,9 @@ def test_conf_unreadable_falls_back_to_defaults(tmp_path):
 
 def test_conf_defaults_and_override(tmp_path):
     mod = load_script("tt-log.py", tmp_path)
-    assert mod.DEFAULTS["TT_LOG_PROMPTS"] == "truncate"
+    assert mod.DEFAULTS["TT_LOG_PROMPTS"] == "hash"  # never text before consent
     assert mod.DEFAULTS["TT_SCAN_REGEX"] == r"^(docs|agents|skills|agent-briefs)(/|$)"
-    assert mod.conf()["TT_LOG_PROMPTS"] == "truncate"
+    assert mod.conf()["TT_LOG_PROMPTS"] == "hash"
     (tmp_path / ".trigger-tree").mkdir()
     (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_LOG_PROMPTS='off'\n")
     cfg = mod.conf()
@@ -829,6 +829,12 @@ def test_prompt_modes(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
     run_main(mod, monkeypatch, ["prompt"], payload)
     entry = read_history(tmp_path)[-1]
+    # Before consent the fallback is hash: never prompt text (issue #7).
+    assert "prompt" not in entry and len(entry["prompt_hash"]) == 10
+
+    (conf_dir / "config.sh").write_text("TT_LOG_PROMPTS='truncate'\n")
+    run_main(mod, monkeypatch, ["prompt"], payload)
+    entry = read_history(tmp_path)[-1]
     assert entry["prompt"] == "secret plans line two"
 
     (conf_dir / "config.sh").write_text("TT_LOG_PROMPTS='hash'\n")
@@ -983,3 +989,47 @@ def test_failed_test_signal_and_git_head_failure(tmp_path, monkeypatch):
     corrupt.write_text("{torn\n")
     monkeypatch.setattr(mod.glob, "glob", lambda _pattern: [str(corrupt)])
     assert mod.session_signals("missing") == (None, None)
+
+
+def test_client_attribution_is_stamped_on_every_route(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    session_payload = json.dumps({"session_id": "S", "source": "startup", "client": "claude"})
+    run_main(mod, monkeypatch, ["session"], session_payload)
+    read_payload = json.dumps(
+        {
+            "session_id": "S",
+            "client": "codex",
+            "tool_name": "Read",
+            "tool_use_id": "T1",
+            "tool_input": {"file_path": str(tmp_path / "docs" / "a.md")},
+        }
+    )
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("doc")
+    run_main(mod, monkeypatch, ["read"], read_payload)
+    run_main(mod, monkeypatch, ["prompt"], json.dumps({"session_id": "S", "prompt": "x"}))
+    events = read_history(tmp_path)
+    assert [event.get("client") for event in events] == ["claude", "codex", None]
+    mod.main_args = None  # geen betekenis; expliciet niets
+
+    run_main(
+        mod,
+        monkeypatch,
+        ["ingest", json.dumps({"t": "read", "path": "docs/a.md"})],
+    )
+    assert read_history(tmp_path)[-1]["client"] == "external"
+
+
+def test_shell_capture_exports_and_stamps_client(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    env_file = tmp_path / "env.sh"
+    monkeypatch.setenv("CLAUDE_ENV_FILE", str(env_file))
+    mod.configure_shell_capture("S", r"\.md$", "claude")
+    assert "TT_SHELL_CLIENT=claude" in env_file.read_text()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "watched.md").write_text("doc")
+    monkeypatch.setenv("TT_SHELL_SESSION", "S")
+    monkeypatch.setenv("TT_SHELL_CLIENT", "claude")
+    monkeypatch.chdir(tmp_path)
+    run_main(mod, monkeypatch, ["shell-read", "cat", str(tmp_path / "docs" / "watched.md")])
+    assert read_history(tmp_path)[-1]["client"] == "claude"

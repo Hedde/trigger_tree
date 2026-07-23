@@ -14,7 +14,7 @@ from tt_scope import is_poor_coverage, parse_ignore, scan_markdown
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCHEMA_VERSION = 1
-SUPPORTED_PYTHON = (3, 10), (3, 13)
+SUPPORTED_PYTHON = (3, 10), (3, 14)
 
 
 def load_json(path):
@@ -246,8 +246,13 @@ def config_health():
 def python_health():
     current = sys.version_info[:2]
     if SUPPORTED_PYTHON[0] <= current <= SUPPORTED_PYTHON[1]:
-        return "PASS", f"python: {current[0]}.{current[1]} is supported (3.10–3.13)"
-    return "FAIL", f"python: {current[0]}.{current[1]} unsupported — configure Python 3.10–3.13"
+        return "PASS", (
+            f"python: {current[0]}.{current[1]} is supported (3.10–3.14) — {sys.executable}"
+        )
+    return "FAIL", (
+        f"python: {current[0]}.{current[1]} unsupported ({sys.executable}) — "
+        "configure Python 3.10–3.14"
+    )
 
 
 def ignore_health():

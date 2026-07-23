@@ -44,7 +44,7 @@ DEFAULTS = {
         r"^(CLAUDE|AGENTS|GEMINI)\.md$"
     ),
     "TT_SCAN_REGEX": r"^(docs|agents|skills|agent-briefs)(/|$)",
-    "TT_LOG_PROMPTS": "truncate",
+    "TT_LOG_PROMPTS": "hash",
     "TT_ROTATE_BYTES": "5242880",
     "TT_EXPERIMENTAL_OUTCOMES": "off",
 }
@@ -381,7 +381,7 @@ def static_glob_prefix(pattern):
     return posixpath.dirname(prefix)
 
 
-def configure_shell_capture(session, watch_regex):
+def configure_shell_capture(session, watch_regex, client=None):
     """Persist runtime reader wrappers into Claude Code's Bash preamble."""
     env_file = os.environ.get("CLAUDE_ENV_FILE")
     shell_capture = os.path.join(SCRIPT_DIR, "tt-shell-capture.sh")
@@ -390,6 +390,7 @@ def configure_shell_capture(session, watch_regex):
     values = {
         "TT_SHELL_LOGGER": os.path.join(SCRIPT_DIR, "tt-log.py"),
         "TT_SHELL_SESSION": session,
+        "TT_SHELL_CLIENT": client or "",
         "TT_SHELL_WATCH_SUFFIX": watch_suffix_hint(watch_regex),
     }
     try:
@@ -491,6 +492,7 @@ def main():
         obj.setdefault("ts", ts)
         obj.setdefault("session", os.environ.get("CLAUDE_SESSION_ID", "external"))
         obj.setdefault("agent", "external")
+        obj.setdefault("client", "external")
         append(obj, rotate)
         return
 
@@ -499,6 +501,7 @@ def main():
         if tool not in ("cat", "head", "tail", "sed", "awk", "get-content", "gc", "type"):
             return
         session = os.environ.get("TT_SHELL_SESSION") or os.environ.get("CLAUDE_SESSION_ID", "?")
+        shell_client = os.environ.get("TT_SHELL_CLIENT") or None
         for path in reader_arg_paths(tool, sys.argv[3:], cfg["TT_WATCH_REGEX"], os.getcwd()):
             append(
                 {
@@ -509,6 +512,7 @@ def main():
                     "path": path,
                     "agent": "runtime",
                     "capture": "expanded-argv",
+                    **({"client": shell_client} if shell_client else {}),
                 },
                 rotate,
             )
@@ -527,9 +531,12 @@ def main():
         data = {}
     session = data.get("session_id", "?")
     agent = data.get("agent_type", "main")
+    client = data.get("client")
     agent_id = data.get("agent_id")
 
     def hook_identity(entry):
+        if client:
+            entry["client"] = client
         if data.get("tool_use_id"):
             entry["tool_use_id"] = data["tool_use_id"]
         if agent_id:
@@ -537,20 +544,22 @@ def main():
         return entry
 
     if event == "session":
-        configure_shell_capture(session, cfg["TT_WATCH_REGEX"])
+        configure_shell_capture(session, cfg["TT_WATCH_REGEX"], client)
         append(
-            {
-                "t": "session",
-                "ts": ts,
-                "session": session,
-                "source": data.get("source", "unknown"),
-                "git_head": git_head(),
-            },
+            hook_identity(
+                {
+                    "t": "session",
+                    "ts": ts,
+                    "session": session,
+                    "source": data.get("source", "unknown"),
+                    "git_head": git_head(),
+                }
+            ),
             rotate,
         )
 
     elif event == "prompt":
-        entry = {"t": "prompt", "ts": ts, "session": session}
+        entry = hook_identity({"t": "prompt", "ts": ts, "session": session})
         mode = cfg["TT_LOG_PROMPTS"]
         prompt = (data.get("prompt") or "").replace("\n", " ")
         if mode == "truncate":
@@ -586,7 +595,10 @@ def main():
     elif event == "bash":
         command = (data.get("tool_input") or {}).get("command", "")
         if looks_like_test_command(command):
-            append({"t": "test", "ts": ts, "session": session, "status": "pass"}, rotate)
+            append(
+                hook_identity({"t": "test", "ts": ts, "session": session, "status": "pass"}),
+                rotate,
+            )
         if os.environ.get("TT_RUNTIME_BASH_READS") != "1":
             for path in bash_read_paths(command, cfg["TT_WATCH_REGEX"]):
                 append(
@@ -620,20 +632,25 @@ def main():
     elif event == "bash-failure":
         command = (data.get("tool_input") or {}).get("command", "")
         if looks_like_test_command(command):
-            append({"t": "test", "ts": ts, "session": session, "status": "fail"}, rotate)
+            append(
+                hook_identity({"t": "test", "ts": ts, "session": session, "status": "fail"}),
+                rotate,
+            )
 
     elif event == "outcome":
         baseline, test_status = session_signals(session)
         current = git_head()
         append(
-            {
-                "t": "outcome",
-                "ts": ts,
-                "session": session,
-                "git_commit_landed": bool(baseline and current and baseline != current),
-                "test_status": test_status or "unknown",
-                "source": data.get("reason", "unknown"),
-            },
+            hook_identity(
+                {
+                    "t": "outcome",
+                    "ts": ts,
+                    "session": session,
+                    "git_commit_landed": bool(baseline and current and baseline != current),
+                    "test_status": test_status or "unknown",
+                    "source": data.get("reason", "unknown"),
+                }
+            ),
             rotate,
         )
 

@@ -165,6 +165,7 @@ def measure(stats):
         "unlisted": unlisted,
         "folders_without_entry_point": without_entry,
         "unwatched": unwatched,
+        "scan_capped": bool(scope.get("capped")),
         "evaluable_docs": len(evaluable),
     }
 
@@ -326,6 +327,8 @@ def run(argv=None):
     print(f"🌳 docs discoverability: {score}% ({parts})")
     if not result["evaluable_docs"]:
         print("No watched documentation found — nothing to gate (see TT_WATCH_REGEX).")
+    if result["scan_capped"]:
+        print("note: the markdown scan hit its file cap — the watch-scope ratio is incomplete.")
 
     for key, _rule, _level, label, fix in OFFENDER_KINDS:
         for line in _offenders(label, result[key], fix):

@@ -190,10 +190,10 @@ def test_doctor_reports_unreadable_config(tmp_path, monkeypatch):
 def test_doctor_detects_python_version_drift(tmp_path, monkeypatch):
     mod = load_script("tt-doctor.py", tmp_path)
     monkeypatch.setattr(mod.sys, "version_info", (3, 9, 20))
-    assert mod.python_health() == (
-        "FAIL",
-        "python: 3.9 unsupported — configure Python 3.10–3.13",
-    )
+    state, message = mod.python_health()
+    assert state == "FAIL"
+    assert "python: 3.9 unsupported" in message and "3.10–3.14" in message
+    assert mod.sys.executable in message
 
 
 def test_coverage_health_respects_acknowledged_scope(tmp_path, monkeypatch):

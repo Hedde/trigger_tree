@@ -896,6 +896,9 @@ def main():
         ],
         "untouched": untouched,
         "untouched_detail": untouched_detail,
+        "clients": dict(
+            sorted(Counter(event.get("client") or "unknown" for event in events).items())
+        ),
         "review_candidates": review_candidates,
         "review_caveat": "Low reads can mean rare-but-critical; verify purpose and owners before archiving.",
         "router_coverage": router_coverage,

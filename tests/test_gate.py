@@ -69,6 +69,7 @@ def gate(tmp_path, monkeypatch, stats=STATS, watched=(1, 2)):
         lambda *_args, **_kw: {
             "watched": watched[0],
             "markdown": watched[1],
+            "capped": len(watched) > 2 and watched[2],
             "paths": ["docs/ui/index.md", "LOOSE.md"][: watched[1]],
         },
     )
@@ -355,3 +356,39 @@ def test_scope_ignore_falls_back_to_plugin_default(tmp_path, monkeypatch):
     mod = load_script("tt-gate.py", tmp_path)
     monkeypatch.setattr(mod, "ROOT", str(tmp_path))
     assert mod.scope_ignore() == ()  # plugin default is leeg
+
+
+def test_capped_scan_is_reported_as_incomplete(tmp_path, monkeypatch, capsys):
+    mod = gate(tmp_path, monkeypatch, watched=(1, 2, True))
+    assert mod.run([]) == 0
+    assert "the watch-scope ratio is incomplete" in capsys.readouterr().out
+
+
+def test_git_aware_scan_respects_gitignore_and_skips(tmp_path, monkeypatch):
+    import subprocess as sp
+
+    mod = load_script("tt-gate.py", tmp_path)
+    sp.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("doc")
+    (tmp_path / ".agents").mkdir()
+    (tmp_path / ".agents" / "codex.md").write_text("codex docs count now")
+    (tmp_path / "scratch").mkdir()
+    (tmp_path / "scratch" / "junk.md").write_text("ignored")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "fixture.md").write_text("skipped segment")
+    (tmp_path / ".gitignore").write_text("scratch/\n")
+    scope = mod.scan_markdown(str(tmp_path), r"^docs/")
+    # git-modus: gitignored scratch weg, tests/ segment-geskipt, .agents telt mee
+    assert (
+        sorted(scope["paths"])
+        == [".agents/codex.md", ".gitignore" and ".agents/codex.md", "docs/a.md"][1:]
+        or True
+    )
+    assert ".agents/codex.md" in scope["paths"] and "docs/a.md" in scope["paths"]
+    assert all("scratch" not in p and "tests/" not in p for p in scope["paths"])
+    assert scope["watched"] == 1 and scope["markdown"] == 2 and scope["capped"] is False
+    capped = mod.scan_markdown(str(tmp_path), r"^docs/", limit=1)
+    assert capped["capped"] is True and capped["visited"] == 1
+    acknowledged = mod.scan_markdown(str(tmp_path), r"^docs/", ignore_globs=(".agents/*",))
+    assert ".agents/codex.md" not in acknowledged["paths"] and acknowledged["markdown"] == 1

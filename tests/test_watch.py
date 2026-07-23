@@ -182,7 +182,7 @@ def test_dashboard_settings_refuse_symlink_config(tmp_path):
 
 def test_dashboard_settings_safe_fallback_and_cleanup(tmp_path, monkeypatch):
     mod = load_script("tt-watch.py", tmp_path)
-    assert mod.prompt_mode() == "truncate"
+    assert mod.prompt_mode() == "hash"  # plugin fallback: never text before consent
     monkeypatch.setattr(mod, "_conf_texts", lambda: [])
     assert mod.prompt_mode() == "truncate"
     assert mod.save_prompt_mode("invalid") is False

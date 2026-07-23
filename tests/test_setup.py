@@ -156,11 +156,11 @@ def test_setup_permissions_and_security_disclosure_are_consistent(tmp_path):
     assert ((tmp_path / ".trigger-tree").stat().st_mode & 0o777) == 0o700
     repo = os.path.dirname(os.path.dirname(__file__))
     security = open(os.path.join(repo, "SECURITY.md"), encoding="utf-8").read()
-    assert "Interactive setup explains and asks for that choice" in security
-    assert "recognizable" in security and "200-character prompt preview" in security
+    assert "user-wide fallback is" in security and "`hash` (no prompt text)" in security
+    assert "200-character prompt preview" in security
     privacy = open(os.path.join(repo, "PRIVACY.md"), encoding="utf-8").read()
-    assert "before or without running setup" in privacy
-    assert "also the fallback before setup" not in privacy
+    assert "only a short hash is stored" in privacy
+    assert "the fallback before setup" in privacy
 
 
 def test_safe_destination_rejects_escape_non_directory_parent_and_directory_target(tmp_path):
@@ -194,7 +194,8 @@ def test_watch_scope_scanner_handles_layouts_skips_and_cap(tmp_path):
     fixtures.mkdir()
     (fixtures / "fixture.md").write_text("fixture")
     result = mod.scan_markdown(tmp_path, r"^docs/", limit=10)
-    assert (result["markdown"], result["watched"], result["capped"]) == (2, 1, False)
+    # .agents is a valid Codex documentation location and now counts (issue #8)
+    assert (result["markdown"], result["watched"], result["capped"]) == (3, 1, False)
     assert "README\\.md" in mod.suggested_regex(result["paths"])
     capped = mod.scan_markdown(tmp_path, r"^docs/", limit=1)
     assert capped["visited"] == 1 and capped["capped"] is True

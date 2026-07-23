@@ -815,3 +815,20 @@ def test_root_prefers_explicit_tt_project_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("TT_PROJECT_DIR", str(explicit))
     mod = load_script("tt-stats.py", tmp_path)
     assert mod.ROOT == str(explicit)
+
+
+def test_clients_breakdown_groups_mixed_history(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("doc")
+    write_history(
+        tmp_path,
+        [
+            {"t": "session", "session": "S1", "client": "claude"},
+            {"t": "read", "session": "S1", "path": "docs/a.md", "client": "claude"},
+            {"t": "session", "session": "S2", "client": "codex"},
+            {"t": "read", "session": "S2", "path": "docs/a.md"},
+        ],
+    )
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+    assert stats["clients"] == {"claude": 2, "codex": 1, "unknown": 1}

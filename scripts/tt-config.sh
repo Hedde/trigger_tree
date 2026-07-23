@@ -26,9 +26,10 @@ TT_SCOPE_IGNORE=''
 # never treated as an archive candidate. Safety paths are protected regardless.
 TT_CRITICAL_GLOB=''
 
-# Default: a recognizable preview of the first 200 characters, stored only in the
-# project's gitignored telemetry. Setup offers truncate, hash, and off explicitly.
-TT_LOG_PROMPTS='truncate'
+# Plugin fallback: hash, so a user-wide install never stores prompt text in any
+# repository before that project's setup made an explicit choice. Setup offers
+# truncate (recommended), hash, and off.
+TT_LOG_PROMPTS='hash'
 
 # Rotate history.jsonl to history-<timestamp>.jsonl when it exceeds this many bytes.
 TT_ROTATE_BYTES='5242880'
