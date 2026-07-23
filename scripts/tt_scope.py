@@ -41,7 +41,7 @@ def _git_markdown(root, limit):
     """
     try:
         result = subprocess.run(
-            ["git", "-C", root, "ls-files", "--cached", "--others", "--exclude-standard"],
+            ["git", "-C", root, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -51,7 +51,7 @@ def _git_markdown(root, limit):
         return None
     names = [
         line
-        for line in result.stdout.splitlines()
+        for line in result.stdout.split("\0")
         if line.lower().endswith((".md", ".markdown"))
         and not any(part in SKIP_DIRS or part.startswith(".venv") for part in line.split("/")[:-1])
     ]

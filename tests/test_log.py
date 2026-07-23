@@ -394,6 +394,7 @@ def test_session_event_and_bad_stdin(tmp_path, monkeypatch):
         "t": "session",
         "ts": read_history(tmp_path)[0]["ts"],
         "session": "?",
+        "client": "unknown",
         "source": "unknown",
         "git_head": None,
     }
@@ -805,6 +806,7 @@ def test_shell_read_event_filters_invalid_inputs_and_records_docs(tmp_path, monk
         "path": "docs/a.md",
         "agent": "runtime",
         "capture": "expanded-argv",
+        "client": "unknown",
     }
 
 
@@ -882,6 +884,7 @@ def test_note_uses_session_env(tmp_path, monkeypatch):
         "ts": entry["ts"],
         "session": "sess-env",
         "text": "router tweak",
+        "client": "unknown",
     }
     # empty note text writes nothing
     monkeypatch.setattr(sys, "argv", ["tt-log.py", "note"])
@@ -1009,7 +1012,7 @@ def test_client_attribution_is_stamped_on_every_route(tmp_path, monkeypatch):
     run_main(mod, monkeypatch, ["read"], read_payload)
     run_main(mod, monkeypatch, ["prompt"], json.dumps({"session_id": "S", "prompt": "x"}))
     events = read_history(tmp_path)
-    assert [event.get("client") for event in events] == ["claude", "codex", None]
+    assert [event.get("client") for event in events] == ["claude", "codex", "unknown"]
     mod.main_args = None  # geen betekenis; expliciet niets
 
     run_main(

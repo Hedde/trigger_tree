@@ -22,10 +22,10 @@ Ensure `python3` resolves on `PATH`. Claude’s documented exec-form hooks do no
 
 ## Can prompt privacy change later?
 
-Yes. Installation defaults to a local, gitignored preview of at most 200 characters,
-— before setup only hashes are stored, because hooks are user-wide and other
-repositories have not consented yet. `/tt setup` asks for `truncate`, `hash`, or `off`; changing the
-mode affects future events and does not rewrite history.
+Yes. Before a project runs setup only hashes are stored — hooks are user-wide,
+and other repositories have not consented yet. `/tt setup` asks per project for
+`truncate` (a local, gitignored preview of at most 200 characters), `hash`, or
+`off`; changing the mode affects future events and does not rewrite history.
 
 ## How do I uninstall or publish the health badge?
 
@@ -36,9 +36,13 @@ paths or event history.
 
 ## Do Codex marketplace installs pin a version?
 
-Not yet: Codex resolves marketplace plugins from the repository's default branch,
-so `codex plugin add` follows `main` even when the marketplace was added from a
-tag. For byte-identical installs, pin the GitHub Action (`uses:
-Hedde/trigger_tree@vX.Y.Z`) or `pip install trigger-tree==X.Y.Z`. An
-immutable-ref marketplace entry is on the radar, but would currently break
-installing and smoke-testing from a plain checkout.
+Yes: add the marketplace from a git ref and install from that snapshot —
+
+```
+codex plugin marketplace add Hedde/trigger_tree --ref vX.Y.Z
+codex plugin add trigger-tree@trigger-tree
+```
+
+Without `--ref`, marketplace installs follow the repository default branch. The
+GitHub Action (`uses: Hedde/trigger_tree@vX.Y.Z`) and
+`pip install trigger-tree==X.Y.Z` pin the same way.

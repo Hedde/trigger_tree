@@ -378,12 +378,13 @@ def test_git_aware_scan_respects_gitignore_and_skips(tmp_path, monkeypatch):
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests" / "fixture.md").write_text("skipped segment")
     (tmp_path / ".gitignore").write_text("scratch/\n")
+    (tmp_path / "docs" / "handleiding-één.md").write_text("non-ascii naam")
     scope = mod.scan_markdown(str(tmp_path), r"^docs/")
     # git-modus: gitignored scratch weg, tests/ segment-geskipt, .agents telt mee
-    assert sorted(scope["paths"]) == [".agents/codex.md", "docs/a.md"]
+    assert sorted(scope["paths"]) == [".agents/codex.md", "docs/a.md", "docs/handleiding-één.md"]
     assert all("scratch" not in p and "tests/" not in p for p in scope["paths"])
-    assert scope["watched"] == 1 and scope["markdown"] == 2 and scope["capped"] is False
+    assert scope["watched"] == 2 and scope["markdown"] == 3 and scope["capped"] is False
     capped = mod.scan_markdown(str(tmp_path), r"^docs/", limit=1)
     assert capped["capped"] is True and capped["visited"] == 1
     acknowledged = mod.scan_markdown(str(tmp_path), r"^docs/", ignore_globs=(".agents/*",))
-    assert ".agents/codex.md" not in acknowledged["paths"] and acknowledged["markdown"] == 1
+    assert ".agents/codex.md" not in acknowledged["paths"] and acknowledged["markdown"] == 2

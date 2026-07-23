@@ -512,7 +512,7 @@ def main():
                     "path": path,
                     "agent": "runtime",
                     "capture": "expanded-argv",
-                    **({"client": shell_client} if shell_client else {}),
+                    "client": shell_client or "unknown",
                 },
                 rotate,
             )
@@ -522,7 +522,10 @@ def main():
         text = " ".join(sys.argv[2:]).strip()[:300]
         if text:
             session = os.environ.get("CLAUDE_SESSION_ID", "?")
-            append({"t": "note", "ts": ts, "session": session, "text": text}, rotate)
+            append(
+                {"t": "note", "ts": ts, "session": session, "text": text, "client": "unknown"},
+                rotate,
+            )
         return
 
     try:
@@ -535,8 +538,7 @@ def main():
     agent_id = data.get("agent_id")
 
     def hook_identity(entry):
-        if client:
-            entry["client"] = client
+        entry["client"] = client or "unknown"
         if data.get("tool_use_id"):
             entry["tool_use_id"] = data["tool_use_id"]
         if agent_id:
