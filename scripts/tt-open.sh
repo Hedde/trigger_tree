@@ -29,12 +29,16 @@ case "$MODE" in
   *) echo "usage: tt-open.sh [demo|replay]" >&2; exit 1 ;;
 esac
 
+# Per-invocation plugin roots outrank the ambient CODEX_HOME: that one stays
+# exported in shell profiles, so it must not relabel Claude-launched sessions.
 CLIENT="${TT_CLIENT:-}"
 if [ -z "$CLIENT" ]; then
-  if [ -n "${CODEX_HOME:-}" ] || [ -n "${PLUGIN_ROOT:-}" ]; then
+  if [ -n "${PLUGIN_ROOT:-}" ]; then
     CLIENT="codex"
   elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
     CLIENT="claude"
+  elif [ -n "${CODEX_HOME:-}" ]; then
+    CLIENT="codex"
   else
     case "$SCRIPT_DIR" in
       */.claude/plugins/*) CLIENT="claude" ;;

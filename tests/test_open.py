@@ -43,8 +43,11 @@ def test_launcher_modes_and_invalid_mode(tmp_path):
 
 def test_launcher_passes_explicit_or_detected_client(tmp_path):
     assert dryrun(tmp_path, TT_CLIENT="codex").stdout.rstrip().endswith("--client codex")
+    # De ambient CODEX_HOME uit een shellprofiel mag een Claude-sessie niet herlabelen.
     assert (
-        dryrun(tmp_path, CLAUDE_PLUGIN_ROOT="/plugin").stdout.rstrip().endswith("--client claude")
+        dryrun(tmp_path, CLAUDE_PLUGIN_ROOT="/plugin", CODEX_HOME="/codex")
+        .stdout.rstrip()
+        .endswith("--client claude")
     )
     assert dryrun(tmp_path, CODEX_HOME="/codex").stdout.rstrip().endswith("--client codex")
     assert (

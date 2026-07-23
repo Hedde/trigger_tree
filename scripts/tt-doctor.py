@@ -111,6 +111,45 @@ def hooks_health():
     return "FAIL", "plugin hook files: missing logger routes — reinstall the plugin"
 
 
+def codex_trust_health():
+    """Codex silently skips hooks without a persisted trust decision (issue #11).
+
+    Only the presence of trust entries in $CODEX_HOME/config.toml is observable;
+    the trusted hashes are Codex-internal, so a hook changed by an upgrade still
+    needs re-review in the Codex TUI even when this check passes.
+    """
+    home = os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex")
+    try:
+        text = open(os.path.join(home, "config.toml"), encoding="utf-8").read()
+    except OSError:
+        return None
+    plugin = re.search(r'(?ms)^\[plugins\."trigger-tree@[^"]*"\]\n(.*?)(?=^\[|\Z)', text)
+    if not plugin or not re.search(r"(?m)^enabled\s*=\s*true", plugin.group(1)):
+        return None
+    trusted = set(
+        re.findall(r'(?m)^\[hooks\.state\."trigger-tree@[^"]*:([a-z_]+):\d+:\d+"\]', text)
+    )
+    expected = {"session_start", "user_prompt_submit", "post_tool_use", "stop"}
+    missing = sorted(expected - trusted)
+    if len(missing) == len(expected):
+        return (
+            "WARN",
+            "codex trust: hooks are installed but not trusted — open the Codex TUI once and"
+            " choose 'Trust all and continue'; non-interactive codex exec never persists trust",
+        )
+    if missing:
+        return (
+            "WARN",
+            f"codex trust: {len(expected) - len(missing)} of {len(expected)} hooks trusted"
+            f" ({', '.join(missing)} pending) — re-review hooks in the Codex TUI",
+        )
+    return (
+        "PASS",
+        "codex trust: all 4 hooks have a persisted trust decision — an upgrade that changes"
+        " a hook triggers a new review",
+    )
+
+
 def watch_regex():
     for path in (
         os.path.join(ROOT, ".trigger-tree", "config.sh"),
@@ -279,14 +318,19 @@ def statusline_health():
 
 def main():
     checks = [
-        hooks_health(),
-        liveness_health(),
-        config_health(),
-        coverage_health(),
-        python_health(),
-        ignore_health(),
-        statusline_health(),
-        history_health(),
+        check
+        for check in (
+            hooks_health(),
+            liveness_health(),
+            codex_trust_health(),
+            config_health(),
+            coverage_health(),
+            python_health(),
+            ignore_health(),
+            statusline_health(),
+            history_health(),
+        )
+        if check is not None
     ]
     print("🌳 trigger-tree doctor")
     for state, message in checks:

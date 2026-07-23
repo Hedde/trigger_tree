@@ -46,3 +46,12 @@ codex plugin add trigger-tree@trigger-tree
 Without `--ref`, marketplace installs follow the repository default branch. The
 GitHub Action (`uses: Hedde/trigger_tree@vX.Y.Z`) and
 `pip install trigger-tree==X.Y.Z` pin the same way.
+
+## Why does Codex record no events right after install or upgrade?
+
+Codex runs plugin hooks only after you trust them, and it skips untrusted hooks
+silently. Start the interactive TUI, review the **Hooks need review** prompt for
+the four trigger-tree hooks, and choose **Trust all and continue**. Two things
+are easy to miss: non-interactive `codex exec` runs never persist trust, and an
+upgrade that changes a hook resets its trust, so the review comes back. `tt
+doctor` reports the persisted trust state whenever a Codex install is present.

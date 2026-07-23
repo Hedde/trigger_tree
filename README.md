@@ -16,9 +16,32 @@ Documentation steers an AI coding assistant toward your team’s patterns and gu
 
 ## Quick start
 
-| Claude Code | Codex |
-|---|---|
-| `/plugin marketplace add Hedde/trigger_tree`<br>`/plugin install trigger-tree@trigger-tree`<br>`/reload-plugins`<br>`/tt watch demo`<br>`/tt setup` · `/tt doctor`<br>Work normally, then `/tt insights` | `codex plugin marketplace add Hedde/trigger_tree`<br>`codex plugin add trigger-tree@trigger-tree`<br>Restart Codex<br>Ask it to run `python3 "$PLUGIN_ROOT/scripts/tt-watch.py" --demo`<br>Use the bundled trigger-tree skill for setup, doctor, and insights |
+**Claude Code**
+
+```text
+/plugin marketplace add Hedde/trigger_tree
+/plugin install trigger-tree@trigger-tree
+/reload-plugins
+/tt watch demo
+/tt setup
+/tt doctor
+```
+
+Work normally, then `/tt insights`.
+
+**Codex**
+
+```text
+codex plugin marketplace add Hedde/trigger_tree
+codex plugin add trigger-tree@trigger-tree
+```
+
+Restart Codex and, when it shows **Hooks need review**, choose **Trust all and
+continue** — Codex silently skips untrusted hooks, and non-interactive
+`codex exec` runs never persist trust, so telemetry stays empty until the four
+hooks are trusted in the TUI. Repeat the review after an upgrade that changes a
+hook. Then ask Codex to run `python3 "$PLUGIN_ROOT/scripts/tt-watch.py" --demo`;
+the bundled trigger-tree skill covers setup, doctor, and insights.
 
 The Claude `/tt` skill is explicitly user-triggered. Codex installs the equivalent skill and lifecycle hooks through its plugin marketplace.
 

@@ -209,3 +209,56 @@ def test_coverage_health_respects_acknowledged_scope(tmp_path, monkeypatch):
     assert "1 of 1 markdown files watched" in message
     monkeypatch.setattr(mod, "ROOT", str(tmp_path / "leeg"))
     assert mod.scope_ignore() == ()  # valt terug op de lege plugin-default
+
+
+def codex_config(tmp_path, monkeypatch, body):
+    home = tmp_path / "codex-home"
+    home.mkdir(exist_ok=True)
+    (home / "config.toml").write_text(body, encoding="utf-8")
+    monkeypatch.setenv("CODEX_HOME", str(home))
+
+
+def trust_entry(event):
+    return f'[hooks.state."trigger-tree@trigger-tree:hooks/hooks.json:{event}:0:0"]\ntrusted_hash = "sha256:abc"\n'
+
+
+def test_codex_trust_is_skipped_without_codex_or_without_the_plugin(tmp_path, monkeypatch):
+    mod = load_script("tt-doctor.py", tmp_path)
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "nergens"))
+    assert mod.codex_trust_health() is None
+    codex_config(tmp_path, monkeypatch, '[projects."/x"]\ntrust_level = "trusted"\n')
+    assert mod.codex_trust_health() is None  # plugin niet geïnstalleerd
+    codex_config(tmp_path, monkeypatch, '[plugins."trigger-tree@trigger-tree"]\nenabled = false\n')
+    assert mod.codex_trust_health() is None  # plugin uitgeschakeld
+
+
+def test_codex_trust_warns_until_all_hooks_are_trusted(tmp_path, monkeypatch):
+    mod = load_script("tt-doctor.py", tmp_path)
+    enabled = '[plugins."trigger-tree@trigger-tree"]\nenabled = true\n'
+    codex_config(tmp_path, monkeypatch, enabled)
+    state, message = mod.codex_trust_health()
+    assert state == "WARN"
+    assert "Trust all and continue" in message
+    assert "non-interactive codex exec never persists trust" in message
+    codex_config(tmp_path, monkeypatch, enabled + trust_entry("session_start"))
+    state, message = mod.codex_trust_health()
+    assert state == "WARN"
+    assert "1 of 4 hooks trusted" in message
+    assert "post_tool_use" in message and "stop" in message and "user_prompt_submit" in message
+    all_four = enabled + "".join(
+        trust_entry(event)
+        for event in ("session_start", "user_prompt_submit", "post_tool_use", "stop")
+    )
+    codex_config(tmp_path, monkeypatch, all_four)
+    state, message = mod.codex_trust_health()
+    assert state == "PASS"
+    assert "all 4 hooks have a persisted trust decision" in message
+
+
+def test_doctor_output_includes_codex_trust_when_state_is_available(tmp_path, monkeypatch, capsys):
+    wire_project(tmp_path)
+    mod = load_script("tt-doctor.py", tmp_path)
+    codex_config(tmp_path, monkeypatch, '[plugins."trigger-tree@trigger-tree"]\nenabled = true\n')
+    assert mod.main() == 0
+    out = capsys.readouterr().out
+    assert "! codex trust: hooks are installed but not trusted" in out
