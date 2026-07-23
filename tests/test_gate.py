@@ -380,12 +380,7 @@ def test_git_aware_scan_respects_gitignore_and_skips(tmp_path, monkeypatch):
     (tmp_path / ".gitignore").write_text("scratch/\n")
     scope = mod.scan_markdown(str(tmp_path), r"^docs/")
     # git-modus: gitignored scratch weg, tests/ segment-geskipt, .agents telt mee
-    assert (
-        sorted(scope["paths"])
-        == [".agents/codex.md", ".gitignore" and ".agents/codex.md", "docs/a.md"][1:]
-        or True
-    )
-    assert ".agents/codex.md" in scope["paths"] and "docs/a.md" in scope["paths"]
+    assert sorted(scope["paths"]) == [".agents/codex.md", "docs/a.md"]
     assert all("scratch" not in p and "tests/" not in p for p in scope["paths"])
     assert scope["watched"] == 1 and scope["markdown"] == 2 and scope["capped"] is False
     capped = mod.scan_markdown(str(tmp_path), r"^docs/", limit=1)
