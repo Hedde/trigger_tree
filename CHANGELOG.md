@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.24.0 — 2026-07-23
+
+Both findings below were reported by @BartWaardenburg — thank you.
+
+- The structural inventory follows git's view of the repository (#16): a file
+  excluded by `.gitignore` can no longer surface as a router member, orphan,
+  or missing entry point in `tt-stats` or `tt gate`. The scope scanner and
+  the structure inventory now share one git-visible source of truth; the
+  filesystem walk remains the fallback outside git repositories.
+- Watched surfaces behind a directory symlink are named instead of silently
+  missing (#15): the stats payload gains `unfollowed_surfaces` (path, target,
+  reason), the health grade states its scope explicitly (evaluable docs), a
+  health driver counts unfollowed surfaces, and `tt doctor` warns with the
+  paths. Symlinks are still never followed — bytes outside the repository
+  stay out of the deterministic score by design; the boundary is documented
+  in the heat-model guide.
+
 ## 1.23.2 — 2026-07-23
 
 - Codex tag pinning now pins the installed bytes (#6 reopen, verified by
