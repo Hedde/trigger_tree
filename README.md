@@ -4,13 +4,7 @@
 
 > **See which project docs your AI actually discovers.**
 
-[![CI](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
-[![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fcoverage.json)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml)
-[![release](https://img.shields.io/github/v/release/Hedde/trigger_tree?label=release)](https://github.com/Hedde/trigger_tree/releases/latest)
-[![PyPI](https://img.shields.io/pypi/v/trigger-tree?label=pypi)](https://pypi.org/project/trigger-tree/)
-[![platforms](https://img.shields.io/badge/platforms-macOS%20·%20Linux%20·%20Windows-lightgrey.svg)](docs/platform-support.md)
-[![docs discoverability](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fdocs-discoverability.json)](docs/ci-gate.md)
-[![docs health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fdocs-health.json)](docs/heat-model.md)
+[![CI](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml/badge.svg)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml) [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fcoverage.json)](https://github.com/Hedde/trigger_tree/actions/workflows/ci.yml) [![release](https://img.shields.io/github/v/release/Hedde/trigger_tree?label=release)](https://github.com/Hedde/trigger_tree/releases/latest) [![PyPI](https://img.shields.io/pypi/v/trigger-tree?label=pypi)](https://pypi.org/project/trigger-tree/) [![platforms](https://img.shields.io/badge/platforms-macOS%20·%20Linux%20·%20Windows-lightgrey.svg)](docs/platform-support.md) [![docs discoverability](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fdocs-discoverability.json)](docs/ci-gate.md) [![docs health](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FHedde%2Ftrigger_tree%2Fbadges%2Fdocs-health.json)](docs/heat-model.md)
 
 <p align="center"><a href="https://hedde.github.io/trigger_tree/"><img src="https://raw.githubusercontent.com/Hedde/trigger_tree/main/docs/assets/demo.gif" alt="Real terminal recording of the live trigger-tree dashboard: doc reads pulse through the tree, sorting, prompt browsing, and the privacy settings panel" width="900"></a></p>
 
