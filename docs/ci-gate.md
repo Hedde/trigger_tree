@@ -16,6 +16,12 @@ what agents actually read stays local (`/tt insights`).
 Folders whose members are all `SKILL.md` files are skill packages and are not
 required to have an entry point. Template files (`_*.md`) are never offenders.
 
+Every failing component names its offenders (capped at five, with a `+N more`
+count): unlisted router members, orphans, folders without an entry point, and
+markdown files outside the watch scope. On GitHub Actions the same verdict is
+written to the run's step summary, so the score table and findings appear on the
+run page without opening the log.
+
 ## Usage
 
 GitHub Actions (installs its own pinned version, runs inside your runner):

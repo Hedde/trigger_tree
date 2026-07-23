@@ -11,6 +11,7 @@ Exit codes: 0 pass, 1 gate failed, 2 usage or execution error.
 import argparse
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -24,6 +25,20 @@ BASELINE_PATH = os.path.join(".trigger-tree", "gate.json")
 SCHEMA = 1
 WEIGHTS = {"routed": 40, "linked": 30, "entry_points": 20, "watch_scope": 10}
 SHOWN_OFFENDERS = 5
+OFFENDER_KINDS = (
+    ("unlisted", "Unlisted in their folder router", "add a link in the folder's entry point"),
+    ("orphans", "Orphans (no doc links to them)", "link from a router or related doc"),
+    (
+        "folders_without_entry_point",
+        "Folders without an entry point",
+        "add README.md, _index.md, or index.md",
+    ),
+    (
+        "unwatched",
+        "Outside the watch scope",
+        "extend TT_WATCH_REGEX in .trigger-tree/config.sh or move under a watched folder",
+    ),
+)
 
 
 def _fraction(numerator, denominator):
@@ -50,8 +65,6 @@ def watch_regex():
             text = open(path, encoding="utf-8").read()
         except OSError:
             continue
-        import re
-
         match = re.search(r"TT_WATCH_REGEX='([^']+)'", text)
         if match:
             return match.group(1)
@@ -98,7 +111,9 @@ def measure(stats):
     ]
     without_entry = sorted(f["folder"] for f in folders if not f.get("has_index"))
 
-    scope = scan_markdown(ROOT, watch_regex())
+    pattern = re.compile(watch_regex())
+    scope = scan_markdown(ROOT, pattern.pattern)
+    unwatched = sorted(path for path in scope["paths"] if not pattern.search(path))
     components = {
         "routed": _fraction(listed, members),
         "linked": _fraction(len(evaluable) - len(orphans), len(evaluable)),
@@ -112,6 +127,7 @@ def measure(stats):
         "orphans": orphans,
         "unlisted": unlisted,
         "folders_without_entry_point": without_entry,
+        "unwatched": unwatched,
         "evaluable_docs": len(evaluable),
     }
 
@@ -179,6 +195,30 @@ def _offenders(label, paths, fix):
     return lines
 
 
+def _write_step_summary(result, score, status_lines):
+    """Mirror the verdict onto the GitHub run page when CI provides the hook."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    lines = [f"### 🌳 docs discoverability: {score}%", "", "| component | score |", "|---|---|"]
+    for name, value in sorted(result["components"].items()):
+        lines.append(f"| {name.replace('_', ' ')} | {value}% |")
+    lines.append("")
+    for key, label, fix in OFFENDER_KINDS:
+        paths = result[key]
+        if not paths:
+            continue
+        lines.append(f"**{label} ({len(paths)})**")
+        for offender in paths[:SHOWN_OFFENDERS]:
+            lines.append(f"- `{offender}` — {fix}")
+        if len(paths) > SHOWN_OFFENDERS:
+            lines.append(f"- … +{len(paths) - SHOWN_OFFENDERS} more")
+        lines.append("")
+    lines.extend(f"**{line}**" for line in status_lines)
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
+
+
 def run(argv=None):
     parser = argparse.ArgumentParser(prog="tt gate", description=__doc__)
     parser.add_argument("--min-score", type=int, default=None)
@@ -196,22 +236,9 @@ def run(argv=None):
     if not result["evaluable_docs"]:
         print("No watched documentation found — nothing to gate (see TT_WATCH_REGEX).")
 
-    for line in _offenders(
-        "Unlisted in their folder router",
-        result["unlisted"],
-        "add a link in the folder's entry point",
-    ):
-        print(line)
-    for line in _offenders(
-        "Orphans (no doc links to them)", result["orphans"], "link from a router or related doc"
-    ):
-        print(line)
-    for line in _offenders(
-        "Folders without an entry point",
-        result["folders_without_entry_point"],
-        "add README.md, _index.md, or index.md",
-    ):
-        print(line)
+    for key, label, fix in OFFENDER_KINDS:
+        for line in _offenders(label, result[key], fix):
+            print(line)
 
     if args.badge:
         write_json(args.badge, badge_payload(score))
@@ -223,6 +250,7 @@ def run(argv=None):
     if args.update_baseline:
         write_json(baseline_path, {"schema": SCHEMA, "score": score})
         print(f"baseline updated: {args.baseline} (score {score})")
+        _write_step_summary(result, score, [f"baseline updated to {score}"])
         return 0
 
     failures = []
@@ -238,6 +266,7 @@ def run(argv=None):
     if failures:
         for failure in failures:
             print(f"GATE FAILED: {failure}")
+        _write_step_summary(result, score, [f"GATE FAILED: {failure}" for failure in failures])
         return 1
     if baseline is None and args.min_score is None:
         print(
@@ -245,6 +274,7 @@ def run(argv=None):
             f"{args.baseline} to enforce no-regression on every PR."
         )
     print("gate passed")
+    _write_step_summary(result, score, ["gate passed"])
     return 0
 
 

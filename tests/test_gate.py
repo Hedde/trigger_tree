@@ -64,7 +64,13 @@ def gate(tmp_path, monkeypatch, stats=STATS, watched=(1, 2)):
     monkeypatch.setattr(mod, "ROOT", str(tmp_path))
     monkeypatch.setattr(mod, "structure_stats", lambda: json.loads(json.dumps(stats)))
     monkeypatch.setattr(
-        mod, "scan_markdown", lambda *_args, **_kw: {"watched": watched[0], "markdown": watched[1]}
+        mod,
+        "scan_markdown",
+        lambda *_args, **_kw: {
+            "watched": watched[0],
+            "markdown": watched[1],
+            "paths": ["docs/ui/index.md", "LOOSE.md"][: watched[1]],
+        },
     )
     return mod
 
@@ -82,6 +88,7 @@ def test_measure_scores_components_and_names_offenders(tmp_path, monkeypatch):
         "watch_scope": 50,
     }
     assert result["score"] == 57
+    assert result["unwatched"] == ["LOOSE.md"]
     assert mod._fraction(0, 0) == 1.0
 
 
@@ -103,6 +110,7 @@ def test_run_reports_hint_without_baseline_and_writes_badge(tmp_path, monkeypatc
     assert "docs/ui/gap.md — add a link in the folder's entry point" in out
     assert "docs/ops — add README.md, _index.md, or index.md" in out
     assert "No baseline committed yet" in out and "gate passed" in out
+    assert "Outside the watch scope (1):" in out and "LOOSE.md" in out
     assert json.loads(badge.read_text())["message"] == "57%"
 
 
@@ -126,6 +134,60 @@ def test_min_score_gate_and_vacuous_empty_repo(tmp_path, monkeypatch, capsys):
     mod2 = gate(tmp_path, monkeypatch, stats=empty, watched=(0, 0))
     assert mod2.run([]) == 0
     assert "nothing to gate" in capsys.readouterr().out
+
+
+def test_step_summary_written_for_pass_fail_and_baseline_update(tmp_path, monkeypatch, capsys):
+    mod = gate(tmp_path, monkeypatch)
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    assert mod.run([]) == 0
+    text = summary.read_text(encoding="utf-8")
+    assert "### 🌳 docs discoverability: 57%" in text
+    assert "| watch scope | 50% |" in text
+    assert "`docs/ui/gap.md` — add a link in the folder's entry point" in text
+    assert "**gate passed**" in text
+    assert mod.run(["--update-baseline"]) == 0
+    assert "**baseline updated to 57**" in summary.read_text(encoding="utf-8")
+    (tmp_path / ".trigger-tree" / "gate.json").write_text('{"schema": 1, "score": 90}')
+    assert mod.run([]) == 1
+    assert "**GATE FAILED: score 57 regressed below the committed baseline 90" in summary.read_text(
+        encoding="utf-8"
+    )
+    capsys.readouterr()
+
+
+def test_step_summary_caps_lists_and_skips_empty_sections(tmp_path, monkeypatch):
+    mod = gate(tmp_path, monkeypatch)
+    summary = tmp_path / "s.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    result = {
+        "components": {"routed": 10},
+        "unlisted": [],
+        "orphans": [f"docs/{index}.md" for index in range(7)],
+        "folders_without_entry_point": [],
+        "unwatched": [],
+    }
+    mod._write_step_summary(result, 10, ["gate passed"])
+    text = summary.read_text(encoding="utf-8")
+    assert "Unlisted" not in text and "Outside the watch scope" not in text
+    assert "… +2 more" in text
+
+
+def test_step_summary_absent_without_ci_hook(tmp_path, monkeypatch):
+    mod = gate(tmp_path, monkeypatch)
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    mod._write_step_summary(
+        {
+            "components": {},
+            "unlisted": [],
+            "orphans": [],
+            "folders_without_entry_point": [],
+            "unwatched": [],
+        },
+        100,
+        ["x"],
+    )
+    assert not list(tmp_path.glob("*.md"))
 
 
 def test_offender_lists_are_capped(tmp_path, monkeypatch):
