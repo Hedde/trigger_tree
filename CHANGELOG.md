@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.23.0 — 2026-07-23
+
+- User-wide configuration layer (#13, requested by @BartWaardenburg): every
+  key now resolves as bundled plugin default → user-wide
+  `~/.trigger-tree/config.sh` (location overridable via `TT_USER_CONFIG`) →
+  project override, so one person can set a privacy default such as
+  `TT_LOG_PROMPTS='off'` for every repository before any project has run
+  setup — without patching the installed plugin snapshot. The project's own
+  choice always wins, and `tt doctor` reports the effective prompt mode with
+  the layer that selected it.
+- Config readers anchor assignments to the start of a line everywhere, so a
+  commented example in any config layer can never be parsed as a value.
+- Copy-paste CI examples: `examples/github-actions.yml` and
+  `examples/gitlab-ci.yml`, linked from the README and the CI-gate guide.
+- The configuration reference now states the actual pre-setup prompt default
+  (`hash`); it still described the old `truncate` default.
+
 ## 1.22.0 — 2026-07-23
 
 - GitLab CI support for the gate: `tt gate --code-quality PATH` writes a
