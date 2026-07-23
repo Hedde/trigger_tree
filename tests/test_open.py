@@ -129,3 +129,56 @@ def test_installed_cache_path_is_a_client_detection_fallback(tmp_path):
         )
         assert result.returncode == 0, result.stderr
         assert result.stdout.rstrip().endswith(f"--client {expected}")
+
+
+def _sandboxed_darwin_env(tmp_path, extra=()):
+    """PATH with Darwin uname and an osascript that fails like a GUI-less runtime."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "uname").write_text("#!/bin/sh\necho Darwin\n")
+    (bin_dir / "osascript").write_text("#!/bin/sh\nexit 1\n")
+    for executable in bin_dir.iterdir():
+        executable.chmod(0o755)
+    tmpdir = tmp_path / "launcher-tmp"
+    tmpdir.mkdir()
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in ("TMUX", "TERM_PROGRAM", "ITERM_SESSION_ID")
+    }
+    env.update(
+        PATH=f"{bin_dir}{os.pathsep}{env['PATH']}",
+        CLAUDE_PROJECT_DIR=str(tmp_path),
+        TMPDIR=str(tmpdir),
+    )
+    env.update(extra)
+    return env, tmpdir
+
+
+def test_gui_less_runtime_falls_back_to_a_manual_command_and_cleans_up(tmp_path):
+    # Codex Desktop e.d.: osascript faalt zonder GUI-sessie (issue #14).
+    env, tmpdir = _sandboxed_darwin_env(tmp_path)
+    result = subprocess.run(
+        [shutil.which("bash") or "bash", os.path.join(SCRIPTS, "tt-open.sh")],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert "Could not open a terminal window automatically" in result.stderr
+    assert "Start the watcher manually in a second terminal:" in result.stderr
+    assert "tt-watch.py" in result.stderr  # het exacte commando staat erbij
+    assert not list(tmpdir.glob("tt-watch.*"))  # gelekte launcher is opgeruimd
+
+
+def test_gui_less_iterm_runtime_falls_back_identically(tmp_path):
+    env, tmpdir = _sandboxed_darwin_env(tmp_path, extra={"TERM_PROGRAM": "iTerm.app"})
+    result = subprocess.run(
+        [shutil.which("bash") or "bash", os.path.join(SCRIPTS, "tt-open.sh")],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert "Start the watcher manually in a second terminal:" in result.stderr
+    assert not list(tmpdir.glob("tt-watch.*"))

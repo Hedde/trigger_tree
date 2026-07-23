@@ -65,6 +65,17 @@ make_launcher() {
   chmod +x "$LAUNCH"
 }
 
+manual_fallback() {
+  # Sandboxed and headless runtimes (desktop-app tool calls, SSH) have no GUI
+  # session for AppleScript (issue #14): clean up and hand over the exact
+  # command instead of dying on set -e without a word.
+  if [ -n "${LAUNCH:-}" ]; then rm -f "$LAUNCH"; fi
+  echo "Could not open a terminal window automatically ($1)." >&2
+  echo "Start the watcher manually in a second terminal:" >&2
+  echo "$CMD" >&2
+  exit 1
+}
+
 # Build a shell-safe command. Repository names can legally contain spaces,
 # apostrophes and shell metacharacters; the split must still tail that exact repo.
 printf -v Q_ROOT '%q' "$ROOT"
@@ -80,9 +91,11 @@ if [ "${TT_OPEN_DRYRUN:-}" = "1" ]; then
 fi
 
 if [ -n "${TMUX:-}" ]; then
-  tmux split-window -h "$CMD"
-  echo "trigger-tree $V watcher opened in a tmux split."
-  exit 0
+  if tmux split-window -h "$CMD" 2>/dev/null; then
+    echo "trigger-tree $V watcher opened in a tmux split."
+    exit 0
+  fi
+  manual_fallback "stale TMUX environment"
 fi
 
 case "$PLATFORM" in
@@ -123,23 +136,26 @@ OSA
         -e 'end tell' \
         -e 'end tell' >/dev/null 2>&1; then
         echo "trigger-tree $V watcher opened in an iTerm2 split (same window)."
-      else
-        osascript \
-          -e 'tell application "iTerm2"' \
-          -e "create window with default profile command \"$LAUNCH\"" \
-          -e 'end tell' >/dev/null
+      elif osascript \
+        -e 'tell application "iTerm2"' \
+        -e "create window with default profile command \"$LAUNCH\"" \
+        -e 'end tell' >/dev/null 2>&1; then
         echo "trigger-tree $V watcher opened in a new iTerm2 window."
+      else
+        manual_fallback "no GUI/AppleScript access from this runtime"
       fi
       exit 0
     fi
     make_launcher
-    osascript \
+    if osascript \
       -e 'tell application "Terminal"' \
       -e 'activate' \
       -e "do script \"$LAUNCH\"" \
-      -e 'end tell' >/dev/null
-    echo "trigger-tree $V watcher opened in a new Terminal window."
-    exit 0
+      -e 'end tell' >/dev/null 2>&1; then
+      echo "trigger-tree $V watcher opened in a new Terminal window."
+      exit 0
+    fi
+    manual_fallback "no GUI/AppleScript access from this runtime"
     ;;
   MINGW*|MSYS*|CYGWIN*)  # Windows (Git Bash)
     if command -v wt.exe >/dev/null 2>&1; then
@@ -163,6 +179,4 @@ for TERM_CMD in gnome-terminal konsole x-terminal-emulator xterm; do
   fi
 done
 
-echo "No supported terminal found — start manually in a second terminal:" >&2
-echo "$CMD" >&2
-exit 1
+manual_fallback "no supported terminal found"

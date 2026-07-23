@@ -16,6 +16,13 @@ Untouched is a review signal. Check whether it is protected or missing from its 
 
 Reload plugins and confirm the running version. A current-version crash keeps the pane open with its error.
 
+## The dashboard will not open from a desktop app
+
+Sandboxed application runtimes (Codex Desktop and similar) have no GUI session
+for AppleScript, so no terminal window can be opened from there — running the
+same launcher from a real terminal works. The launcher detects this and prints
+the exact `tt-watch.py` command to paste into a second terminal.
+
 ## Why is Claude telemetry empty on Windows?
 
 Ensure `python3` resolves on `PATH`. Claude’s documented exec-form hooks do not provide an operating-system condition.
