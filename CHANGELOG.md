@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.21.1 — 2026-07-23
+
+- Parses git-listed paths NUL-separated, so markdown files with non-ASCII names
+  are counted instead of silently dropped by git's quoting (#8 follow-up).
+- Stamps newly written events without an attributed client as `client: "unknown"`
+  explicitly — absence now only means pre-1.21 history (#9 follow-up).
+- Corrects the FAQ: Codex does support version pinning via
+  `codex plugin marketplace add owner/repo --ref vX.Y.Z`; the earlier claim that
+  installs always follow the default branch was outdated (#6 follow-up).
+- Removes contradictory privacy sentences the v1.21.0 rewrite left in the FAQ and
+  SECURITY.md; every surface now states the same rule: hash before a project's
+  consent, truncate only after setup chose it (#7 follow-up).
+
 ## 1.21.0 — 2026-07-23
 
 All five findings below were reported by @BartWaardenburg — thank you.
