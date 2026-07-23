@@ -110,7 +110,8 @@ case "$PLATFORM" in
       # Target the exact session that invoked us (ITERM_SESSION_ID), so two Claude
       # sessions in different projects each get their own split — never the
       # frontmost window by accident.
-      SESSION_UUID="${ITERM_SESSION_ID#*:}"
+      SESSION_UUID="${ITERM_SESSION_ID:-}"
+      SESSION_UUID="${SESSION_UUID#*:}"
       if [ -n "${ITERM_SESSION_ID:-}" ] && osascript >/dev/null 2>&1 <<OSA
 tell application "iTerm2"
   set found to false

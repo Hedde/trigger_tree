@@ -155,6 +155,7 @@ def _sandboxed_darwin_env(tmp_path, extra=()):
     return env, tmpdir
 
 
+@pytest.mark.skipif(os.name == "nt", reason="native uname.exe outranks the Darwin fake")
 def test_gui_less_runtime_falls_back_to_a_manual_command_and_cleans_up(tmp_path):
     # Codex Desktop e.d.: osascript faalt zonder GUI-sessie (issue #14).
     env, tmpdir = _sandboxed_darwin_env(tmp_path)
@@ -171,6 +172,7 @@ def test_gui_less_runtime_falls_back_to_a_manual_command_and_cleans_up(tmp_path)
     assert not list(tmpdir.glob("tt-watch.*"))  # gelekte launcher is opgeruimd
 
 
+@pytest.mark.skipif(os.name == "nt", reason="native uname.exe outranks the Darwin fake")
 def test_gui_less_iterm_runtime_falls_back_identically(tmp_path):
     env, tmpdir = _sandboxed_darwin_env(tmp_path, extra={"TERM_PROGRAM": "iTerm.app"})
     result = subprocess.run(
