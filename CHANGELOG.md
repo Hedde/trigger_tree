@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.20.0 — 2026-07-23
+
+- Adds `TT_SCOPE_IGNORE`: comma-separated globs that acknowledge intentionally
+  unwatched markdown (issue templates, changelogs). Acknowledged files leave the
+  gate findings, the SARIF report, and the watch-scope denominator through one
+  committed, reviewable config line; a path the watch regex matches is never
+  ignored. The gate, doctor, and their shared scanner all honor it, which also
+  auto-resolves the code-scanning alerts this repository had filed against its
+  own human-only files.
+- Watches this repository's Codex workflow contract and links it from the docs
+  router; with the acknowledgments in place the dogfood discoverability score is
+  an honest 100.
+- Anchors config parsing to line starts so commented example values can never be
+  mistaken for assignments.
+
 ## 1.19.2 — 2026-07-23
 
 - Ships the inline README badge row in a release, because the GitHub Marketplace

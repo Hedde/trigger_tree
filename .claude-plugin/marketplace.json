@@ -9,7 +9,7 @@
     {
       "name": "trigger-tree",
       "displayName": "trigger-tree",
-      "version": "1.19.2",
+      "version": "1.20.0",
       "source": "./",
       "description": "Local, zero-token documentation discovery: live dashboard, heat maps, router fixes, and setup diagnostics",
       "category": "documentation",
