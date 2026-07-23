@@ -69,7 +69,7 @@ entry points, watch scope — so it is deterministic, needs no telemetry, and up
 nothing. Discoverable never means discovered; read telemetry stays local.
 
 ```yaml
-- uses: Hedde/trigger_tree@v1.20.0   # or: pip install trigger-tree && tt gate
+- uses: Hedde/trigger_tree@v1.21.0   # or: pip install trigger-tree && tt gate
 ```
 
 Commit a baseline once with `tt gate --update-baseline` and every PR that makes your

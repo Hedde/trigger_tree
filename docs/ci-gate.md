@@ -53,7 +53,7 @@ Be precise about the boundary — three layers, three tools:
 GitHub Actions (installs its own pinned version, runs inside your runner):
 
 ```yaml
-- uses: Hedde/trigger_tree@v1.20.0
+- uses: Hedde/trigger_tree@v1.21.0
   with:
     min-score: "70"        # optional absolute floor
     badge: "discoverability.json"   # optional shields.io endpoint output
@@ -88,7 +88,7 @@ it to GitHub code scanning for per-file annotations on pull requests, or attach 
 as a build artifact for any other tooling:
 
 ```yaml
-- uses: Hedde/trigger_tree@v1.20.0
+- uses: Hedde/trigger_tree@v1.21.0
   with:
     sarif: "tt-gate.sarif"
 - uses: github/codeql-action/upload-sarif@4187e74d05793876e9989daffde9c3e66b4acd07 # v3

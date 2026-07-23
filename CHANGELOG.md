@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.21.0 — 2026-07-23
+
+All five findings below were reported by @BartWaardenburg — thank you.
+
+- Restores `hash` as the prompt-logging fallback before a project's setup: plugin
+  installs are user-wide, so no repository records prompt text without its own
+  explicit choice (#7). Setup still recommends `truncate` interactively, and the
+  privacy documentation states the boundary precisely.
+- Scans documentation the way git sees it — tracked plus untracked-but-not-ignored
+  markdown via `git ls-files`, filesystem walk as fallback: `.agents/` and
+  `.codex/` are no longer hard-skipped, ignored scratch trees cannot crowd out
+  real docs, and a capped scan reports itself as incomplete (#8).
+- Stamps every telemetry event with its originating client (`claude`, `codex`,
+  `external`), carried from the hook adapters through shell capture and ingest;
+  stats expose a per-client breakdown and treat missing values as unknown (#9).
+- Supports Python 3.14 across CI, doctor, and packaging, and doctor reports the
+  interpreter path so hook and diagnostic environments can be compared (#10).
+- Documents the real Codex install command (`codex plugin add
+  trigger-tree@trigger-tree`) and the current marketplace ref limitation (#6).
+
 ## 1.20.0 — 2026-07-23
 
 - Adds `TT_SCOPE_IGNORE`: comma-separated globs that acknowledge intentionally
