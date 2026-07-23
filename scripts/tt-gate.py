@@ -17,7 +17,7 @@ import subprocess
 import sys
 import tempfile
 
-from tt_scope import is_ignored, parse_ignore, scan_markdown
+from tt_scope import parse_ignore, scan_markdown
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
