@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "trigger-tree"
-version = "1.23.0"
+version = "1.23.1"
 description = "See which project docs your AI coding agent actually discovers — local, zero-token documentation telemetry."
 readme = "README.md"
 license = { text = "MIT" }

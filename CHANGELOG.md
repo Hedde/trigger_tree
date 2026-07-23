@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.23.1 — 2026-07-23
+
+- The dashboard launcher fails gracefully in GUI-less runtimes (#14): sandboxed
+  application runtimes such as Codex Desktop have no GUI session for
+  AppleScript, which made `osascript` die mid-script under `set -e` without a
+  word. Every launch route now detects its own failure, cleans up the generated
+  temporary launcher, and prints the exact `tt-watch.py` command to paste into
+  a second terminal. Running from a real terminal is unaffected.
+- The Codex directory subtitle in the plugin manifest respects the OpenAI
+  portal's 30-character limit.
+
 ## 1.23.0 — 2026-07-23
 
 - User-wide configuration layer (#13, requested by @BartWaardenburg): every
