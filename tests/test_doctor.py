@@ -24,7 +24,7 @@ def test_doctor_all_checks_pass(tmp_path, capsys):
     out = capsys.readouterr().out
     assert out.count("✓") == 8
     assert "1 usable events, latest 2026-07-17T10:00:00Z" in out
-    assert "Python" not in out  # message uses stable lowercase wording
+    assert "Python:" not in out  # the label stays lowercase; paths may contain Python
     assert "all checks passed" in out
 
 
