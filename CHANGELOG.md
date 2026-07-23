@@ -2,8 +2,9 @@
 
 ## 1.21.1 — 2026-07-23
 
-- Parses git-listed paths NUL-separated, so markdown files with non-ASCII names
-  are counted instead of silently dropped by git's quoting (#8 follow-up).
+- Parses git-listed paths NUL-separated and decodes them as UTF-8 explicitly, so
+  markdown files with non-ASCII names are counted instead of silently dropped by
+  git's quoting — or mangled by the Windows locale codepage (#8 follow-up).
 - Stamps newly written events without an attributed client as `client: "unknown"`
   explicitly — absence now only means pre-1.21 history (#9 follow-up).
 - Corrects the FAQ: Codex does support version pinning via

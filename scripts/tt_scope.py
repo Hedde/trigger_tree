@@ -40,10 +40,13 @@ def _git_markdown(root, limit):
     the filesystem walk stays the fallback.
     """
     try:
+        # Git prints pathnames as UTF-8 bytes on every platform; decoding with the
+        # locale (text=True) mangles non-ASCII names on Windows runners.
         result = subprocess.run(
             ["git", "-C", root, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
             check=True,
         )
