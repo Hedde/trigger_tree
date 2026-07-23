@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.21.3 — 2026-07-23
+
+- Corrects the GitHub release body footer: the Codex install is generated as
+  `codex plugin marketplace add Hedde/trigger_tree --ref vX.Y.Z` plus
+  `codex plugin add trigger-tree@trigger-tree`, pinned to the release's own
+  tag — `codex plugin install` does not exist (#12, reported by
+  @BartWaardenburg). The seventeen published release bodies carrying the dead
+  command (v1.13.0–v1.21.2) were corrected in place, and the docs-currency
+  guard now requires every install command in the footer template to exist
+  verbatim in the README so the surfaces cannot drift apart again.
+
 ## 1.21.2 — 2026-07-23
 
 - Documents Codex hook trust: after an install or upgrade Codex silently skips
