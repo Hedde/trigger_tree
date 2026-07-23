@@ -283,3 +283,17 @@ def test_prompts_health_reports_the_selecting_layer_and_rejects_invalid(tmp_path
     (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_LOG_PROMPTS='alles'\n")
     state, message = mod.prompts_health()
     assert state == "FAIL" and "invalid mode 'alles' from the project override" in message
+
+
+def test_doctor_warns_on_watched_symlinked_surfaces(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "linked").mkdir()
+    mod = load_script("tt-doctor.py", tmp_path)
+    assert mod.surfaces_health() is None  # zonder symlinks geen melding
+    import os as osmod
+
+    real_islink = osmod.path.islink
+    monkeypatch.setattr(osmod.path, "islink", lambda p: str(p).endswith("linked") or real_islink(p))
+    state, message = mod.surfaces_health()
+    assert state == "WARN"
+    assert "docs/linked" in message and "outside the inventory" in message

@@ -15,6 +15,9 @@ what agents actually read stays local (`/tt insights`).
 
 Folders whose members are all `SKILL.md` files are skill packages and are not
 required to have an entry point. Template files (`_*.md`) are never offenders.
+Inside a git repository every component works on git's view of the tree —
+tracked plus untracked-but-not-ignored files — so gitignored markdown can never
+appear as an orphan or a missing entry point.
 
 Every failing component names its offenders (capped at five, with a `+N more`
 count): unlisted router members, orphans, folders without an entry point, and

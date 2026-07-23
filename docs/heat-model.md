@@ -18,5 +18,13 @@ The health score combines coverage, router reachability, and search behavior. It
 - A read proves discovery, not comprehension, correctness, or compliance.
 - Untouched and dead-path candidates are review prompts, not removal recommendations. Protected, referenced, critical, safety, and template paths remain distinct.
 - Hosted tools that bypass local lifecycle hooks are invisible. Other local tools can use the documented ingest entry point.
+- The health grade scores **evaluable docs** — always-loaded context is excluded
+  by design, and the structural inventory follows git's view of the repository
+  (tracked plus untracked-but-not-ignored files).
+- Directory symlinks are never followed: a watched surface behind one stays
+  outside the inventory and the score. Such surfaces are named explicitly —
+  `unfollowed_surfaces` in the stats payload, a warning in `tt doctor`, and a
+  health driver — so a low score is never mistaken for a verdict on knowledge
+  the measurement cannot see.
 
 See the [glossary](glossary.md) for canonical definitions.

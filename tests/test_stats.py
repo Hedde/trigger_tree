@@ -549,6 +549,7 @@ def test_fixture_full_run(monkeypatch):
     assert s["health"] == {
         "score": 56,
         "grade": "D",
+        "scope": "evaluable docs — always-loaded context and unfollowed symlinked surfaces excluded",
         "coverage": 0.39,
         "drivers": [
             "19 of 31 evaluable docs untouched",
@@ -556,6 +557,7 @@ def test_fixture_full_run(monkeypatch):
             "distributed search ratio 0.0",
         ],
     }
+    assert s["unfollowed_surfaces"] == []
 
     # router-gap detection: accessibility.md is untouched AND unreferenced;
     # workflow.md is untouched but development/index.md mentions it
@@ -832,3 +834,55 @@ def test_clients_breakdown_groups_mixed_history(tmp_path, monkeypatch):
     mod = load_script("tt-stats.py", tmp_path)
     stats = run_stats(mod, monkeypatch)
     assert stats["clients"] == {"claude": 2, "codex": 1, "unknown": 1}
+
+
+def test_inventory_follows_gits_view_of_the_repository(tmp_path, monkeypatch):
+    # Issue #16: gitignored markdown mag nooit als orphan of entry-point-gat terugkomen.
+    import subprocess as sp
+
+    sp.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / ".gitignore").write_text("docs/scratch/\n")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "README.md").write_text("router")
+    (tmp_path / "docs" / "scratch").mkdir()
+    (tmp_path / "docs" / "scratch" / "ignored.md").write_text("genegeerd")
+    mod = load_script("tt-stats.py", tmp_path)
+    assert mod.inventory() == ["docs/README.md"]
+
+
+def test_inventory_walks_everything_outside_git(tmp_path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("doc")
+    mod = load_script("tt-stats.py", tmp_path)
+    assert mod.inventory() == ["docs/a.md"]
+
+
+def test_unfollowed_symlinked_surfaces_are_named_in_stats(tmp_path, monkeypatch, capsys):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("doc")
+    hidden = tmp_path / "docs" / "linked"
+    hidden.mkdir()
+    mod = load_script("tt-stats.py", tmp_path)
+    # Portable simulatie: behandel docs/linked als directory-symlink (issue #15).
+    real_islink = os.path.islink
+    monkeypatch.setattr(
+        mod.os.path, "islink", lambda p: str(p).endswith("linked") or real_islink(p)
+    )
+    out = run_stats(mod, monkeypatch)
+    assert out["unfollowed_surfaces"] == [
+        {
+            "path": "docs/linked",
+            "target": str(hidden),
+            "reason": "directory symlink — contents stay outside the git-visible inventory",
+        }
+    ]
+    assert "evaluable docs" in out["health"]["scope"]
+    assert "1 watched symlinked surface(s) not followed" in out["health"]["drivers"]
+
+
+def test_symlinked_surface_scan_is_bounded(tmp_path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "deep").mkdir()
+    mod = load_script("tt-stats.py", tmp_path)
+    # limit=1: na de eerste directory-iteratie stopt de scan gegarandeerd.
+    assert mod.symlinked_surfaces(str(tmp_path), r"^docs/", limit=1) == []

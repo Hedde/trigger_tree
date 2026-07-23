@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 
 from tt_runtime import user_config_path
-from tt_scope import is_poor_coverage, parse_ignore, scan_markdown
+from tt_scope import is_poor_coverage, parse_ignore, scan_markdown, symlinked_surfaces
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -183,6 +183,19 @@ def scope_ignore():
     return ()
 
 
+def surfaces_health():
+    """Name watched surfaces hidden behind a directory symlink (issue #15)."""
+    surfaces = symlinked_surfaces(ROOT, watch_regex())
+    if not surfaces:
+        return None
+    names = ", ".join(item["path"] for item in surfaces[:3])
+    suffix = "…" if len(surfaces) > 3 else ""
+    return "WARN", (
+        f"surfaces: {len(surfaces)} watched symlinked surface(s) not followed ({names}{suffix})"
+        " — contents stay outside the inventory and the health score; see docs/heat-model.md"
+    )
+
+
 def coverage_health():
     result = scan_markdown(ROOT, watch_regex(), ignore_globs=scope_ignore())
     summary = f"coverage: {result['watched']} of {result['markdown']} markdown files watched"
@@ -351,6 +364,7 @@ def main():
             config_health(),
             prompts_health(),
             coverage_health(),
+            surfaces_health(),
             python_health(),
             ignore_health(),
             statusline_health(),

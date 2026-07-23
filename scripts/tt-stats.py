@@ -30,6 +30,7 @@ from itertools import combinations
 from statistics import median
 
 from tt_runtime import user_config_path
+from tt_scope import git_visible_files, symlinked_surfaces
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -108,6 +109,9 @@ INVENTORY_BASES = [
 
 
 def inventory():
+    # Git's view is the shared source of truth: a file .gitignore excludes must
+    # not resurface as a router, orphan, or entry-point finding (issue #16).
+    visible = git_visible_files(ROOT)
     seen = set()
     for base in INVENTORY_BASES:
         top = os.path.join(ROOT, base)
@@ -118,6 +122,8 @@ def inventory():
             for f in files:
                 full_path = os.path.join(dirpath, f)
                 rel = os.path.relpath(full_path, ROOT).replace(os.sep, "/")
+                if visible is not None and rel not in visible:
+                    continue
                 if WATCH.search(rel) and safe_regular_file(full_path):
                     seen.add(rel)
     return sorted(seen)
@@ -813,6 +819,12 @@ def main():
         )
 
     # Documentation health: one deterministic grade a product owner can track.
+    # The scope is evaluable docs; watched surfaces behind a directory symlink
+    # are named instead of silently missing (issue #15).
+    unfollowed = [
+        {**surface, "reason": "directory symlink — contents stay outside the git-visible inventory"}
+        for surface in symlinked_surfaces(ROOT, WATCH.pattern)
+    ]
     router_gaps = sum(1 for d in untouched_detail if not d["referenced_from"])
     denom = max(1, len(evaluable_set))
     coverage_overall = round(len(touched_paths) / denom, 2)
@@ -835,12 +847,14 @@ def main():
     health = {
         "score": score,
         "grade": grade_for(score),
+        "scope": "evaluable docs — always-loaded context and unfollowed symlinked surfaces excluded",
         "coverage": coverage_overall,
         "drivers": [
             f"{len(untouched)} of {len(evaluable_set)} evaluable docs untouched",
             f"{router_gaps} router gaps (untouched and unreferenced)",
             f"distributed search ratio {distributed_search_ratio}",
-        ],
+        ]
+        + ([f"{len(unfollowed)} watched symlinked surface(s) not followed"] if unfollowed else []),
     }
 
     out = {
@@ -859,6 +873,7 @@ def main():
         "sessions": len(sessions),
         "maturity": maturity,
         "health": health,
+        "unfollowed_surfaces": unfollowed,
         "totals": {
             "events": len(events),
             "reads": len(reads),

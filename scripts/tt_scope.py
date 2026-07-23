@@ -32,13 +32,10 @@ def is_ignored(path, ignore_globs):
     return any(fnmatch(path, glob) for glob in ignore_globs)
 
 
-def _git_markdown(root, limit):
-    """Tracked plus untracked-but-not-ignored markdown, straight from git.
-
-    Git's view respects the repository's own .gitignore, so scratch trees never
-    crowd out documentation (issue #8). Returns None outside a git repository so
-    the filesystem walk stays the fallback.
-    """
+def git_visible_files(root):
+    """Every path git considers part of the repository — tracked plus
+    untracked-but-not-ignored — or None outside a git repository. The shared
+    source of truth for scope and structure inventories (issues #8, #16)."""
     try:
         # Git prints pathnames as UTF-8 bytes on every platform; decoding with the
         # locale (text=True) mangles non-ASCII names on Windows runners.
@@ -52,14 +49,55 @@ def _git_markdown(root, limit):
         )
     except (OSError, subprocess.SubprocessError):
         return None
+    return {line for line in result.stdout.split("\0") if line}
+
+
+def _git_markdown(root, limit):
+    """Git-visible markdown, so scratch trees never crowd out documentation
+    (issue #8). Returns None outside a git repository so the filesystem walk
+    stays the fallback."""
+    visible = git_visible_files(root)
+    if visible is None:
+        return None
     names = [
         line
-        for line in result.stdout.split("\0")
+        for line in visible
         if line.lower().endswith((".md", ".markdown"))
         and not any(part in SKIP_DIRS or part.startswith(".venv") for part in line.split("/")[:-1])
     ]
     names.sort()
     return names[:limit], len(names) > limit
+
+
+def symlinked_surfaces(root, watch_regex, limit=DEFAULT_LIMIT):
+    """Directory symlinks whose contents the watch regex would cover.
+
+    Neither git nor the walk follows directory symlinks, so a watched surface
+    behind one silently vanishes from every inventory (issue #15). Naming the
+    surface keeps the health scope honest without importing bytes from outside
+    the repository into a deterministic score.
+    """
+    pattern = re.compile(watch_regex)
+    found = []
+    visited = 0
+    for current, directories, _files in os.walk(root, followlinks=False):
+        keep = []
+        for name in directories:
+            if name in SKIP_DIRS or name.startswith(".venv"):
+                continue
+            full = os.path.join(current, name)
+            relative = os.path.relpath(full, root).replace(os.sep, "/")
+            if os.path.islink(full):
+                # Probe: would a markdown child of this directory be watched?
+                if pattern.search(relative + "/probe.md"):
+                    found.append({"path": relative, "target": os.path.realpath(full)})
+                continue
+            keep.append(name)
+        directories[:] = keep
+        visited += 1
+        if visited >= limit or len(found) >= 20:
+            break
+    return sorted(found, key=lambda item: item["path"])
 
 
 def scan_markdown(root, watch_regex, limit=DEFAULT_LIMIT, ignore_globs=()):
