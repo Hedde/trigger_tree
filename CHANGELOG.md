@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.19.1 — 2026-07-23
+
+- Shortens the action description to fit the GitHub Marketplace 125-character
+  limit, unblocking the Marketplace listing.
+
 ## 1.19.0 — 2026-07-23
 
 - Exports gate findings as deterministic SARIF 2.1.0 (`--sarif`, action input
