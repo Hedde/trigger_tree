@@ -1,5 +1,6 @@
 import json
 import os
+import stat
 import subprocess
 import sys
 
@@ -156,6 +157,23 @@ def test_analysis_failure_exits_two(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["tt-gate.py"])
     assert mod.main() == 2
     assert "stats exploded" in capsys.readouterr().err
+
+
+def test_refuse_unsafe_rejects_symlinks_via_portable_metadata(tmp_path, monkeypatch):
+    """Cover the refusal branch on every platform, including runners without symlinks."""
+    mod = gate(tmp_path, monkeypatch)
+    victim = tmp_path / "victim.json"
+    victim.write_text("{}")
+    real_lstat = os.lstat
+
+    class LinkStat:
+        st_mode = stat.S_IFLNK | 0o777
+
+    monkeypatch.setattr(
+        mod.os, "lstat", lambda p: LinkStat() if str(p) == str(victim) else real_lstat(p)
+    )
+    with pytest.raises(RuntimeError, match="symlinked"):
+        mod.write_json(str(victim), {})
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX permission semantics")
