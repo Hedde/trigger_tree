@@ -17,9 +17,10 @@ def wire_project(project, events=True):
         )
 
 
-def test_doctor_all_checks_pass(tmp_path, capsys):
+def test_doctor_all_checks_pass(tmp_path, monkeypatch, capsys):
     wire_project(tmp_path)
     mod = load_script("tt-doctor.py", tmp_path)
+    monkeypatch.setattr(mod.time, "time", lambda: 1_784_282_400)
     assert mod.main() == 0
     out = capsys.readouterr().out
     assert out.count("✓") == 9
