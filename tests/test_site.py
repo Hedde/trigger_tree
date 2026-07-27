@@ -9,6 +9,8 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert html.count('class="install-card"') == 2
     assert "grid-template-columns:repeat(3,minmax(0,1fr))" in html
     assert "grid-template-columns:repeat(auto-fit" not in html
+    assert ".compare div { min-width:0; padding:1.25rem 1.35rem 1.35rem; }" in html
+    assert "background:var(--panel); border:1px solid var(--line); border-radius:10px;" in html
     assert "30-day half-life while lifetime reads stay visible" in html
     assert '█".repeat' in html and '·".repeat' in html
     assert "f focus · h hot · c cold" in html

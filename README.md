@@ -26,7 +26,7 @@ The gate scores repository structure only — router coverage, orphaned docs, fo
 entry points, and watch scope — so it works on day one without telemetry.
 
 ```yaml
-- uses: Hedde/trigger_tree@v1.25.0   # or: pip install trigger-tree && tt gate
+- uses: Hedde/trigger_tree@v1.25.1   # or: pip install trigger-tree && tt gate
 ```
 
 Commit a baseline once with `tt gate --update-baseline`. A regression then fails the PR

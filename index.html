@@ -72,7 +72,7 @@
   .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1.25rem; }
   .card h3 { margin-bottom:.4rem; font-size:1.05rem; }
   .card p { color:var(--muted); font-size:.95rem; }
-  h2 { margin:3rem 0 1rem; font-size:1.4rem; }
+  h2 { margin:3.5rem 0 1.15rem; font-size:1.4rem; line-height:1.25; letter-spacing:-.012em; }
   code, pre.block { font-family:ui-monospace,Menlo,Consolas,monospace; }
   pre.block { background:var(--panel); border:1px solid var(--line); border-radius:8px;
               padding:1rem 1.2rem; overflow-x:auto; font-size:.9rem; line-height:1.7; }
@@ -91,13 +91,15 @@
   .pill-label { background:#3a4450; color:#fff; padding:.28rem .6rem; }
   .pill-value { background:var(--green); color:#0c1014; padding:.28rem .6rem; font-weight:700; }
   .health-story { display:grid; grid-template-columns:8rem 1fr; gap:1.5rem; align-items:start;
-                  border-top:1px solid var(--line); padding:1.4rem 0; }
+                  background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1.4rem; }
   .health-grade { font:700 1.35rem/1.2 ui-monospace,Menlo,monospace; color:var(--green); text-align:left; padding-top:.15rem; }
   .drivers { color:var(--muted); margin:.45rem 0 0 1.1rem; }
-  .compare { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-block:1px solid var(--line); }
-  .compare div { padding:1.15rem 1.15rem 1.15rem 0; }
+  .compare { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); overflow:hidden;
+             background:var(--panel); border:1px solid var(--line); border-radius:10px; }
+  .compare div { min-width:0; padding:1.25rem 1.35rem 1.35rem; }
   .compare div + div { border-left:1px solid var(--line); }
-  .compare p { color:var(--muted); font-size:.92rem; margin-top:.3rem; }
+  .compare b { display:block; line-height:1.35; }
+  .compare p { color:var(--muted); font-size:.92rem; line-height:1.55; margin-top:.45rem; }
   table { border-collapse:collapse; width:100%; }
   th,td { text-align:left; padding:.5rem .7rem; border-bottom:1px solid var(--line); font-size:.95rem; }
   th { color:var(--muted); } td code { color:var(--bright); }
@@ -107,8 +109,14 @@
             box-shadow:0 8px 30px rgba(0,0,0,.6); pointer-events:none; opacity:0; transition:opacity .3s; }
   footer { text-align:center; color:var(--muted); margin-top:4rem; font-size:.9rem; }
   @media (max-width:850px) { .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-  @media (max-width:580px) { .grid, .install-grid, .health-story, .compare, .offers { grid-template-columns:1fr; }
-    .compare div + div { border-left:0; border-top:1px solid var(--line); } }
+  @media (max-width:580px) {
+    .wrap { padding:2rem 1rem; }
+    .grid, .install-grid, .health-story, .compare, .offers { grid-template-columns:1fr; }
+    .compare div { padding:1.1rem 1.2rem 1.2rem; }
+    .compare div + div { border-left:0; border-top:1px solid var(--line); }
+    .health-story { gap:.75rem; padding:1.2rem; }
+    h2 { margin-top:3rem; }
+  }
   @media (prefers-reduced-motion: reduce) { .pulse { text-shadow:none; } }
   @media (prefers-color-scheme: light) {
     :root { --bg:#f7faf7; --panel:#fff; --line:#d7e0d8; --fg:#172019; --muted:#58645b;
@@ -192,7 +200,7 @@
   <p class="install-note" style="max-width:720px;margin-top:0">The structural gate works
   immediately: router coverage, orphaned docs, folder entry points, and watch scope.
   It needs no telemetry and nothing leaves your runner.</p>
-  <pre class="block">- uses: Hedde/trigger_tree@v1.25.0   # GitHub Actions
+  <pre class="block">- uses: Hedde/trigger_tree@v1.25.1   # GitHub Actions
 # GitLab CI: pip install trigger-tree
 #   tt gate --code-quality gl-code-quality-report.json</pre>
   <p class="install-note">Commit a baseline once (<code>tt gate --update-baseline</code>).

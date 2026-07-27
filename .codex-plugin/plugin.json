@@ -1,6 +1,6 @@
 {
   "name": "trigger-tree",
-  "version": "1.25.0",
+  "version": "1.25.1",
   "description": "Local, zero-token documentation discovery telemetry for Codex and Claude Code.",
   "author": {
     "name": "Hedde van der Heide",
@@ -16,7 +16,7 @@
     "docs-as-code",
     "codex"
   ],
-  "skills": "./codex-skills/",
+  "skills": "./skills/",
   "interface": {
     "displayName": "trigger-tree",
     "shortDescription": "See which docs your AI reads",

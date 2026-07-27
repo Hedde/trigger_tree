@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.25.1 — 2026-07-27
+
+- Fixes the Codex upload manifest to resolve its skills from the packaged
+  `skills/` root. The deterministic ZIP builder already placed the skill
+  there, but the v1.25.0 manifest still pointed at the repository-only
+  `codex-skills/` source directory, so Codex rejected the upload.
+- Polishes the marketing site's comparison and health sections with consistent
+  inset spacing, contained borders, and cleaner mobile stacking.
+
 ## 1.25.0 — 2026-07-27
 
 - Adds deterministic instruction-adherence measurement: a hash-bound,

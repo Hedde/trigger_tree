@@ -23,7 +23,7 @@ def test_codex_manifest_is_complete_and_references_real_components():
     claude = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     assert manifest["name"] == claude["name"] == "trigger-tree"
     assert manifest["version"] == claude["version"]
-    assert manifest["skills"] == "./codex-skills/"
+    assert manifest["skills"] == "./skills/"
     assert "hooks" not in manifest  # Codex discovers hooks/hooks.json by convention.
     assert (ROOT / "codex-skills" / "trigger-tree" / "SKILL.md").is_file()
     assert (ROOT / "skills" / "tt" / "SKILL.md").is_file()
@@ -116,6 +116,12 @@ def test_codex_upload_archive_is_complete_and_reproducible(tmp_path):
         assert "scripts/tt_scope.py" in names
         assert "skills/trigger-tree/SKILL.md" in names
         assert "codex-skills/trigger-tree/SKILL.md" not in names
+        packaged_manifest = json.loads(archive.read(".codex-plugin/plugin.json").decode("utf-8"))
+        skills_root = packaged_manifest["skills"].removeprefix("./").rstrip("/")
+        assert skills_root == "skills"
+        assert any(
+            name.startswith(f"{skills_root}/") and name.endswith("/SKILL.md") for name in names
+        )
         assert names == set(builder.FILES.values()) | {
             f"{parent.as_posix()}/"
             for destination in builder.FILES.values()
