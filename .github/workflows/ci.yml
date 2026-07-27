@@ -224,3 +224,12 @@ jobs:
             gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
               --title "$RELEASE_TAG" --notes-file /tmp/release-body.md
           fi
+      - name: Attach the Codex submission archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python .github/scripts/build_codex_zip.py --output /tmp/trigger-tree-codex.zip
+          python .github/scripts/verify_codex_zip.py /tmp/trigger-tree-codex.zip "$RELEASE_TAG"
+          gh release upload "$RELEASE_TAG" /tmp/trigger-tree-codex.zip \
+            --repo "$GITHUB_REPOSITORY" --clobber

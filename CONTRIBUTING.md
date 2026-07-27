@@ -47,6 +47,10 @@ pytest, coverage, Black, and Ruff are development tools installed only in the ve
   *dead-path candidate*.
 - Conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`).
 - Keep `CHANGELOG.md` updated under an Unreleased/version heading.
+- A release is only done when the Codex upload archive ships with it. CI builds and
+  verifies it on every version tag and attaches it to the GitHub release; a corrupt,
+  stale, or mis-declared archive fails the release rather than publishing quietly. See
+  [docs/development.md](docs/development.md).
 
 ## Pull requests
 
