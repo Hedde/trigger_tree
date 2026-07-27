@@ -27,6 +27,15 @@ def directive(directive_id, probe, line=1, end_line=None):
     return {"id": directive_id, "source": source, "text": directive_id, "probe": probe}
 
 
+def bind(mod, value, events):
+    """Stamp the probe-semantics hash the hook would have written at capture time."""
+    fingerprint = mod.probe_fingerprint(value)
+    return [
+        {**event, "probe_hash": fingerprint} if mod._carries_probe_evidence(event) else event
+        for event in events
+    ]
+
+
 def test_manifest_validation_hash_drift_and_fingerprint(tmp_path):
     mod = load_script("tt_adherence.py", tmp_path)
     text = "rules\n"
@@ -238,7 +247,7 @@ def test_all_probe_types_are_deterministic_and_order_stable(tmp_path):
         {"t": "edit", "session": "S", "ts": "2026-07-27T10:06:00Z", "path": "secrets/a"},
     ]
     result = mod.evaluate(
-        events,
+        bind(mod, value, events),
         value,
         "2026-07-27T12:00:00Z",
         capture={"topics": True, "commands": True, "edits": True, "commits": True},
@@ -277,10 +286,10 @@ def test_disabled_capture_zero_opportunities_and_compaction(tmp_path):
         {"t": "session", "session": "S", "source": "compact"},
         {"t": "prompt", "session": "S", "ts": "2026-07-27T10:00:00Z", "topics": ["heat"]},
     ]
-    disabled = mod.evaluate(events, value, None)
+    disabled = mod.evaluate(bind(mod, value, events), value, None)
     assert all(item["status"] == "capture-disabled" for item in disabled["directives"])
     compacted = mod.evaluate(
-        events,
+        bind(mod, value, events),
         value,
         None,
         capture={"topics": True, "commits": True},
@@ -337,7 +346,7 @@ def test_probe_negative_and_full_command_paths(tmp_path):
         {"t": "bash", "session": "S", "command": "ruff check ."},
     ]
     result = mod.evaluate(
-        events,
+        bind(mod, value, events),
         value,
         None,
         capture={"topics": True, "commands": True, "edits": True, "commits": True},
@@ -348,7 +357,9 @@ def test_probe_negative_and_full_command_paths(tmp_path):
     assert by_id["check-before"]["unobserved"] == 1
     assert by_id["check-after"]["followed"] == 1
     assert by_id["tests-before"]["unobserved"] == 1
-    assert by_id["avoid"]["status"] == "never-triggered"
+    # A forbidden path nobody touched is a rule that held, not dead weight.
+    assert by_id["avoid"]["status"] == "no-violations-observed"
+    assert result["summary"]["never_triggered"] == 2
     assert mod._command_matches({}, {"pattern_id": "x", "pattern": "x"}) is False
     assert mod._capture_enabled("command_after_edit", {"edits": False}) is False
     assert (
@@ -402,7 +413,7 @@ def test_evidence_cap_manifest_generation_and_cost(tmp_path):
             )
         ],
     )
-    expected_hash = mod.manifest_fingerprint(value)
+    expected_hash = mod.probe_fingerprint(value)
     events = []
     for index in range(7):
         events.append(
@@ -411,7 +422,7 @@ def test_evidence_cap_manifest_generation_and_cost(tmp_path):
                 "session": str(index),
                 "ts": f"2026-07-{index + 1:02d}T00:00:00Z",
                 "topics": ["heat"],
-                "manifest_hash": expected_hash if index else "different-generation",
+                "probe_hash": expected_hash if index else "different-generation",
             }
         )
     result = mod.evaluate(events, value, None, capture={"topics": True}, maturity="mature")
@@ -533,9 +544,24 @@ def test_instructions_cli_error_and_output_branches(tmp_path, monkeypatch, capsy
     assert "time unavailable" in capsys.readouterr().out
     assert mod.main(["--json"]) == 0
     assert json.loads(capsys.readouterr().out)["status"] == "current"
+    measured["directives"].extend(
+        [
+            {
+                "id": "awaiting",
+                "source": {"file": "CLAUDE.md", "line": 1},
+                "status": "awaiting-capture",
+            },
+            {
+                "id": "held",
+                "source": {"file": "CLAUDE.md", "line": 1},
+                "status": "no-violations-observed",
+            },
+        ]
+    )
     mod._print_report(measured)
     output = capsys.readouterr().out
     assert "25%" in output and "never-triggered" in output and "capture-disabled" in output
+    assert "awaiting-capture" in output and "no-violations-observed" in output
     monkeypatch.setattr(
         mod,
         "_adherence",
@@ -600,3 +626,133 @@ def test_stats_adherence_is_additive_and_stale_is_not_evaluated(tmp_path, monkey
     assert run()["adherence"]["status"] == "stale"
     (telemetry / "directives.json").write_text("{}")
     assert run()["adherence"]["status"] == "invalid"
+
+
+def test_prose_edits_keep_evidence_but_probe_edits_discard_it(tmp_path):
+    """Rewording CLAUDE.md must not erase the trend that measures the rewording."""
+    mod = load_script("tt_adherence.py", tmp_path)
+    probe = {"type": "route_followed", "topics": ["heat"], "paths": ["docs/heat.md"]}
+    value = manifest("rules\n", [directive("route-heat", probe)])
+    events = []
+    for index in range(6):
+        session = str(index)
+        day = f"2026-07-{index + 1:02d}"
+        events.append(
+            {"t": "prompt", "session": session, "ts": f"{day}T10:00:00Z", "topics": ["heat"]}
+        )
+        events.append(
+            {"t": "read", "session": session, "ts": f"{day}T10:01:00Z", "path": "docs/heat.md"}
+        )
+    bound = bind(mod, value, events)
+    capture = {"topics": True}
+
+    reworded = manifest("rules rewritten entirely\n", [directive("route-heat", probe, line=9)])
+    reworded["directives"][0]["text"] = "a completely different sentence"
+    assert mod.probe_fingerprint(reworded) == mod.probe_fingerprint(value)
+    kept = mod.evaluate(bound, reworded, None, capture=capture)["directives"][0]
+    assert kept["status"] == "measured"
+    assert kept["opportunities"] == 6 and kept["rate"] == 1.0 and kept["trend"]
+
+    retargeted = manifest("rules\n", [directive("route-heat", {**probe, "topics": ["thermal"]})])
+    assert mod.probe_fingerprint(retargeted) != mod.probe_fingerprint(value)
+    dropped = mod.evaluate(bound, retargeted, None, capture=capture)["directives"][0]
+    assert dropped["status"] == "awaiting-capture" and dropped["opportunities"] == 0
+
+
+def test_never_triggered_requires_a_session_that_could_have_triggered(tmp_path):
+    mod = load_script("tt_adherence.py", tmp_path)
+    value = manifest(
+        "rules\n",
+        [
+            directive("route-heat", {"type": "route_followed", "topics": ["heat"], "paths": ["d"]}),
+            directive("avoid", {"type": "path_avoided", "forbidden": "secret/*"}),
+        ],
+    )
+    capture = {"topics": True, "edits": True}
+
+    uninstrumented = [{"t": "prompt", "session": "S", "ts": "2026-07-01T10:00:00Z"}]
+    by_id = {
+        item["id"]: item
+        for item in mod.evaluate(uninstrumented, value, None, capture=capture)["directives"]
+    }
+    assert by_id["route-heat"]["status"] == "awaiting-capture"
+    assert by_id["route-heat"]["measurable_sessions"] == 0
+    assert by_id["avoid"]["status"] == "awaiting-capture"
+
+    watched = bind(
+        mod,
+        value,
+        [
+            {"t": "prompt", "session": "S", "ts": "2026-07-01T10:00:00Z", "topics": ["privacy"]},
+            {"t": "edit", "session": "S", "ts": "2026-07-01T10:01:00Z", "path": "scripts/a.py"},
+        ],
+    )
+    by_id = {
+        item["id"]: item
+        for item in mod.evaluate(watched, value, None, capture=capture)["directives"]
+    }
+    assert by_id["route-heat"]["status"] == "never-triggered"
+    assert by_id["route-heat"]["measurable_sessions"] == 1
+    assert by_id["avoid"]["status"] == "no-violations-observed"
+
+
+def test_check_reports_evidence_coverage_and_can_require_it(tmp_path, monkeypatch, capsys):
+    """A gate that passes on no evidence must at least say so, and be refusable."""
+    mod = load_script("tt-instructions.py", tmp_path)
+    empty = {
+        "status": "current",
+        "summary": {"observable": 3, "measured": 0},
+        "directives": [
+            {"id": "a", "status": "never-triggered"},
+            {"id": "b", "status": "awaiting-capture"},
+        ],
+        "cost": {"headline": "cost"},
+    }
+    monkeypatch.setattr(mod, "_adherence", lambda: empty)
+    assert mod.main(["--check", "--min-rate", "0.9"]) == 0
+    assert "0/3 observable directives measured" in capsys.readouterr().out
+    assert mod.main(["--check", "--min-rate", "0.9", "--min-measured", "1"]) == 1
+    assert "fewer than the required 1" in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        mod.main(["--check", "--min-measured", "-1"])
+
+
+def test_stats_cost_headline_separates_never_triggered_from_missing_capture(tmp_path, monkeypatch):
+    """The cost line must not charge a directive for sessions it could not be seen in."""
+    (tmp_path / "CLAUDE.md").write_bytes(b"route heat questions to docs/heat.md\n")
+    stats_mod = load_script("tt-stats.py", tmp_path)
+    monkeypatch.setattr(
+        stats_mod, "_conf_value", lambda key, default: "on" if key == "TT_LOG_TOPICS" else default
+    )
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    value = manifest(
+        "route heat questions to docs/heat.md\n",
+        [directive("route-heat", {"type": "route_followed", "topics": ["heat"], "paths": ["d"]})],
+    )
+    (telemetry / "directives.json").write_text(json.dumps(value))
+    history = telemetry / "history.jsonl"
+
+    def run():
+        stream = io.StringIO()
+        monkeypatch.setattr(sys, "argv", ["tt-stats.py"])
+        monkeypatch.setattr(sys, "stdout", stream)
+        stats_mod.main()
+        return json.loads(stream.getvalue())["adherence"]
+
+    uninstrumented = {"t": "prompt", "session": "S", "ts": "2026-07-01T10:00:00+00:00"}
+    history.write_text(json.dumps(uninstrumented) + "\n")
+    awaiting = run()
+    assert awaiting["summary"]["awaiting_capture"] == 1
+    assert "no capture history yet" in awaiting["cost"]["headline"]
+    assert awaiting["cost"]["awaiting_capture"]
+
+    watched = {
+        **uninstrumented,
+        "topics": ["privacy"],
+        "probe_hash": load_script("tt_adherence.py", tmp_path).probe_fingerprint(value),
+    }
+    history.write_text(json.dumps(watched) + "\n")
+    never = run()
+    assert never["summary"]["never_triggered"] == 1
+    assert "in the 1 sessions where their capture was active" in never["cost"]["headline"]

@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.25.2 — 2026-07-27
+
+- Binds recorded adherence evidence to a probe fingerprint (declared topics and
+  command patterns) instead of the whole manifest. Editing, rewording, or moving
+  a line of `CLAUDE.md` and refreshing the hashes now keeps every prior
+  opportunity, so the before/after trend the feature exists to show survives the
+  edit that motivates it. Changing a probe's topics or patterns still discards
+  evidence captured under the previous semantics.
+- Separates "the rule never applied" from "nothing was watching". A directive is
+  only `never-triggered` over sessions where its capture was actually running;
+  otherwise it is the new `awaiting-capture`, which carries no cost implication.
+  The always-loaded cost headline uses that scoped denominator rather than the
+  total session count.
+- Reports a `path_avoided` rule that nobody breached as `no-violations-observed`
+  rather than `never-triggered`, so a rule that is working is no longer counted
+  as unused context in the cost line.
+- Makes `tt instructions --check` state how many observable directives it
+  actually measured, and adds `--min-measured N` so CI can refuse to pass on an
+  empty evidence set.
+
 ## 1.25.1 — 2026-07-27
 
 - Fixes the Codex upload manifest to resolve its skills from the packaged

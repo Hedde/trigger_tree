@@ -158,6 +158,7 @@ def adherence_html(adherence):
         f"<div><b>{observable}/{directives}</b>observable directives</div>"
         f"<div><b>{ratio}%</b>unobservable</div>"
         f"<div><b>{summary.get('never_triggered', 0)}</b>never triggered</div>"
+        f"<div><b>{summary.get('awaiting_capture', 0)}</b>awaiting capture</div>"
         f"<div><b>{summary.get('capture_disabled', 0)}</b>capture disabled</div>"
         "</div>",
     ]
@@ -180,8 +181,18 @@ def adherence_html(adherence):
             values = ("—", "—", "—", "unobservable", esc(item.get("why")))
         elif status == "capture-disabled":
             values = ("—", "—", "—", "capture disabled", "excluded from rates")
+        elif status == "awaiting-capture":
+            values = ("—", "—", "—", "awaiting capture", "no session recorded this signal")
+        elif status == "no-violations-observed":
+            values = ("0", "—", "0", "no violations", "held wherever checkable")
         elif status == "never-triggered":
-            values = ("0", "0", "0", "never triggered", esc(item.get("confidence")))
+            values = (
+                "0",
+                "0",
+                "0",
+                "never triggered",
+                f"in {item.get('measurable_sessions', 0)} measurable sessions",
+            )
         else:
             rate = item.get("rate")
             values = (

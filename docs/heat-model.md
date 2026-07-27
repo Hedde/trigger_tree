@@ -17,8 +17,10 @@ The health score combines coverage, router reachability, and search behavior. It
 - Instruction adherence does not infer that injected text was understood. It evaluates
   only user-confirmed deterministic probes over observable events. `followed` is
   supporting evidence; `unobserved` means evidence was not captured, never violated.
-- Zero probe opportunities is `never-triggered`, not 0% adherence. Capture-disabled and
-  unobservable directives are excluded from rates. Negative evidence that crosses a
+- Zero probe opportunities is `never-triggered`, not 0% adherence, and only over sessions
+  where the probe's capture was running; otherwise it is `awaiting-capture`. A
+  `path_avoided` rule nobody breached is `no-violations-observed`, not unused.
+  Capture-disabled and unobservable directives are excluded from rates. Negative evidence that crosses a
   compaction boundary is degraded and excluded from the primary rate.
 - Adherence and heat mature differently. A directive rate is provisional below five
   usable opportunities; the overall dataset separately remains `cold-start`, `warming`,

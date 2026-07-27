@@ -110,6 +110,16 @@ def test_adherence_section_handles_absent_stale_and_current_safely():
                 "confidence": "provisional",
             },
             {
+                "id": "awaiting",
+                "source": {"file": "CLAUDE.md", "line": 3},
+                "status": "awaiting-capture",
+            },
+            {
+                "id": "held",
+                "source": {"file": "CLAUDE.md", "line": 3},
+                "status": "no-violations-observed",
+            },
+            {
                 "id": "subjective",
                 "source": {"file": "CLAUDE.md", "line": 4},
                 "status": "unobservable",
@@ -124,6 +134,7 @@ def test_adherence_section_handles_absent_stale_and_current_safely():
     html = "".join(mod.adherence_html(current))
     assert "Unobserved means evidence was not captured" in html
     assert "50%" in html and "excluded from rates" in html
+    assert "awaiting capture" in html and "no violations" in html
     assert "&lt;diff&gt;" in html and "&lt;forever&gt;" in html
 
 

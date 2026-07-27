@@ -13,8 +13,9 @@ Injected guidance is loaded without a Read tool call. It is classified as always
 It cannot prove understanding or causation. It can measure a narrower question: when a
 user-confirmed directive probe applied, did the local event stream observe the requested
 behavior? `/tt instructions --init` creates the committed manifest scaffold and
-`/tt instructions` reports `followed`, `unobserved`, `never-triggered`, unobservable,
-and capture-disabled directives. Unobserved never means violated. See
+`/tt instructions` reports `followed`, `unobserved`, `never-triggered`,
+`awaiting-capture`, `no-violations-observed`, unobservable, and capture-disabled
+directives. Unobserved never means violated. See
 [instruction adherence](instruction-adherence.md).
 
 ## A file is untouched but important

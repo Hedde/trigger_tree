@@ -105,6 +105,18 @@ def build_events():
                         "status": "pass",
                     }
                 )
+        if index < 5:
+            # In-scope edits that never touch the forbidden tree: the
+            # path_avoided rule held wherever it could be checked.
+            events.append(
+                {
+                    "t": "edit",
+                    "ts": f"2026-07-{day:02d}T09:03:00Z",
+                    "session": session,
+                    "tool": "Edit",
+                    "path": "src/app.py",
+                }
+            )
         if day in (5, 11, 17):
             events.append(
                 {
@@ -198,8 +210,16 @@ def main():
                 "TT_LOG_COMMANDS='classified'\n"
                 "TT_EDIT_REGEX='^(docs|src|generated)/'\n"
             )
+        sys.path.insert(0, os.path.join(REPO, "scripts"))
+        import tt_adherence
+
+        # The demo history must be bound like real capture, or evaluation
+        # discards its topics as evidence from another probe generation.
+        fingerprint = tt_adherence.probe_fingerprint(manifest)
         with open(os.path.join(telemetry, "history.jsonl"), "w", encoding="utf-8") as handle:
             for event in build_events():
+                if tt_adherence._carries_probe_evidence(event):
+                    event = {**event, "probe_hash": fingerprint}
                 handle.write(json.dumps(event) + "\n")
         env = {key: value for key, value in os.environ.items() if not key.startswith("TT_")}
         env["TT_PROJECT_DIR"] = workdir

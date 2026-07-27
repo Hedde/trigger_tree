@@ -7,7 +7,8 @@ Controls: `f` recent focus, `h` hottest, `c` coldest, `n` name order, `←`/`→
 The report keeps heat, lifetime reads, search evidence, routing coverage, trend, task
 clusters, protected context, retired paths, and review candidates separate. When a
 current directive manifest exists, it adds per-directive opportunities, followed counts,
-rate/confidence, unobservable ratio, capture-disabled probes, and always-loaded cost.
+rate/confidence, unobservable ratio, capture-disabled and awaiting-capture probes, and
+always-loaded cost.
 `unobserved` is always labeled as missing evidence rather than a violation. A stale
 manifest replaces metrics with a refresh instruction instead of silently evaluating old
 probes. Its grade is a summary, not a verdict.

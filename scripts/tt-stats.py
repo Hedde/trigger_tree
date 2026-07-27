@@ -1005,25 +1005,57 @@ def main():
                     sessions=len(sessions),
                     observed_days=days,
                 )
-                never_ids = {
-                    item["id"]
-                    for item in adherence["directives"]
-                    if item.get("status") == "never-triggered"
-                }
-                never_cost = sum(
-                    item["estimated_tokens"]
-                    for item in cost["directives"]
-                    if item["id"] in never_ids
-                )
+                by_status = defaultdict(set)
+                for item in adherence["directives"]:
+                    by_status[item.get("status")].add(item["id"])
+                never_ids = by_status["never-triggered"]
+                awaiting_ids = by_status["awaiting-capture"]
+
+                def _tokens(ids):
+                    return sum(
+                        item["estimated_tokens"] for item in cost["directives"] if item["id"] in ids
+                    )
+
                 cost["never_triggered"] = [
                     item for item in cost["directives"] if item["id"] in never_ids
                 ]
-                cost["headline"] = (
+                cost["awaiting_capture"] = [
+                    item for item in cost["directives"] if item["id"] in awaiting_ids
+                ]
+                # Never-triggered is only a cost finding over sessions where the
+                # probe's capture was actually running. Charging a directive for
+                # silence recorded before its instrumentation existed is not a
+                # measurement, it is an accusation.
+                measurable = max(
+                    (
+                        item.get("measurable_sessions", 0)
+                        for item in adherence["directives"]
+                        if item["id"] in never_ids
+                    ),
+                    default=0,
+                )
+                lead = (
                     "Your always-loaded context is "
                     f"~{cost['estimated_tokens_per_session']} tokens per session. "
-                    f"{len(never_ids)} directives (~{never_cost} tokens) have not been "
-                    f"triggered in {len(sessions)} sessions over {days} days."
                 )
+                if never_ids:
+                    tail = (
+                        f"{len(never_ids)} directives (~{_tokens(never_ids)} tokens) have not "
+                        f"been triggered in the {measurable} sessions where their capture was "
+                        f"active (of {len(sessions)} recorded over {days} days)."
+                    )
+                elif awaiting_ids:
+                    tail = (
+                        f"{len(awaiting_ids)} directives (~{_tokens(awaiting_ids)} tokens) have "
+                        "no capture history yet, so never-triggered cost cannot be reported "
+                        f"({len(sessions)} sessions recorded over {days} days)."
+                    )
+                else:
+                    tail = (
+                        "No directive went untriggered wherever its capture was "
+                        f"active ({len(sessions)} sessions over {days} days)."
+                    )
+                cost["headline"] = lead + tail
                 out["adherence"] = {"status": "current", **adherence, "cost": cost}
         except tt_adherence.ManifestError as error:
             out["adherence"] = {"status": "invalid", "error": str(error)}

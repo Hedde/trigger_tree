@@ -976,9 +976,9 @@ def test_classified_commands_edit_paths_and_commit_boundary(tmp_path, monkeypatc
     assert command["matched"] == ["full-checks"]
     assert "command" not in command and "secret" not in json.dumps(command)
     edit = next(event for event in events if event["t"] == "edit")
-    assert edit["path"] == "src/a.py" and set(edit) >= {"tool", "manifest_hash"}
+    assert edit["path"] == "src/a.py" and set(edit) >= {"tool", "probe_hash"}
     commit = next(event for event in events if event["t"] == "commit")
-    assert commit["git_head"] == "after" and commit["manifest_hash"] == command["manifest_hash"]
+    assert commit["git_head"] == "after" and commit["probe_hash"] == command["probe_hash"]
 
 
 def test_full_command_capture_failure_and_external_edits(tmp_path, monkeypatch):
@@ -1088,7 +1088,7 @@ def test_manifest_topic_and_pattern_defensive_bounds(tmp_path, monkeypatch):
     assert mod.project_relative_path("file.py") is None
 
 
-def test_new_capture_full_classified_and_manifest_hash_branches(tmp_path, monkeypatch):
+def test_new_capture_full_classified_and_probe_hash_branches(tmp_path, monkeypatch):
     telemetry = tmp_path / ".trigger-tree"
     telemetry.mkdir()
     instruction = tmp_path / "CLAUDE.md"
@@ -1134,10 +1134,10 @@ def test_new_capture_full_classified_and_manifest_hash_branches(tmp_path, monkey
         json.dumps({"session_id": "S", "tool_input": {"command": "pytest broken"}}),
     )
     events = read_history(tmp_path)
-    assert events[0]["topics"] and events[0]["manifest_hash"]
+    assert events[0]["topics"] and events[0]["probe_hash"]
     commands = [event for event in events if event["t"] == "command"]
     assert [event["status"] for event in commands] == ["pass", "fail"]
-    assert all(event["matched"] == ["checks"] and event["manifest_hash"] for event in commands)
+    assert all(event["matched"] == ["checks"] and event["probe_hash"] for event in commands)
     assert commands[0]["command"] == "pytest -q"
 
     (telemetry / "config.sh").write_text(

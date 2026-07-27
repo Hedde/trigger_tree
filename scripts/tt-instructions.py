@@ -123,7 +123,14 @@ def _print_report(adherence):
                 f"{rate} · {item['confidence']}"
             )
         elif status == "never-triggered":
-            detail = "never-triggered (review prompt, not a removal recommendation)"
+            detail = (
+                f"never-triggered in {item.get('measurable_sessions', 0)} measurable sessions "
+                "(review prompt, not a removal recommendation)"
+            )
+        elif status == "awaiting-capture":
+            detail = "awaiting-capture (no session yet recorded the signal this probe needs)"
+        elif status == "no-violations-observed":
+            detail = "no-violations-observed (the rule held wherever it could be checked)"
         elif status == "capture-disabled":
             detail = "capture-disabled (excluded from rates)"
         else:
@@ -146,6 +153,7 @@ def _explain(adherence, directive_id):
         "opportunities": item.get("opportunities"),
         "followed": item.get("followed"),
         "unobserved": item.get("unobserved"),
+        "measurable_sessions": item.get("measurable_sessions"),
         "rate": item.get("rate"),
         "confidence": item.get("confidence"),
         "evidence": item.get("evidence", []),
@@ -153,7 +161,7 @@ def _explain(adherence, directive_id):
     }
 
 
-def _check(adherence, minimum):
+def _check(adherence, minimum, min_measured=0):
     if adherence.get("status") != "current":
         raise tt_adherence.ManifestError(
             "instruction manifest must be current before adherence can be checked"
@@ -165,6 +173,12 @@ def _check(adherence, minimum):
         and item.get("rate") is not None
         and item["rate"] < minimum
     ]
+    summary = adherence.get("summary", {})
+    measured = summary.get(
+        "measured",
+        sum(item.get("status") == "measured" for item in adherence["directives"]),
+    )
+    observable = summary.get("observable", 0)
     if failed:
         for item in failed:
             print(
@@ -172,7 +186,13 @@ def _check(adherence, minimum):
                 "(unobserved does not mean violated)"
             )
         return 1
-    print(f"PASS instruction adherence: all measured rates >= {minimum:.2f}")
+    # A gate that reports PASS without saying how much evidence it saw is the
+    # same silent-degradation bug as a green tick on a privacy-limited mode.
+    coverage = f"{measured}/{observable} observable directives measured"
+    if measured < min_measured:
+        print(f"FAIL instruction adherence: {coverage}, fewer than the required {min_measured}")
+        return 1
+    print(f"PASS instruction adherence: {coverage}, all measured rates >= {minimum:.2f}")
     return 0
 
 
@@ -183,9 +203,12 @@ def main(argv=None):
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--min-rate", type=float, default=0.0)
+    parser.add_argument("--min-measured", type=int, default=0)
     args = parser.parse_args(argv)
     if not 0 <= args.min_rate <= 1:
         parser.error("--min-rate must be between 0 and 1")
+    if args.min_measured < 0:
+        parser.error("--min-measured must not be negative")
     if args.init and (args.explain or args.check):
         parser.error("--init cannot be combined with --explain or --check")
     try:
@@ -223,7 +246,7 @@ def main(argv=None):
                     )
             return 0
         if args.check:
-            return _check(adherence, args.min_rate)
+            return _check(adherence, args.min_rate, args.min_measured)
         if args.json:
             json.dump(adherence, sys.stdout, indent=2)
             print()

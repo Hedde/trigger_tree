@@ -740,6 +740,12 @@ def test_cached_adherence_snapshot_renders_current_stale_and_disabled():
     }
     app.set_adherence(disabled)
     assert "2 capture disabled" in plain(app.render(time.time(), 120, 20))
+    awaiting = {
+        **mod.DEMO_ADHERENCE,
+        "summary": {**mod.DEMO_ADHERENCE["summary"], "awaiting_capture": 3},
+    }
+    app.set_adherence(awaiting)
+    assert "3 awaiting capture" in plain(app.render(time.time(), 120, 20))
     app.set_adherence({"status": "stale"})
     assert "manifest stale · rates withheld" in plain(app.render(time.time(), 70, 20))
     app.set_adherence({"status": "invalid"})

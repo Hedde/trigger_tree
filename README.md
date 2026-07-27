@@ -52,7 +52,8 @@ The table is representative output. A committed, reviewable manifest defines eac
 probe; the model may propose it once, but you confirm it and deterministic local code
 does every count thereafter. **Unobserved means evidence was not captured; it does not
 mean violated.** Zero opportunities is `never-triggered`, a review prompt rather than
-a removal recommendation. See [instruction adherence](docs/instruction-adherence.md).
+a removal recommendation — and only over sessions where that probe's capture was
+actually running. See [instruction adherence](docs/instruction-adherence.md).
 
 ## Honest time to value
 

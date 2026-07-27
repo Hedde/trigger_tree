@@ -18,4 +18,7 @@
 | Followed | The opportunity's declared satisfaction evidence was observed in the same session. |
 | Unobserved | An opportunity where satisfaction evidence was not captured; never a claim that the directive was violated. |
 | Unobservable | A manifest-level declaration that the event stream cannot machine-check a directive. |
-| Never-triggered | A probe with zero opportunities in the observed period; a recurring-cost review prompt, not 0% adherence or a removal recommendation. |
+| Never-triggered | A probe with zero opportunities across the sessions where its capture was running; a recurring-cost review prompt, not 0% adherence or a removal recommendation. |
+| Awaiting-capture | A probe whose required signal no recorded session carried yet; nothing can be concluded, and it is not a cost finding. |
+| No-violations-observed | A `path_avoided` probe that never fired where edits were visible; the rule held, which is not evidence it is unused. |
+| Probe fingerprint | The hash of declared topics and command patterns that binds recorded evidence to the semantics it was captured under; instruction prose is deliberately excluded so rewording a rule preserves its trend. |

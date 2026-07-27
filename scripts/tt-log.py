@@ -35,7 +35,7 @@ import time
 
 from tt_adherence import (
     ManifestError,
-    manifest_fingerprint,
+    probe_fingerprint,
     safe_command_pattern,
     validate_manifest,
 )
@@ -331,7 +331,7 @@ def project_relative_path(target):
 
 
 def manifest_details():
-    """Load the bounded committed manifest and return (value, semantic hash)."""
+    """Load the bounded committed manifest and return (value, probe-semantics hash)."""
     path = os.path.join(ROOT, ".trigger-tree", "directives.json")
     try:
         if os.path.getsize(path) > MAX_MANIFEST_BYTES:
@@ -346,7 +346,7 @@ def manifest_details():
         normalized = validate_manifest(value)
     except ManifestError:
         return {}, None
-    return normalized, manifest_fingerprint(normalized)
+    return normalized, probe_fingerprint(normalized)
 
 
 def _router_topics(path):
@@ -771,10 +771,10 @@ def main():
         elif mode == "hash":
             entry["prompt_hash"] = hashlib.sha1(prompt.encode()).hexdigest()[:10]
         if cfg["TT_LOG_TOPICS"] == "on":
-            manifest, manifest_hash = manifest_details()
+            manifest, probe_hash = manifest_details()
             entry["topics"] = prompt_topics(prompt, topic_vocabulary(manifest))
-            if manifest_hash:
-                entry["manifest_hash"] = manifest_hash
+            if probe_hash:
+                entry["probe_hash"] = probe_hash
         # mode "off": marker only — fingerprints still work, no prompt text stored
         append(entry, rotate)
 
@@ -806,7 +806,7 @@ def main():
         tool_input = data.get("tool_input") or {}
         for path in edit_paths(tool_input):
             if re.search(cfg["TT_EDIT_REGEX"], path):
-                manifest, manifest_hash = manifest_details()
+                manifest, probe_hash = manifest_details()
                 entry = hook_identity(
                     {
                         "t": "edit",
@@ -817,13 +817,13 @@ def main():
                         "agent": agent,
                     }
                 )
-                if manifest_hash:
-                    entry["manifest_hash"] = manifest_hash
+                if probe_hash:
+                    entry["probe_hash"] = probe_hash
                 append(entry, rotate)
 
     elif event == "bash":
         command = (data.get("tool_input") or {}).get("command", "")
-        manifest, manifest_hash = manifest_details()
+        manifest, probe_hash = manifest_details()
         command_mode = cfg["TT_LOG_COMMANDS"]
         if command and command_mode in ("classified", "full"):
             command_entry = hook_identity(
@@ -839,8 +839,8 @@ def main():
             else:
                 command_entry["command"] = command[:MAX_COMMAND_BYTES]
                 command_entry["matched"] = classified_command(command, manifest)
-            if manifest_hash:
-                command_entry["manifest_hash"] = manifest_hash
+            if probe_hash:
+                command_entry["probe_hash"] = probe_hash
             append(command_entry, rotate)
         if command and is_commit_command(command):
             commit_entry = hook_identity(
@@ -851,8 +851,8 @@ def main():
                     "git_head": git_head(),
                 }
             )
-            if manifest_hash:
-                commit_entry["manifest_hash"] = manifest_hash
+            if probe_hash:
+                commit_entry["probe_hash"] = probe_hash
             append(commit_entry, rotate)
         if looks_like_test_command(command):
             append(
@@ -891,7 +891,7 @@ def main():
 
     elif event == "bash-failure":
         command = (data.get("tool_input") or {}).get("command", "")
-        manifest, manifest_hash = manifest_details()
+        manifest, probe_hash = manifest_details()
         command_mode = cfg["TT_LOG_COMMANDS"]
         if command and command_mode in ("classified", "full"):
             command_entry = hook_identity(
@@ -902,8 +902,8 @@ def main():
             else:
                 command_entry["command"] = command[:MAX_COMMAND_BYTES]
                 command_entry["matched"] = classified_command(command, manifest)
-            if manifest_hash:
-                command_entry["manifest_hash"] = manifest_hash
+            if probe_hash:
+                command_entry["probe_hash"] = probe_hash
             append(command_entry, rotate)
         if looks_like_test_command(command):
             append(

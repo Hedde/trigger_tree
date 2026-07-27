@@ -213,6 +213,37 @@ def manifest_fingerprint(manifest):
     return hashlib.sha256(encoded.encode()).hexdigest()
 
 
+def probe_fingerprint(manifest):
+    """Hash only what changes the meaning of an already-recorded event.
+
+    Recorded events carry topic labels and command pattern ids. Those are
+    interpretable exactly as long as the declared topic set and the
+    pattern-id-to-pattern mapping are unchanged. Instruction prose, directive
+    text, and source lines deliberately do not participate: editing a sentence
+    in CLAUDE.md must never discard evidence gathered under identical probe
+    semantics, because the before/after trend is the point of the measurement.
+    """
+    normalized = validate_manifest(manifest)
+    topics = set()
+    patterns = {}
+    for directive in normalized["directives"]:
+        probe = directive["probe"]
+        topics.update(str(topic).lower() for topic in probe.get("topics", []))
+        if probe["type"] in COMMAND_PROBES:
+            patterns[probe["pattern_id"]] = probe["pattern"]
+    encoded = json.dumps(
+        {"topics": sorted(topics), "patterns": sorted(patterns.items())},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(encoded.encode()).hexdigest()
+
+
+def _carries_probe_evidence(event):
+    """True when an event's meaning depends on the probe semantics of its era."""
+    return any(key in event for key in ("topics", "matched", "command"))
+
+
 def _parse_ts(value):
     if not isinstance(value, str):
         return None
@@ -323,6 +354,40 @@ def _probe_session(probe, events):
     raise AssertionError(f"no evaluator registered for {probe_type}")
 
 
+REQUIRED_CAPTURE = {
+    "route_followed": ("topics",),
+    "skill_used": ("topics",),
+    "command_after_edit": ("edits", "commands"),
+    "command_before_commit": ("commands", "instrumented"),
+    "path_avoided": ("edits",),
+    "tests_before_commit": ("instrumented",),
+}
+
+
+def _session_capture(session_events):
+    """Which captures were demonstrably active during one recorded session.
+
+    A directive cannot be called never-triggered over sessions in which the
+    capture it depends on was not running: that is missing instrumentation,
+    not a rule nobody needed. `instrumented` marks a session recorded by the
+    adherence-aware hook, where commits are logged unconditionally, so their
+    absence really does mean no commit happened.
+    """
+    return {
+        "instrumented": any("probe_hash" in event for event in session_events),
+        "topics": any(event.get("t") == "prompt" and "topics" in event for event in session_events),
+        "edits": any(event.get("t") == "edit" for event in session_events),
+        "commands": any(event.get("t") == "command" for event in session_events),
+    }
+
+
+def _measurable_sessions(probe_type, session_capture):
+    required = REQUIRED_CAPTURE.get(probe_type, ())
+    return sum(
+        all(capture.get(key, False) for key in required) for capture in session_capture.values()
+    )
+
+
 def _session_groups(events):
     grouped = defaultdict(list)
     for index, raw in enumerate(events):
@@ -342,14 +407,16 @@ def evaluate(events, manifest, now, capture=None, maturity="cold-start"):
     del now  # reserved for future bounded-window evaluation; never read wall-clock time
     normalized = validate_manifest(manifest)
     expected_hash = manifest_fingerprint(normalized)
+    expected_probes = probe_fingerprint(normalized)
+    # Only evidence whose meaning depends on probe semantics is bound to them.
+    # Raw observations (reads, edits, commits, tests) stay valid across edits.
     events = [
         event
         for event in events
         if not (
             isinstance(event, dict)
-            and event.get("t") in ("prompt", "command")
-            and event.get("manifest_hash")
-            and event.get("manifest_hash") != expected_hash
+            and _carries_probe_evidence(event)
+            and event.get("probe_hash") != expected_probes
         )
     ]
     capture = {
@@ -361,6 +428,9 @@ def evaluate(events, manifest, now, capture=None, maturity="cold-start"):
         **(capture or {}),
     }
     sessions = _session_groups(events)
+    session_capture = {
+        session: _session_capture(session_events) for session, session_events in sessions.items()
+    }
     output = []
     unobservable = 0
     disabled = 0
@@ -416,7 +486,17 @@ def evaluate(events, manifest, now, capture=None, maturity="cold-start"):
         opportunities = len(observations)
         followed = sum(item["result"] == "followed" for item in observations)
         unobserved = opportunities - followed
-        status = "never-triggered" if not observations and not degraded else "measured"
+        measurable = _measurable_sessions(probe_type, session_capture)
+        if observations or degraded:
+            status = "measured"
+        elif not measurable:
+            # Nothing was watching yet; silence here is missing instrumentation.
+            status = "awaiting-capture"
+        elif probe_type == "path_avoided":
+            # A forbidden edit is the finding, so no trigger means the rule held.
+            status = "no-violations-observed"
+        else:
+            status = "never-triggered"
         rate = round(followed / opportunities, 2) if opportunities else None
         confidence = (
             "provisional" if opportunities < MIN_CONFIDENT_OPPORTUNITIES or degraded else maturity
@@ -449,6 +529,7 @@ def evaluate(events, manifest, now, capture=None, maturity="cold-start"):
                 "followed": followed,
                 "unobserved": unobserved,
                 "degraded_opportunities": len(degraded),
+                "measurable_sessions": measurable,
                 "rate": rate,
                 "confidence": confidence,
                 "first_seen": all_evidence[0].get("ts") if all_evidence else None,
@@ -461,6 +542,7 @@ def evaluate(events, manifest, now, capture=None, maturity="cold-start"):
     return {
         "schema": SCHEMA_VERSION,
         "manifest_hash": expected_hash,
+        "probe_hash": expected_probes,
         "sessions": len(sessions),
         "maturity": maturity,
         "confidence_threshold": MIN_CONFIDENT_OPPORTUNITIES,
@@ -473,6 +555,11 @@ def evaluate(events, manifest, now, capture=None, maturity="cold-start"):
             "unobservable_ratio": round(unobservable / len(output), 2) if output else 0.0,
             "capture_disabled": disabled,
             "never_triggered": sum(item.get("status") == "never-triggered" for item in output),
+            "awaiting_capture": sum(item.get("status") == "awaiting-capture" for item in output),
+            "no_violations_observed": sum(
+                item.get("status") == "no-violations-observed" for item in output
+            ),
+            "measured": sum(item.get("status") == "measured" for item in output),
         },
     }
 

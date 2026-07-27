@@ -347,6 +347,8 @@ class App:
             f"observable · {followed}/{opportunities} followed · "
             f"{summary.get('never_triggered', 0)} never triggered"
         )
+        if summary.get("awaiting_capture"):
+            text += f" · {summary['awaiting_capture']} awaiting capture"
         if summary.get("capture_disabled"):
             text += f" · {summary['capture_disabled']} capture disabled"
         return c256(COOL, " " + text[: max(1, width - 2)], bold=True)
