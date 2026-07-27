@@ -13,8 +13,10 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "background:var(--panel); border:1px solid var(--line); border-radius:10px;" in html
     assert ".offer { background:var(--panel); border:1px solid var(--line);" in html
     assert "border-left:3px solid var(--green)" not in html
-    assert 'background:url("assets/branches-corners.webp") no-repeat' in html
     assert html.count('class="corner-art') == 4
+    for corner in ("tl", "tr", "bl", "br"):
+        assert f'src="assets/branch-{corner}.webp"' in html
+    assert html.count('loading="lazy"') == 2
     assert "30-day half-life while lifetime reads stay visible" in html
     assert '█".repeat' in html and '·".repeat' in html
     assert "f focus · h hot · c cold" in html
@@ -30,7 +32,7 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "codex plugin marketplace add Hedde/trigger_tree" in html
     assert "OpenAI Curated only after a separate OpenAI submission" in html
     assert "Codex's built-in <code>/statusline</code> is separate" in html
-    assert "--cold:#4775d1" in html and "--hot:#e53935" in html
+    assert "--cold:#305faa" in html and "--hot:#b52323" in html
     assert 'cold</span> → <span class="cool">cool' in html
     assert "grid-template-columns:repeat(3,minmax(0,1fr))" in html
     assert "← older" in html and "→ newer" in html and "a live overview" in html
@@ -48,7 +50,9 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "Which local project docs did the coding assistant discover?" in html
     assert "/tt badge" in html
     assert "static, dependency-free, and has no analytics" in html
-    assert "--muted:#9aa4af" in html
+    assert "--muted:#58645b" in html
+    assert "color-scheme:light" in html
+    assert "prefers-color-scheme" not in html
     assert 'src="https://' not in html
     assert '<link rel="canonical" href="https://hedde.github.io/trigger_tree/">' in html
     assert '"@type": "SoftwareApplication"' in html and "application/ld+json" in html
@@ -103,8 +107,12 @@ def test_social_card_has_link_preview_dimensions():
     assert int.from_bytes(data[20:24], "big") == 630
 
 
-def test_corner_art_is_an_optimized_webp_asset():
-    data = open(f"{REPO}/assets/branches-corners.webp", "rb").read()
-    assert data[:4] == b"RIFF"
-    assert data[8:12] == b"WEBP"
-    assert len(data) < 200_000
+def test_corner_art_uses_small_individual_webp_assets():
+    total = 0
+    for corner in ("tl", "tr", "bl", "br"):
+        data = open(f"{REPO}/assets/branch-{corner}.webp", "rb").read()
+        assert data[:4] == b"RIFF"
+        assert data[8:12] == b"WEBP"
+        assert len(data) < 50_000
+        total += len(data)
+    assert total < 170_000

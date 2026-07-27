@@ -30,11 +30,12 @@
 </script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
 <style>
-  /* Keep this brand block synchronized with scripts/tt-report.py CSS. */
+  /* Pin the report palette's light variant for a consistent marketing page. */
   :root {
-    --bg:#0c1014; --panel:#101418; --line:#1f262e; --fg:#e6edf3; --muted:#9aa4af;
-    --cold:#4775d1; --cool:#38cfd0; --green:#7cb342; --bright:#b9f6a0;
-    --amber:#ffb300; --hot:#e53935; --dim:#4a5361;
+    color-scheme:light;
+    --bg:#f7faf7; --panel:#fff; --line:#d7e0d8; --fg:#172019; --muted:#58645b;
+    --cold:#305faa; --cool:#087f80; --green:#477b24; --bright:#315c18;
+    --amber:#9a6300; --hot:#b52323; --dim:#7a867d;
   }
   * { box-sizing:border-box; margin:0; }
   html { scroll-behavior:smooth; overflow-x:hidden; }
@@ -118,25 +119,19 @@
     h2 { margin-top:3rem; }
   }
   @media (prefers-reduced-motion: reduce) { .pulse { text-shadow:none; } }
-  @media (prefers-color-scheme: light) {
-    :root { --bg:#f7faf7; --panel:#fff; --line:#d7e0d8; --fg:#172019; --muted:#58645b;
-            --cold:#305faa; --cool:#087f80; --green:#477b24; --bright:#315c18;
-            --amber:#9a6300; --hot:#b52323; --dim:#7a867d; }
-    .term { box-shadow:0 16px 45px rgba(22,40,25,.14); }
-    .pulse { color:#111 !important; }
-  }
+  .term { box-shadow:0 16px 45px rgba(22,40,25,.14); }
+  .pulse { color:#111 !important; }
 
-  body { position:relative; isolation:isolate; }
+  body { position:relative; }
   .wrap { position:relative; z-index:2; }
   .corner-art {
-    position:absolute; z-index:0; width:min(42vw,650px); aspect-ratio:3/2;
-    background:url("assets/branches-corners.webp") no-repeat;
-    background-size:200% 200%; pointer-events:none;
+    position:absolute; z-index:0; display:block; width:min(42vw,650px); height:auto;
+    pointer-events:none;
   }
-  .corner-art.tl { top:0; left:0; background-position:0 0; }
-  .corner-art.tr { top:0; right:0; background-position:100% 0; }
-  .corner-art.bl { bottom:0; left:0; background-position:0 100%; }
-  .corner-art.br { right:0; bottom:0; background-position:100% 100%; }
+  .corner-art.tl { top:0; left:0; }
+  .corner-art.tr { top:0; right:0; }
+  .corner-art.bl { bottom:0; left:0; }
+  .corner-art.br { right:0; bottom:0; }
   @media (min-width:581px) {
     .wrap { padding-bottom:8rem; }
     .corner-art.bl, .corner-art.br { bottom:-4rem; width:min(35vw,540px); }
@@ -152,8 +147,8 @@
 </style>
 </head>
 <body>
-<div class="corner-art tl" aria-hidden="true"></div>
-<div class="corner-art tr" aria-hidden="true"></div>
+<img class="corner-art tl" src="assets/branch-tl.webp" alt="" width="768" height="512" decoding="async">
+<img class="corner-art tr" src="assets/branch-tr.webp" alt="" width="768" height="512" decoding="async">
 <div class="wrap">
   <div class="hero">
     <img class="hero-logo" src="assets/trigger-tree-logo.png" alt="trigger-tree documentation discovery logo" width="160" height="160" fetchpriority="high">
@@ -354,8 +349,8 @@ codex plugin add trigger-tree@trigger-tree
     <p>This site is static, dependency-free, and has no analytics — the same privacy stance as the plugin.</p>
   </footer>
 </div>
-<div class="corner-art bl" aria-hidden="true"></div>
-<div class="corner-art br" aria-hidden="true"></div>
+<img class="corner-art bl" src="assets/branch-bl.webp" alt="" width="768" height="512" loading="lazy" decoding="async">
+<img class="corner-art br" src="assets/branch-br.webp" alt="" width="768" height="512" loading="lazy" decoding="async">
 <div class="bubble" id="bubble"></div>
 
 <script>
