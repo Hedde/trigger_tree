@@ -352,7 +352,7 @@ def manifest_details():
 def _router_topics(path):
     """Extract canonical labels from the first column of markdown router rows."""
     try:
-        lines = open(path, encoding="utf-8").read().splitlines()
+        lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
     except OSError:
         return set()
     topics = set()

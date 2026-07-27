@@ -12,6 +12,16 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = ROOT / "dist-submissions" / "trigger-tree-codex.zip"
 TIMESTAMP = (1980, 1, 1, 0, 0, 0)
+EXECUTABLES = {
+    "scripts/tt-log.py",
+    "scripts/tt-open.sh",
+    "scripts/tt-publish-badge.sh",
+    "scripts/tt-report.py",
+    "scripts/tt-setup.py",
+    "scripts/tt-stats.py",
+    "scripts/tt-statusline.py",
+    "scripts/tt-watch.py",
+}
 
 # Keep this explicit: a missing runtime dependency must fail the release build
 # instead of producing a plausible-looking, incomplete upload.
@@ -82,7 +92,7 @@ def build(output: Path = DEFAULT_OUTPUT) -> Path:
                     archive.writestr(_info(destination, 0o40755), b"")
                 else:
                     source_path = ROOT / source
-                    mode = 0o100755 if os.access(source_path, os.X_OK) else 0o100644
+                    mode = 0o100755 if source in EXECUTABLES else 0o100644
                     archive.writestr(_info(destination, mode), source_path.read_bytes())
         os.replace(temporary, output)
     finally:

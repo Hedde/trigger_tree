@@ -30,7 +30,7 @@ def directive(directive_id, probe, line=1, end_line=None):
 def test_manifest_validation_hash_drift_and_fingerprint(tmp_path):
     mod = load_script("tt_adherence.py", tmp_path)
     text = "rules\n"
-    (tmp_path / "CLAUDE.md").write_text(text)
+    (tmp_path / "CLAUDE.md").write_bytes(text.encode())
     value = manifest(
         text,
         [
@@ -391,7 +391,7 @@ def test_probe_negative_and_full_command_paths(tmp_path):
 def test_evidence_cap_manifest_generation_and_cost(tmp_path):
     mod = load_script("tt_adherence.py", tmp_path)
     text = "first directive\nsecond directive\n"
-    (tmp_path / "CLAUDE.md").write_text(text)
+    (tmp_path / "CLAUDE.md").write_bytes(text.encode())
     value = manifest(
         text,
         [
@@ -434,7 +434,7 @@ def test_instructions_init_missing_report_explain_and_check(tmp_path, monkeypatc
     mod = load_script("tt-instructions.py", tmp_path)
     assert mod.main([]) == 0
     assert "--init" in capsys.readouterr().out
-    (tmp_path / "CLAUDE.md").write_text("rules\n")
+    (tmp_path / "CLAUDE.md").write_bytes(b"rules\n")
     assert mod.main(["--init"]) == 0
     created = json.loads((tmp_path / ".trigger-tree" / "directives.json").read_text())
     assert created["instruction_files"][0]["path"] == "CLAUDE.md"
@@ -577,7 +577,7 @@ def test_instructions_stats_subprocess_failures(tmp_path, monkeypatch):
 
 
 def test_stats_adherence_is_additive_and_stale_is_not_evaluated(tmp_path, monkeypatch):
-    (tmp_path / "CLAUDE.md").write_text("rules\n")
+    (tmp_path / "CLAUDE.md").write_bytes(b"rules\n")
     stats_mod = load_script("tt-stats.py", tmp_path)
 
     def run():

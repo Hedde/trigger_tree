@@ -302,7 +302,7 @@ def test_instructions_health_absent_invalid_stale_disabled_and_current(tmp_path)
     assert mod.instructions_health()[0] == "FAIL"
 
     instruction = tmp_path / "CLAUDE.md"
-    instruction.write_text("route design\n")
+    instruction.write_bytes(b"route design\n")
     import hashlib
 
     value = {
@@ -325,7 +325,7 @@ def test_instructions_health_absent_invalid_stale_disabled_and_current(tmp_path)
     manifest.write_text(json.dumps(value))
     instruction.write_text("changed\n")
     assert "stale" in mod.instructions_health()[1]
-    instruction.write_text("route design\n")
+    instruction.write_bytes(b"route design\n")
     assert "capture disabled" in mod.instructions_health()[1]
     (telemetry / "config.sh").write_text(
         "TT_LOG_TOPICS='on'\nTT_LOG_COMMANDS='classified'\nTT_EDIT_REGEX='^src/'\n"
