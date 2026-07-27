@@ -49,7 +49,7 @@
   .section-nav { display:flex; flex-wrap:wrap; justify-content:center; gap:.4rem 1rem; margin:1rem auto 2rem; }
   .section-nav a { color:var(--muted); font-size:.9rem; text-underline-offset:.2rem; }
   .offers { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin:2rem 0; }
-  .offer { border-left:3px solid var(--green); padding:.4rem 1rem; }
+  .offer { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1.25rem; }
   .offer p { color:var(--muted); }
   .term { background:var(--panel); border:1px solid var(--line); border-radius:10px;
           box-shadow:0 20px 60px rgba(0,0,0,.5); overflow:hidden; margin:2rem auto; max-width:720px; }
@@ -125,9 +125,35 @@
     .term { box-shadow:0 16px 45px rgba(22,40,25,.14); }
     .pulse { color:#111 !important; }
   }
+
+  body { position:relative; isolation:isolate; }
+  .wrap { position:relative; z-index:2; }
+  .corner-art {
+    position:absolute; z-index:0; width:min(42vw,650px); aspect-ratio:3/2;
+    background:url("assets/branches-corners.webp") no-repeat;
+    background-size:200% 200%; pointer-events:none;
+  }
+  .corner-art.tl { top:0; left:0; background-position:0 0; }
+  .corner-art.tr { top:0; right:0; background-position:100% 0; }
+  .corner-art.bl { bottom:0; left:0; background-position:0 100%; }
+  .corner-art.br { right:0; bottom:0; background-position:100% 100%; }
+  @media (min-width:581px) {
+    .wrap { padding-bottom:8rem; }
+    .corner-art.bl, .corner-art.br { bottom:-4rem; width:min(35vw,540px); }
+  }
+  @media (max-width:580px) {
+    .corner-art { width:62vw; }
+    .corner-art.tl, .corner-art.bl { left:-8vw; }
+    .corner-art.tr, .corner-art.br { right:-8vw; }
+    .corner-art.bl, .corner-art.br { bottom:-14vw; }
+    .hero { padding-top:3.5rem; }
+    footer { padding-bottom:4rem; }
+  }
 </style>
 </head>
 <body>
+<div class="corner-art tl" aria-hidden="true"></div>
+<div class="corner-art tr" aria-hidden="true"></div>
 <div class="wrap">
   <div class="hero">
     <img class="hero-logo" src="assets/trigger-tree-logo.png" alt="trigger-tree documentation discovery logo" width="160" height="160" fetchpriority="high">
@@ -328,6 +354,8 @@ codex plugin add trigger-tree@trigger-tree
     <p>This site is static, dependency-free, and has no analytics — the same privacy stance as the plugin.</p>
   </footer>
 </div>
+<div class="corner-art bl" aria-hidden="true"></div>
+<div class="corner-art br" aria-hidden="true"></div>
 <div class="bubble" id="bubble"></div>
 
 <script>

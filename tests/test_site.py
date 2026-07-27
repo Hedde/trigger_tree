@@ -11,6 +11,10 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "grid-template-columns:repeat(auto-fit" not in html
     assert ".compare div { min-width:0; padding:1.25rem 1.35rem 1.35rem; }" in html
     assert "background:var(--panel); border:1px solid var(--line); border-radius:10px;" in html
+    assert ".offer { background:var(--panel); border:1px solid var(--line);" in html
+    assert "border-left:3px solid var(--green)" not in html
+    assert 'background:url("assets/branches-corners.webp") no-repeat' in html
+    assert html.count('class="corner-art') == 4
     assert "30-day half-life while lifetime reads stay visible" in html
     assert '█".repeat' in html and '·".repeat' in html
     assert "f focus · h hot · c cold" in html
@@ -97,3 +101,10 @@ def test_social_card_has_link_preview_dimensions():
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
     assert int.from_bytes(data[16:20], "big") == 1200
     assert int.from_bytes(data[20:24], "big") == 630
+
+
+def test_corner_art_is_an_optimized_webp_asset():
+    data = open(f"{REPO}/assets/branches-corners.webp", "rb").read()
+    assert data[:4] == b"RIFF"
+    assert data[8:12] == b"WEBP"
+    assert len(data) < 200_000
