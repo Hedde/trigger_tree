@@ -49,6 +49,7 @@ HEAT_WINDOWS_DAYS = (7, 30, 90)
 ROUTER_NAMES = ("README.md", "_index.md", "index.md", "CLAUDE.md")
 TREND_MIN_EVENTS = 10
 MAX_CO_READ_PATHS = 200
+MAX_IMPORTED_FILES = 200
 EVENT_TYPES = {
     "command",
     "commit",
@@ -232,13 +233,17 @@ IMPORT_RE = re.compile(r"(?<![\w`])@([^\s`]+)")
 
 
 def claude_import_graph(docs):
-    """Return inventory files whose content is injected through CLAUDE.md imports.
+    """Return every project file whose content is injected through CLAUDE.md imports.
 
     Imports are resolved relative to the importing file, remain inside the project,
     and are followed recursively with cycle protection. External/absolute imports
     are intentionally ignored because they cannot be classified in this inventory.
+
+    Resolution deliberately does not require the target to be a watched document.
+    An imported memory or rules file is paid for on every request whether or not
+    it looks like documentation, so excluding it understates the always-loaded
+    cost. Callers narrow this to the inventory where inventory semantics apply.
     """
-    doc_set = set(docs)
     seeds = [p for p in docs if p == "CLAUDE.md" or p.endswith("/CLAUDE.md")]
     loaded = set(seeds)
     pending = list(seeds)
@@ -250,11 +255,16 @@ def claude_import_graph(docs):
             continue
         base = posix_dirname(source)
         for raw in IMPORT_RE.findall(text):
+            if len(loaded) >= MAX_IMPORTED_FILES:
+                return loaded
             target = raw.rstrip(".,;:)").replace("\\", "/")
             if target.startswith(("/", "~", "http://", "https://")):
                 continue
             candidate = os.path.normpath(os.path.join(base, target)).replace(os.sep, "/")
-            if candidate.startswith("../") or candidate not in doc_set or candidate in loaded:
+            if candidate.startswith("../") or candidate in loaded:
+                continue
+            # Never follow a symlink out of the project, and never invent a file.
+            if not safe_regular_file(os.path.join(ROOT, *candidate.split("/"))):
                 continue
             loaded.add(candidate)
             pending.append(candidate)
@@ -623,9 +633,13 @@ def main():
         for name in per_skill
         if f".claude/skills/{name}/SKILL.md" in set(docs)
     }
-    imported_files = claude_import_graph(docs)
-    always_loaded_set = {p for p in docs if ALWAYS.search(p)} | imported_files
     doc_set = set(docs)
+    injected_files = claude_import_graph(docs)
+    # Inventory-facing keys keep their existing meaning: only watched documents.
+    imported_files = {path for path in injected_files if path in doc_set}
+    always_loaded_set = {p for p in docs if ALWAYS.search(p)} | imported_files
+    # Cost is what you actually pay for, so it counts every injected file.
+    always_loaded_cost_set = always_loaded_set | injected_files
     evaluable_set = doc_set - always_loaded_set
     unread = [p for p in docs if p not in read_paths and p not in used_skill_files]
     untouched = [p for p in unread if p not in always_loaded_set]
@@ -951,6 +965,7 @@ def main():
         "always_loaded_inventory": sorted(always_loaded_set),
         "always_loaded_unread": always_loaded_unread,
         "always_loaded_imports": sorted(imported_files),
+        "always_loaded_injected": sorted(injected_files),
         "signal_integrity": {
             "subagent_reads": "captured",
             "subagent_read_events": sum(1 for e in reads if e.get("agent_id")),
@@ -1001,7 +1016,7 @@ def main():
                 cost = tt_adherence.estimate_cost(
                     manifest,
                     ROOT,
-                    sorted(always_loaded_set),
+                    sorted(always_loaded_cost_set),
                     sessions=len(sessions),
                     observed_days=days,
                 )

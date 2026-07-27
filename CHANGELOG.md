@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.26.1 — 2026-07-27
+
+- Counts every file reached through a `CLAUDE.md` `@import` chain toward the
+  always-loaded cost estimate, including files outside the watched documentation
+  tree. An imported memory or notes file the agent maintains itself was
+  previously invisible, so the cost headline understated what a session is
+  actually billed for.
+- Imports resolve only to real regular files inside the project. Symlinks,
+  parent-directory escapes, absolute paths, `~` paths, and URLs are ignored, and
+  the walk is bounded.
+- Adds `always_loaded_injected` to the stats payload. `always_loaded_imports`,
+  `always_loaded_inventory`, and every untouched/heat calculation keep their
+  existing inventory-scoped meaning, so this is additive only.
+
 ## 1.26.0 — 2026-07-27
 
 - Adds `tt instructions --selftest`, which proves each probe can fire by

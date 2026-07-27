@@ -17,6 +17,8 @@ The health score combines coverage, router reachability, and search behavior. It
 - Instruction adherence does not infer that injected text was understood. It evaluates
   only user-confirmed deterministic probes over observable events. `followed` is
   supporting evidence; `unobserved` means evidence was not captured, never violated.
+- Always-loaded cost counts every file injected through a `CLAUDE.md` import chain, not
+  only watched documentation, because injected content is billed regardless of its name.
 - Zero probe opportunities is `never-triggered`, not 0% adherence, and only over sessions
   where the probe's capture was running; otherwise it is `awaiting-capture`. A
   `path_avoided` rule nobody breached is `no-violations-observed`, not unused.

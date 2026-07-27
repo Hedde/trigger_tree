@@ -127,6 +127,18 @@ The report also estimates always-loaded context as Unicode characters divided by
 (no tokenizer dependency), allocates directive cost using its source line span, and
 shows sessions and observed days. This is a recurring-cost estimate, not a token bill.
 
+The cost view counts every file reached through a `@import` chain from `CLAUDE.md`,
+including files that are not watched documentation, such as a memory or notes file the
+agent maintains itself. You are charged for injected content whether or not it looks
+like a doc. Imports resolve only to real regular files inside the project: symlinks,
+parent-directory escapes, absolute paths, `~` paths, and URLs are ignored, and the walk
+is bounded. `always_loaded_injected` lists the full set; `always_loaded_imports` keeps
+its narrower inventory meaning.
+
+A caveat this does not solve: if an instruction file changes between runs, adherence
+goes `stale` until you re-run `--init`. For a file the agent rewrites every session that
+means it is effectively always stale, so anchor directives to a file you control.
+
 ## Capture and privacy
 
 Capture is opt-in for existing installs:

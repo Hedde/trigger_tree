@@ -912,3 +912,47 @@ def test_symlinked_surface_scan_is_bounded(tmp_path):
     mod = load_script("tt-stats.py", tmp_path)
     # limit=1: na de eerste directory-iteratie stopt de scan gegarandeerd.
     assert mod.symlinked_surfaces(str(tmp_path), r"^docs/", limit=1) == []
+
+
+def test_imported_non_doc_files_are_billed_but_stay_out_of_the_inventory(tmp_path, monkeypatch):
+    """A memory file the agent maintains is paid for on every request."""
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "guide.md").write_text("guide\n")
+    (tmp_path / "memory.md").write_text("agent notes\n" * 200)
+    (tmp_path / "CLAUDE.md").write_text("Rules: @memory.md @docs/guide.md\n")
+    write_history(tmp_path, [{"t": "session", "session": "S", "ts": "2026-07-01T00:00:00Z"}])
+    mod = load_script("tt-stats.py", tmp_path)
+    stats = run_stats(mod, monkeypatch)
+
+    # Inventory-facing keys keep their meaning: memory.md is not a watched doc.
+    assert stats["always_loaded_imports"] == ["CLAUDE.md", "docs/guide.md"]
+    assert "memory.md" not in stats["always_loaded_inventory"]
+    assert "memory.md" not in stats["untouched"]
+    # The cost view counts it, because the model is charged for it regardless.
+    assert stats["always_loaded_injected"] == ["CLAUDE.md", "docs/guide.md", "memory.md"]
+
+
+def test_imports_never_escape_the_project_or_follow_symlinks(tmp_path, monkeypatch):
+    outside = tmp_path.parent / "outside-secret.md"
+    outside.write_text("secret\n")
+    project = tmp_path / "project"
+    (project / "docs").mkdir(parents=True)
+    (project / "linked.md").symlink_to(outside)
+    (project / "CLAUDE.md").write_text(
+        "@../outside-secret.md @linked.md @/etc/hosts @~/secrets.md @absent.md\n"
+    )
+    write_history(project, [{"t": "session", "session": "S", "ts": "2026-07-01T00:00:00Z"}])
+    monkeypatch.setenv("TT_PROJECT_DIR", str(project))
+    mod = load_script("tt-stats.py", project)
+    assert mod.claude_import_graph(["CLAUDE.md"]) == {"CLAUDE.md"}
+
+
+def test_import_graph_stops_at_the_bound(tmp_path, monkeypatch):
+    total = 5
+    (tmp_path / "CLAUDE.md").write_text("".join(f"@note{index}.md\n" for index in range(total)))
+    for index in range(total):
+        (tmp_path / f"note{index}.md").write_text("note\n")
+    mod = load_script("tt-stats.py", tmp_path)
+    assert len(mod.claude_import_graph(["CLAUDE.md"])) == total + 1
+    monkeypatch.setattr(mod, "MAX_IMPORTED_FILES", 1)
+    assert len(mod.claude_import_graph(["CLAUDE.md"])) < total + 1
