@@ -21,4 +21,5 @@
 | Never-triggered | A probe with zero opportunities across the sessions where its capture was running; a recurring-cost review prompt, not 0% adherence or a removal recommendation. |
 | Awaiting-capture | A probe whose required signal no recorded session carried yet; nothing can be concluded, and it is not a cost finding. |
 | No-violations-observed | A `path_avoided` probe that never fired where edits were visible; the rule held, which is not evidence it is unused. |
+| Probe reachability | Whether a probe can fire at all, proved by running it against evidence constructed in memory; separates a rule nobody needed from a probe nothing could ever match. |
 | Probe fingerprint | The hash of declared topics and command patterns that binds recorded evidence to the semantics it was captured under; instruction prose is deliberately excluded so rewording a rule preserves its trend. |

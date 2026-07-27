@@ -85,8 +85,25 @@ deterministic threshold over locally available evidence.
 
 `--check` always reports how many observable directives were actually measured, so a
 pass backed by no evidence is visible rather than silent. Add `--min-measured N` to fail
-the gate until at least N directives carry real opportunities — worth setting in CI,
-since a manifest whose probe semantics just changed starts with none.
+the gate until at least N directives carry real opportunities, worth setting in CI since
+a manifest whose probe semantics just changed starts with none.
+
+`--selftest` answers a different question: can this probe fire at all? A directive that
+sits at zero is ambiguous, because the rule may never have applied or the probe may be
+written so that nothing could ever match it. The self-test constructs the evidence in
+memory, runs the probe against it, and reports one of:
+
+| Status | Meaning |
+|---|---|
+| `reachable` | Constructed evidence produced both the followed and the unobserved result. |
+| `unreachable` | No input could be built for the declared glob, or the probe did not return its declared result. |
+| `unsatisfiable` | A `route_followed` path does not exist, so a read of it can never be recorded. |
+| `unobservable` | Declared unmeasurable; nothing to exercise. |
+
+It runs no agent, reads no history, ignores configuration, and costs nothing. It exits 1
+when any probe is unreachable or unsatisfiable, so CI can hold the manifest honest. It
+proves reachability only: a command pattern is never tested against commands you really
+run, because classified capture stores pattern IDs rather than command text.
 
 Rates remain provisional below five usable opportunities. Compaction-crossing negative
 evidence is shown as degraded and excluded from the primary rate. Dataset maturity remains

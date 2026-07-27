@@ -326,6 +326,11 @@ def test_instructions_health_absent_invalid_stale_disabled_and_current(tmp_path)
     instruction.write_text("changed\n")
     assert "stale" in mod.instructions_health()[1]
     instruction.write_bytes(b"route design\n")
+    # The routed doc does not exist yet, so the probe can never be satisfied.
+    status, message = mod.instructions_health()
+    assert status == "FAIL" and "can never fire" in message and "route-design" in message
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "design.md").write_text("design\n")
     assert "capture disabled" in mod.instructions_health()[1]
     (telemetry / "config.sh").write_text(
         "TT_LOG_TOPICS='on'\nTT_LOG_COMMANDS='classified'\nTT_EDIT_REGEX='^src/'\n"

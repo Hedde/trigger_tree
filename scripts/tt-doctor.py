@@ -368,6 +368,21 @@ def instructions_health():
             f"instructions: manifest stale ({paths}) — run `tt instructions --init`; rates withheld",
         )
 
+    # A probe that cannot fire looks identical to a rule nobody needed, so this
+    # outranks capture warnings: it is broken authoring, not a missing setting.
+    broken = [
+        item
+        for item in tt_adherence.selftest(manifest, ROOT)["probes"]
+        if item["status"] in ("unreachable", "unsatisfiable")
+    ]
+    if broken:
+        names = ", ".join(sorted(item["id"] for item in broken)[:3])
+        return (
+            "FAIL",
+            f"instructions: {len(broken)} probe(s) can never fire ({names}) — "
+            "run `tt instructions --selftest`; their silence measures nothing",
+        )
+
     topics, _ = _effective_config("TT_LOG_TOPICS", "off")
     commands, _ = _effective_config("TT_LOG_COMMANDS", "off")
     edit_regex, _ = _effective_config("TT_EDIT_REGEX", r"(?!)")

@@ -16,7 +16,7 @@ elsewhere. Keep output concise and never print raw telemetry unless requested.
 - Live dashboard: run `TT_PROJECT_DIR="$PWD" TT_CLIENT=codex "$PLUGIN/scripts/tt-open.sh"`, optionally with `demo` or
   `replay`, so the detached dashboard watches this project and loads only Codex-specific tips.
 - Insights: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-report.py" --client codex` and link the generated local HTML report.
-- Instructions: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-instructions.py"` and pass through `--init`, `--explain ID`, `--json`, `--check`, `--min-rate N`, or `--min-measured N` when requested. Return its output verbatim. Never add or apply proposed probes without explicit user confirmation; unobserved means missing evidence, not a violation.
+- Instructions: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-instructions.py"` and pass through `--init`, `--selftest`, `--explain ID`, `--json`, `--check`, `--min-rate N`, or `--min-measured N` when requested. Return its output verbatim. Never add or apply proposed probes without explicit user confirmation; unobserved means missing evidence, not a violation.
 - Suggestions: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-suggestions.py"` and return its output verbatim.
 - Badge: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-stats.py" --client codex --badge` and return the written path.
 - Gate: run `TT_PROJECT_DIR="$PWD" python3 "$PLUGIN/scripts/tt-gate.py"` and return its output verbatim.

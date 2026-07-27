@@ -354,6 +354,157 @@ def _probe_session(probe, events):
     raise AssertionError(f"no evaluator registered for {probe_type}")
 
 
+GLOB_ALPHABET = "abcxyz0129_-."
+
+
+def _glob_example(pattern):
+    """Build one concrete path satisfying an fnmatch glob, or None if we cannot.
+
+    Used only to prove a probe is reachable. Returning None is a reportable
+    finding, never an assertion that the glob is wrong.
+    """
+    out = []
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char in "*?":
+            out.append("x")
+        elif char == "[":
+            close = pattern.find("]", index + 1)
+            if close == -1:
+                return None
+            body = pattern[index + 1 : close]
+            negated = body[:1] in ("!", "^")
+            if negated:
+                body = body[1:]
+                choice = next((item for item in GLOB_ALPHABET if item not in body), None)
+            else:
+                choice = body[:1] or None
+            if choice is None:
+                return None
+            out.append(choice)
+            index = close + 1
+            continue
+        else:
+            out.append(char)
+        index += 1
+    candidate = "".join(out)
+    return candidate if fnmatch(candidate, pattern) else None
+
+
+def _probe_cases(probe):
+    """Synthesize (expected result, events) pairs that must exercise a probe.
+
+    These never touch the event log; they are constructed in memory so a probe
+    can be proved reachable without waiting for a real opportunity to occur.
+    """
+    probe_type = probe["type"]
+    if probe_type in TOPIC_PROBES:
+        trigger = {"t": "prompt", "topics": [probe["topics"][0]]}
+        satisfy = (
+            {"t": "read", "path": probe["paths"][0]}
+            if probe_type == "route_followed"
+            else {"t": "skill", "skill": probe["skills"][0]}
+        )
+        return [("followed", [trigger, satisfy]), ("unobserved", [trigger])]
+    if probe_type == "command_before_commit":
+        command = {"t": "command", "matched": [probe["pattern_id"]]}
+        return [("followed", [command, {"t": "commit"}]), ("unobserved", [{"t": "commit"}])]
+    if probe_type == "tests_before_commit":
+        test = {"t": "test", "status": "pass"}
+        return [("followed", [test, {"t": "commit"}]), ("unobserved", [{"t": "commit"}])]
+    if probe_type == "command_after_edit":
+        path = _glob_example(probe["when_edited"])
+        if path is None:
+            return None
+        edit = {"t": "edit", "path": path}
+        command = {"t": "command", "matched": [probe["pattern_id"]]}
+        return [("followed", [edit, command]), ("unobserved", [edit])]
+    path = _glob_example(probe["forbidden"])
+    return None if path is None else [("unobserved", [{"t": "edit", "path": path}])]
+
+
+def selftest(manifest, root=None):
+    """Prove every observable probe can fire, without running an agent.
+
+    A probe that never fires against real history is ambiguous: the rule may
+    never have applied, or the probe may be written so it can never match
+    anything. This separates those two, deterministically and in memory.
+
+    With `root`, a `route_followed` probe that points at a file which does not
+    exist is reported as unsatisfiable: reads of it can never be recorded, so
+    the directive would sit at zero forever while looking merely unlucky.
+
+    It does not prove a command regex matches the commands you actually run;
+    classified capture stores pattern ids, so only reachability is checked.
+    """
+    normalized = validate_manifest(manifest)
+    results = []
+    for directive in normalized["directives"]:
+        probe = directive["probe"]
+        entry = {"id": directive["id"], "source": directive["source"], "probe": probe["type"]}
+        if probe["type"] == "unobservable":
+            results.append({**entry, "status": "unobservable"})
+            continue
+        if root and probe["type"] == "route_followed":
+            missing = [
+                path
+                for path in probe["paths"]
+                if not os.path.isfile(os.path.join(root, *path.split("/")))
+            ]
+            if missing:
+                results.append(
+                    {
+                        **entry,
+                        "status": "unsatisfiable",
+                        "reason": f"declared path does not exist: {missing[0]}",
+                    }
+                )
+                continue
+        cases = _probe_cases(probe)
+        if cases is None:
+            results.append(
+                {
+                    **entry,
+                    "status": "unreachable",
+                    "reason": "no example path satisfies the declared glob",
+                }
+            )
+            continue
+        failures = []
+        for expected, events in cases:
+            indexed = [
+                {**event, "session": "selftest", "_index": index}
+                for index, event in enumerate(events)
+            ]
+            actual = _probe_session(probe, indexed)
+            if actual != expected:
+                failures.append({"expected": expected, "actual": actual})
+        if failures:
+            results.append(
+                {
+                    **entry,
+                    "status": "unreachable",
+                    "reason": "constructed evidence did not produce the declared result",
+                    "failures": failures,
+                }
+            )
+        else:
+            results.append({**entry, "status": "reachable"})
+    return {
+        "schema": SCHEMA_VERSION,
+        "probes": results,
+        "caveat": "reachability only; a command pattern is not tested against real commands",
+        "summary": {
+            "directives": len(results),
+            "reachable": sum(item["status"] == "reachable" for item in results),
+            "unreachable": sum(item["status"] == "unreachable" for item in results),
+            "unsatisfiable": sum(item["status"] == "unsatisfiable" for item in results),
+            "unobservable": sum(item["status"] == "unobservable" for item in results),
+        },
+    }
+
+
 REQUIRED_CAPTURE = {
     "route_followed": ("topics",),
     "skill_used": ("topics",),

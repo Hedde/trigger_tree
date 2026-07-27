@@ -146,7 +146,7 @@ change with `/tt note`.
 
 Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-instructions.py"` (fall back
 to `python` if needed), passing through every argument after `instructions`, including
-`--init`, `--explain ID`, `--json`, `--check`, `--min-rate N`, and `--min-measured N`. Show the script
+`--init`, `--selftest`, `--explain ID`, `--json`, `--check`, `--min-rate N`, and `--min-measured N`. Show the script
 output verbatim; do not summarize or reformat it. `--init` creates or refreshes only a
 hash-bound scaffold. Never invent, add, or apply probes without showing the proposed
 directive entries and receiving explicit user confirmation. Treat `unobserved` as missing

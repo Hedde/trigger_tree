@@ -756,3 +756,149 @@ def test_stats_cost_headline_separates_never_triggered_from_missing_capture(tmp_
     never = run()
     assert never["summary"]["never_triggered"] == 1
     assert "in the 1 sessions where their capture was active" in never["cost"]["headline"]
+
+
+def test_selftest_proves_probes_can_fire_and_names_the_ones_that_cannot(tmp_path):
+    """A probe that can never match must be distinguishable from a quiet rule."""
+    mod = load_script("tt_adherence.py", tmp_path)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "real.md").write_text("real\n")
+    value = manifest(
+        "rules\n",
+        [
+            directive(
+                "route-good",
+                {"type": "route_followed", "topics": ["heat"], "paths": ["docs/real.md"]},
+            ),
+            directive(
+                "route-renamed",
+                {"type": "route_followed", "topics": ["privacy"], "paths": ["docs/gone.md"]},
+            ),
+            directive("skill", {"type": "skill_used", "topics": ["release"], "skills": ["tt"]}),
+            directive("tests", {"type": "tests_before_commit"}),
+            directive(
+                "checks",
+                {"type": "command_before_commit", "pattern_id": "checks", "pattern": "pytest"},
+            ),
+            directive(
+                "lint",
+                {
+                    "type": "command_after_edit",
+                    "when_edited": "src/*.py",
+                    "pattern_id": "lint",
+                    "pattern": "ruff check",
+                },
+            ),
+            directive("avoid", {"type": "path_avoided", "forbidden": "secret/*"}),
+            directive(
+                "broken",
+                {
+                    "type": "command_after_edit",
+                    "when_edited": "src/[oops",
+                    "pattern_id": "broken",
+                    "pattern": "make",
+                },
+            ),
+            directive("subjective", {"type": "unobservable", "why": "human judgment"}),
+        ],
+    )
+    result = mod.selftest(value, tmp_path)
+    by_id = {item["id"]: item for item in result["probes"]}
+    assert by_id["route-good"]["status"] == "reachable"
+    assert by_id["skill"]["status"] == "reachable"
+    assert by_id["tests"]["status"] == "reachable"
+    assert by_id["checks"]["status"] == "reachable"
+    assert by_id["lint"]["status"] == "reachable"
+    assert by_id["avoid"]["status"] == "reachable"
+    assert by_id["subjective"]["status"] == "unobservable"
+    assert by_id["broken"]["status"] == "unreachable"
+    assert by_id["route-renamed"]["status"] == "unsatisfiable"
+    assert "docs/gone.md" in by_id["route-renamed"]["reason"]
+    assert result["summary"] == {
+        "directives": 9,
+        "reachable": 6,
+        "unreachable": 1,
+        "unsatisfiable": 1,
+        "unobservable": 1,
+    }
+    # Without a root the filesystem is never consulted, keeping the core pure.
+    assert {item["id"] for item in mod.selftest(value)["probes"] if item["status"] == "reachable"}
+
+
+@pytest.mark.parametrize(
+    "pattern,expected",
+    [
+        ("src/*.py", True),
+        ("docs/**/*.md", True),
+        ("a?c", True),
+        ("[abc]x", True),
+        ("[!q]x", True),
+        ("src/[oops", False),
+        ("[]x", False),
+        ("[!a-z]x", False),
+    ],
+)
+def test_glob_examples_are_constructed_or_honestly_refused(tmp_path, pattern, expected):
+    mod = load_script("tt_adherence.py", tmp_path)
+    assert (mod._glob_example(pattern) is not None) is expected
+
+
+def test_selftest_reports_a_probe_whose_constructed_evidence_disagrees(tmp_path, monkeypatch):
+    mod = load_script("tt_adherence.py", tmp_path)
+    value = manifest("rules\n", [directive("tests", {"type": "tests_before_commit"})])
+    monkeypatch.setattr(mod, "_probe_session", lambda probe, events: None)
+    item = mod.selftest(value)["probes"][0]
+    assert item["status"] == "unreachable"
+    assert item["failures"][0] == {"expected": "followed", "actual": None}
+
+
+def test_selftest_cli_reports_status_and_exit_code(tmp_path, capsys):
+    mod = load_script("tt-instructions.py", tmp_path)
+    assert mod.main(["--selftest"]) == 0
+    assert "No instruction manifest" in capsys.readouterr().out
+    (tmp_path / "CLAUDE.md").write_text("rules\n")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "real.md").write_text("real\n")
+    assert mod.main(["--init"]) == 0
+    capsys.readouterr()
+
+    good = tmp_path / ".trigger-tree" / "directives.json"
+    payload = json.loads(good.read_text())
+    payload["directives"] = [
+        directive(
+            "route-good", {"type": "route_followed", "topics": ["heat"], "paths": ["docs/real.md"]}
+        )
+    ]
+    good.write_text(json.dumps(payload))
+    assert mod.main(["--selftest"]) == 0
+    out = capsys.readouterr().out
+    assert "1 reachable" in out and "route-good: reachable" in out
+
+    payload["directives"] = [
+        directive("route-bad", {"type": "route_followed", "topics": ["x"], "paths": ["docs/no.md"]})
+    ]
+    good.write_text(json.dumps(payload))
+    assert mod.main(["--selftest"]) == 1
+    out = capsys.readouterr().out
+    assert "UNSATISFIABLE" in out and "its silence is not evidence" in out
+    assert mod.main(["--selftest", "--json"]) == 1
+    assert json.loads(capsys.readouterr().out)["summary"]["unsatisfiable"] == 1
+
+    payload["directives"] = [
+        directive("subjective", {"type": "unobservable", "why": "human judgment"}),
+        directive(
+            "broken",
+            {
+                "type": "command_after_edit",
+                "when_edited": "src/[oops",
+                "pattern_id": "broken",
+                "pattern": "make",
+            },
+        ),
+    ]
+    good.write_text(json.dumps(payload))
+    assert mod.main(["--selftest"]) == 1
+    out = capsys.readouterr().out
+    assert "UNREACHABLE" in out and "unobservable · nothing to exercise" in out
+    with pytest.raises(SystemExit):
+        mod.main(["--selftest", "--check"])

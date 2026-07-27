@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.26.0 — 2026-07-27
+
+- Adds `tt instructions --selftest`, which proves each probe can fire by
+  constructing evidence in memory and running the probe against it. A directive
+  sitting at zero was previously ambiguous between "the rule never applied" and
+  "the probe is written so nothing could ever match it"; the two are now
+  distinguishable without running an agent, reading history, or spending tokens.
+- Reports a `route_followed` probe whose declared path does not exist as
+  `unsatisfiable`. Reads of a renamed or deleted doc can never be recorded, so
+  the directive would otherwise sit at zero forever while looking merely
+  unlucky.
+- `tt doctor` now fails when any probe can never fire, ahead of capture
+  warnings, because that is broken authoring rather than a missing setting.
+- The self-test exits 1 on an unreachable or unsatisfiable probe so CI can hold
+  a manifest honest. It proves reachability only and says so: a command pattern
+  is never tested against the commands you actually run.
+
 ## 1.25.2 — 2026-07-27
 
 - Binds recorded adherence evidence to a probe fingerprint (declared topics and

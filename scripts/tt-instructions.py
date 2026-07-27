@@ -139,6 +139,28 @@ def _print_report(adherence):
     print(adherence["cost"]["headline"])
 
 
+def _print_selftest(result):
+    summary = result["summary"]
+    print(
+        f"Probe self-test · {summary['reachable']} reachable · "
+        f"{summary['unreachable']} unreachable · "
+        f"{summary['unsatisfiable']} unsatisfiable · {summary['unobservable']} unobservable"
+    )
+    print("Reachability only; a command pattern is not tested against real commands.")
+    for item in result["probes"]:
+        if item["status"] == "reachable":
+            detail = f"reachable · {item['probe']}"
+        elif item["status"] == "unobservable":
+            detail = "unobservable · nothing to exercise"
+        elif item["status"] == "unsatisfiable":
+            detail = f"UNSATISFIABLE · {item['probe']} · {item['reason']}"
+        else:
+            detail = f"UNREACHABLE · {item['probe']} · {item['reason']}"
+        print(f"- {item['id']}: {detail}")
+    if summary["unreachable"] or summary["unsatisfiable"]:
+        print("A probe that cannot fire measures nothing; its silence is not evidence.")
+
+
 def _explain(adherence, directive_id):
     item = next(
         (entry for entry in adherence.get("directives", []) if entry["id"] == directive_id),
@@ -199,6 +221,7 @@ def _check(adherence, minimum, min_measured=0):
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--init", action="store_true")
+    parser.add_argument("--selftest", action="store_true")
     parser.add_argument("--explain", metavar="ID")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--check", action="store_true")
@@ -211,6 +234,8 @@ def main(argv=None):
         parser.error("--min-measured must not be negative")
     if args.init and (args.explain or args.check):
         parser.error("--init cannot be combined with --explain or --check")
+    if args.selftest and (args.init or args.explain or args.check):
+        parser.error("--selftest cannot be combined with --init, --explain, or --check")
     try:
         if args.init:
             manifest = init_manifest()
@@ -223,6 +248,19 @@ def main(argv=None):
                     "review and confirm probes before measurement."
                 )
             return 0
+        if args.selftest:
+            if not _regular_file(MANIFEST_PATH):
+                print("No instruction manifest; run `tt instructions --init`.")
+                return 0
+            # Deliberately manifest-only: no history, no config, no agent run.
+            result = tt_adherence.selftest(tt_adherence.load_manifest(MANIFEST_PATH), ROOT)
+            if args.json:
+                json.dump(result, sys.stdout, indent=2)
+                print()
+            else:
+                _print_selftest(result)
+            broken = result["summary"]["unreachable"] + result["summary"]["unsatisfiable"]
+            return 1 if broken else 0
         adherence = _adherence()
         if adherence is None:
             print("No instruction manifest; run `tt instructions --init`.")
