@@ -275,6 +275,7 @@ def test_history_schema_rejects_structurally_invalid_current_events(tmp_path):
             for event in (
                 {"schema_version": 1, "t": "read", "session": "S"},
                 {"schema_version": 1, "t": "scan", "path": ""},
+                {"schema_version": 1, "t": "edit", "path": ""},
                 {"schema_version": 1, "t": "skill"},
                 {"schema_version": 1, "t": "session", "ts": 42},
                 {"schema_version": 1, "t": "invented"},
@@ -287,7 +288,7 @@ def test_history_schema_rejects_structurally_invalid_current_events(tmp_path):
     events, diagnostics = mod.load_events_with_diagnostics([str(path)])
 
     assert events == [{"schema_version": 1, "t": "read", "path": "docs/valid.md"}]
-    assert diagnostics["corrupt_lines"] == 5
+    assert diagnostics["corrupt_lines"] == 6
 
 
 def test_co_read_pairs_skip_oversized_prompt_buckets(tmp_path, monkeypatch):
@@ -384,6 +385,31 @@ def test_subagent_reads_count_and_compaction_replay_is_deduplicated(tmp_path, mo
         "subagent_read_events": 1,
         "compaction_boundaries": 1,
     }
+
+
+def test_all_tool_derived_adherence_events_deduplicate_across_compaction(tmp_path):
+    mod = load_script("tt-stats.py", tmp_path)
+    path = tmp_path / "history.jsonl"
+    event_types = ("command", "commit", "edit", "read", "scan", "skill", "test")
+    events = []
+    for event_type in event_types:
+        event = {
+            "schema_version": 1,
+            "t": event_type,
+            "session": "S",
+            "tool_use_id": "same-call",
+        }
+        if event_type in ("edit", "read", "scan"):
+            event["path"] = "docs/a.md"
+        if event_type == "skill":
+            event["skill"] = "tt"
+        events.extend((event, dict(event)))
+    path.write_text("\n".join(json.dumps(event) for event in events) + "\n")
+
+    loaded, diagnostics = mod.load_events_with_diagnostics([str(path)])
+
+    assert [event["t"] for event in loaded] == list(event_types)
+    assert diagnostics["corrupt_lines"] == 0
 
 
 def test_rare_critical_docs_are_protected_review_items(tmp_path, monkeypatch):

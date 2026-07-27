@@ -1,6 +1,6 @@
 # Privacy Policy — trigger-tree
 
-_Last updated: 2026-07-19_
+_Last updated: 2026-07-27_
 
 ## The short version
 
@@ -19,6 +19,19 @@ inside the project you use it in:
   Bash reader arguments are checked after shell variables, substitutions, loops, and
   globs resolve; only matching normalized paths are retained, with event metadata.
 - **Skill invocations**: the name of invoked skills.
+- **Optional bounded topics**: with `TT_LOG_TOPICS='on'`, at most eight
+  case-insensitive whole-word labels selected from the repository's own router and
+  directive-manifest vocabulary. No prompt-derived free text is stored, and this works
+  independently of the prompt mode.
+- **Optional edits**: paths matching `TT_EDIT_REGEX`, normalized relative to the
+  project, plus tool name and event metadata. External paths, file content, arguments,
+  diffs, and patches are not stored.
+- **Optional commands**: `TT_LOG_COMMANDS='classified'` stores only stable IDs of
+  user-confirmed manifest patterns that matched. `full` additionally stores a bounded
+  command line. Command output is never stored. Missing configuration means off.
+- **Test and commit boundaries**: test pass/fail status and an observable local
+  `git commit` command, used only to order deterministic probes; no test output or commit
+  message is retained by those events.
 - **Prompt markers**: before a project runs setup, only a short hash is stored —
   plugin installs are user-wide, and no repository records prompt text without
   its own explicit choice. Configurable via `TT_LOG_PROMPTS` in
@@ -29,6 +42,12 @@ inside the project you use it in:
   - `truncate` (recommended during setup) — first 200 characters, local and gitignored
   - `off` — a bare marker, nothing else
 - **Notes**: text you explicitly add with `/tt note`.
+
+The committed `.trigger-tree/directives.json` is not telemetry. It is
+human-readable configuration containing instruction file paths and SHA-256 hashes,
+source line references, optional directive text, and user-confirmed deterministic
+probes. A model may propose this file only at authoring time; the user confirms it and
+measurement thereafter uses no model tokens.
 
 The optional HTML report (`/tt insights`) is generated locally to
 `.trigger-tree/report.html`. If you choose to publish it as a Claude Artifact, that
@@ -44,9 +63,10 @@ anything.
   Local analysis commands read selected documentation and instruction content to derive
   routing, import, protection, and maintenance signals; that content is never copied into
   telemetry or uploaded.
-- No shell commands, argument values other than matching documentation paths, search
-  patterns, or Bash output are logged. Runtime wrappers pass stdout, stderr, and exit
-  status through unchanged.
+- With command capture off or classified, no shell command line is logged. Explicit
+  `full` mode stores a bounded command line locally; command output, search output, and
+  MCP responses are never logged. Runtime wrappers pass stdout, stderr, and exit status
+  through unchanged.
 - No data leaves your machine.
 
 ## Retention and deletion

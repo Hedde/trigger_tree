@@ -1,3 +1,4 @@
+import hashlib
 import io
 import json
 import os
@@ -27,6 +28,7 @@ def read_history(project):
 
 def test_rel_path(tmp_path):
     mod = load_script("tt-log.py", tmp_path)
+    assert mod.project_relative_path("") is None
     assert mod.rel_path(str(tmp_path / "docs" / "a.md")) == "docs/a.md"
     assert mod.rel_path("/elsewhere/x.md") == "/elsewhere/x.md"
 
@@ -854,6 +856,360 @@ def test_prompt_modes(tmp_path, monkeypatch):
     assert entry["t"] == "prompt" and "prompt" not in entry and "prompt_hash" not in entry
 
 
+def test_topics_are_bounded_router_labels_independent_of_prompt_mode(tmp_path, monkeypatch):
+    (tmp_path / "CLAUDE.md").write_text(
+        "| Task | Start here |\n|---|---|\n| Privacy, telemetry, heat | `docs/heat.md` |\n"
+    )
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "README.md").write_text(
+        "| If you want to… | Read… |\n|---|---|\n| Release or dashboard | x |\n"
+    )
+    config_dir = tmp_path / ".trigger-tree"
+    config_dir.mkdir()
+    payload = json.dumps(
+        {
+            "session_id": "S",
+            "prompt": "Secret customer asks about TELEMETRY, privacy, heat, and dashboard.",
+        }
+    )
+    mod = load_script("tt-log.py", tmp_path)
+    for mode in ("truncate", "hash", "off"):
+        (config_dir / "config.sh").write_text(f"TT_LOG_PROMPTS='{mode}'\nTT_LOG_TOPICS='on'\n")
+        run_main(mod, monkeypatch, ["prompt"], payload)
+        assert read_history(tmp_path)[-1]["topics"] == [
+            "dashboard",
+            "heat",
+            "privacy",
+            "telemetry",
+        ]
+    # truncate intentionally retains its documented preview; hash/off still persist
+    # only labels drawn from the bounded vocabulary.
+    assert "customer" not in json.dumps(read_history(tmp_path)[1:])
+
+
+def test_topics_and_new_capture_are_off_when_settings_are_absent(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    assert mod.conf()["TT_LOG_TOPICS"] == "off"
+    assert mod.conf()["TT_LOG_COMMANDS"] == "off"
+    assert mod.conf()["TT_EDIT_REGEX"] == r"(?!)"
+    run_main(
+        mod,
+        monkeypatch,
+        ["bash"],
+        json.dumps({"session_id": "S", "tool_input": {"command": "pytest -q"}}),
+    )
+    run_main(
+        mod,
+        monkeypatch,
+        ["edit"],
+        json.dumps(
+            {"session_id": "S", "tool_name": "Edit", "tool_input": {"file_path": "src/a.py"}}
+        ),
+    )
+    assert [event["t"] for event in read_history(tmp_path)] == ["test"]
+
+
+def test_classified_commands_edit_paths_and_commit_boundary(tmp_path, monkeypatch):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    instruction = tmp_path / "CLAUDE.md"
+    instruction.write_text("# Rules\nRun checks.\n")
+    digest = hashlib.sha256(instruction.read_bytes()).hexdigest()
+    manifest = {
+        "schema": 1,
+        "instruction_files": [{"path": "CLAUDE.md", "sha256": digest}],
+        "directives": [
+            {
+                "id": "checks",
+                "source": {"file": "CLAUDE.md", "line": 2},
+                "probe": {
+                    "type": "command_before_commit",
+                    "pattern_id": "full-checks",
+                    "pattern": r"(pytest|ruff check)",
+                },
+            }
+        ],
+    }
+    (telemetry / "directives.json").write_text(json.dumps(manifest))
+    (telemetry / "config.sh").write_text(
+        "TT_LOG_COMMANDS='classified'\n" "TT_EDIT_REGEX='^(src|tests)/'\n" "TT_LOG_TOPICS='off'\n"
+    )
+    mod = load_script("tt-log.py", tmp_path)
+    run_main(
+        mod,
+        monkeypatch,
+        ["bash"],
+        json.dumps(
+            {
+                "session_id": "S",
+                "tool_use_id": "B1",
+                "tool_input": {"command": "pytest -q && echo secret"},
+            }
+        ),
+    )
+    run_main(
+        mod,
+        monkeypatch,
+        ["edit"],
+        json.dumps(
+            {
+                "session_id": "S",
+                "tool_name": "apply_patch",
+                "tool_use_id": "E1",
+                "tool_input": {
+                    "input": "*** Begin Patch\n*** Update File: src/a.py\n@@\n-secret\n+secret\n*** End Patch"
+                },
+            }
+        ),
+    )
+    monkeypatch.setattr(mod, "git_head", lambda: "after")
+    run_main(
+        mod,
+        monkeypatch,
+        ["bash"],
+        json.dumps(
+            {"session_id": "S", "tool_use_id": "B2", "tool_input": {"command": "git commit -m x"}}
+        ),
+    )
+    events = read_history(tmp_path)
+    command = next(event for event in events if event["t"] == "command" and event["matched"])
+    assert command["matched"] == ["full-checks"]
+    assert "command" not in command and "secret" not in json.dumps(command)
+    edit = next(event for event in events if event["t"] == "edit")
+    assert edit["path"] == "src/a.py" and set(edit) >= {"tool", "manifest_hash"}
+    commit = next(event for event in events if event["t"] == "commit")
+    assert commit["git_head"] == "after" and commit["manifest_hash"] == command["manifest_hash"]
+
+
+def test_full_command_capture_failure_and_external_edits(tmp_path, monkeypatch):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    (telemetry / "config.sh").write_text(
+        "TT_LOG_COMMANDS='full'\nTT_EDIT_REGEX='.*'\nTT_LOG_TOPICS='off'\n"
+    )
+    mod = load_script("tt-log.py", tmp_path)
+    run_main(
+        mod,
+        monkeypatch,
+        ["bash-failure"],
+        json.dumps({"session_id": "S", "tool_input": {"command": "make deploy"}}),
+    )
+    run_main(
+        mod,
+        monkeypatch,
+        ["edit"],
+        json.dumps(
+            {
+                "session_id": "S",
+                "tool_name": "Write",
+                "tool_input": {"file_path": str(tmp_path.parent / "outside.py")},
+            }
+        ),
+    )
+    assert read_history(tmp_path) == [
+        {
+            "schema_version": 1,
+            "t": "command",
+            "ts": read_history(tmp_path)[0]["ts"],
+            "session": "S",
+            "status": "fail",
+            "client": "unknown",
+            "command": "make deploy",
+            "matched": [],
+        }
+    ]
+
+
+def test_command_pattern_subset_is_bounded_and_rejects_backtracking(tmp_path):
+    mod = load_script("tt-log.py", tmp_path)
+    assert mod.safe_command_pattern(r"(coverage run|pytest|ruff check)")
+    assert mod.safe_command_pattern(r"pytest .* tests/")
+    assert not mod.safe_command_pattern(r"(a+)+$")
+    assert not mod.safe_command_pattern(r"(a|aa)+$")
+    assert not mod.safe_command_pattern(r"(.*a){20}")
+
+
+def test_manifest_topic_and_pattern_defensive_bounds(tmp_path, monkeypatch):
+    mod = load_script("tt-log.py", tmp_path)
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    manifest_path = telemetry / "directives.json"
+
+    manifest_path.write_text("[]")
+    assert mod.manifest_details() == ({}, None)
+    manifest_path.write_text("{}")
+    assert mod.manifest_details() == ({}, None)
+    manifest_path.write_text("x" * (mod.MAX_MANIFEST_BYTES + 1))
+    assert mod.manifest_details() == ({}, None)
+
+    router = tmp_path / "router.md"
+    router.write_text(
+        "not a row\n| Task | Start |\n|---|---|\n| Privacy-sensitive work | docs/privacy.md |\n"
+    )
+    assert mod._router_topics(router) == {"privacy-sensitive"}
+    assert mod._router_topics(tmp_path / "missing.md") == set()
+
+    directives = [
+        {"probe": {"topics": ["Topic", "", "x" * 81]}},
+        "invalid",
+    ]
+    assert "topic" in mod.topic_vocabulary({"directives": directives})
+    assert (
+        len(
+            mod.prompt_topics(
+                " ".join(f"topic-{index}" for index in range(12)),
+                [f"topic-{index}" for index in range(12)],
+            )
+        )
+        == mod.MAX_TOPICS
+    )
+
+    assert not mod.safe_command_pattern(None)
+    assert not mod.safe_command_pattern("x" * 513)
+    assert not mod.safe_command_pattern("a.*b.*c")
+    assert not mod.safe_command_pattern("a+")
+    invalid_probes = [
+        "invalid",
+        {"probe": "invalid"},
+        {"probe": {"pattern_id": "BAD", "pattern": "pytest"}},
+        {"probe": {"pattern_id": "ok", "pattern": "("}},
+    ]
+    monkeypatch.setattr(mod, "safe_command_pattern", lambda value: value == "(" or bool(value))
+    assert mod.command_patterns({"directives": invalid_probes}) == []
+    many = [
+        {"probe": {"pattern_id": f"p-{index}", "pattern": "pytest"}}
+        for index in range(mod.MAX_COMMAND_PATTERNS + 2)
+    ]
+    assert len(mod.command_patterns({"directives": many})) == mod.MAX_COMMAND_PATTERNS
+
+    monkeypatch.setattr(
+        mod.os.path, "commonpath", lambda _paths: (_ for _ in ()).throw(ValueError())
+    )
+    assert mod.project_relative_path("file.py") is None
+
+
+def test_new_capture_full_classified_and_manifest_hash_branches(tmp_path, monkeypatch):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    instruction = tmp_path / "CLAUDE.md"
+    instruction.write_text("| Task | Start |\n|---|---|\n| Privacy | docs/privacy.md |\n")
+    manifest = {
+        "schema": 1,
+        "instruction_files": [
+            {"path": "CLAUDE.md", "sha256": hashlib.sha256(instruction.read_bytes()).hexdigest()}
+        ],
+        "directives": [
+            {
+                "id": "checks",
+                "source": {"file": "CLAUDE.md", "line": 1},
+                "probe": {
+                    "type": "command_before_commit",
+                    "pattern_id": "checks",
+                    "pattern": "pytest",
+                },
+            }
+        ],
+    }
+    (telemetry / "directives.json").write_text(json.dumps(manifest))
+    (telemetry / "config.sh").write_text(
+        "TT_LOG_PROMPTS='off'\nTT_LOG_TOPICS='on'\n" "TT_LOG_COMMANDS='full'\nTT_EDIT_REGEX='.*'\n"
+    )
+    mod = load_script("tt-log.py", tmp_path)
+    run_main(
+        mod,
+        monkeypatch,
+        ["prompt"],
+        json.dumps({"session_id": "S", "prompt": "pytest privacy"}),
+    )
+    run_main(
+        mod,
+        monkeypatch,
+        ["bash"],
+        json.dumps({"session_id": "S", "tool_input": {"command": "pytest -q"}}),
+    )
+    run_main(
+        mod,
+        monkeypatch,
+        ["bash-failure"],
+        json.dumps({"session_id": "S", "tool_input": {"command": "pytest broken"}}),
+    )
+    events = read_history(tmp_path)
+    assert events[0]["topics"] and events[0]["manifest_hash"]
+    commands = [event for event in events if event["t"] == "command"]
+    assert [event["status"] for event in commands] == ["pass", "fail"]
+    assert all(event["matched"] == ["checks"] and event["manifest_hash"] for event in commands)
+    assert commands[0]["command"] == "pytest -q"
+
+    (telemetry / "config.sh").write_text(
+        "TT_LOG_PROMPTS='off'\nTT_LOG_TOPICS='on'\n"
+        "TT_LOG_COMMANDS='classified'\nTT_EDIT_REGEX='.*'\n"
+    )
+    run_main(
+        mod,
+        monkeypatch,
+        ["bash-failure"],
+        json.dumps({"session_id": "S", "tool_input": {"command": "pytest classified"}}),
+    )
+    assert read_history(tmp_path)[-2]["matched"] == ["checks"]
+    captured = read_history(tmp_path)
+
+    outside = tmp_path.parent / "outside.py"
+    run_main(
+        mod,
+        monkeypatch,
+        ["ingest", json.dumps({"t": "edit", "path": str(outside)})],
+    )
+    assert len(read_history(tmp_path)) == len(captured)
+
+
+def test_large_manifest_hook_path_stays_inside_timeout(tmp_path, monkeypatch):
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    instruction = tmp_path / "CLAUDE.md"
+    instruction.write_text("| Task | Start |\n|---|---|\n| Topic | docs/topic.md |\n")
+    directives = [
+        {
+            "id": f"route-topic-{index}",
+            "source": {"file": "CLAUDE.md", "line": 3},
+            "probe": {
+                "type": "route_followed",
+                "topics": [f"topic-{index}"],
+                "paths": ["docs/topic.md"],
+            },
+        }
+        for index in range(1_000)
+    ]
+    (telemetry / "directives.json").write_text(
+        json.dumps(
+            {
+                "schema": 1,
+                "instruction_files": [
+                    {
+                        "path": "CLAUDE.md",
+                        "sha256": hashlib.sha256(instruction.read_bytes()).hexdigest(),
+                    }
+                ],
+                "directives": directives,
+            }
+        )
+    )
+    (telemetry / "config.sh").write_text(
+        "TT_LOG_PROMPTS='off'\nTT_LOG_TOPICS='on'\n"
+        "TT_LOG_COMMANDS='classified'\nTT_EDIT_REGEX='.*'\n"
+    )
+    mod = load_script("tt-log.py", tmp_path)
+    started = mod.time.monotonic()
+    run_main(
+        mod,
+        monkeypatch,
+        ["prompt"],
+        json.dumps({"session_id": "S", "prompt": "topic-100"}),
+    )
+    elapsed = mod.time.monotonic() - started
+    assert elapsed < 5
+    assert read_history(tmp_path)[0]["topics"] == ["topic-100"]
+
+
 def test_skill_event(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
     run_main(
@@ -944,6 +1300,8 @@ def test_local_outcome_signals_and_test_command_detection(tmp_path, monkeypatch)
     mod = load_script("tt-log.py", tmp_path)
     assert mod.looks_like_test_command("pytest -q")
     assert mod.looks_like_test_command("npm test && echo done")
+    assert mod.looks_like_test_command("npm run test:unit")
+    assert not mod.looks_like_test_command("npm run build")
     assert mod.looks_like_test_command("cargo test")
     assert mod.looks_like_test_command("mix test")
     assert not mod.looks_like_test_command("echo pytest")

@@ -1,6 +1,6 @@
 ---
 name: tt
-description: See which docs your AI actually discovers with local, zero-token telemetry. Subcommands; /tt status, /tt watch [demo|replay], /tt insights, /tt suggestions, /tt badge, /tt gate, /tt note <text>, /tt doctor, /tt setup, /tt uninstall, /tt help.
+description: See which docs your AI actually discovers with local, zero-token telemetry. Subcommands; /tt status, /tt watch [demo|replay], /tt insights, /tt instructions, /tt suggestions, /tt badge, /tt gate, /tt note <text>, /tt doctor, /tt setup, /tt uninstall, /tt help.
 disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Artifact
 arguments:
@@ -38,6 +38,7 @@ Show exactly this, nothing above or below it:
 > | `/tt watch demo` | Dashboard with synthetic events (writes nothing) |
 > | `/tt watch replay` | Dashboard replaying the real history, accelerated |
 > | `/tt insights` | Analysis report: heat/cold map, untouched paths, hunting, trend + HTML |
+> | `/tt instructions` | Per-directive adherence, observability, and always-loaded cost |
 > | `/tt suggestions` | Max 5 prioritized, concrete router fixes — apply after confirmation |
 > | `/tt badge` | Write `.trigger-tree/badge.json`; immature data publishes only `measuring…` |
 > | `/tt note <text>` | Annotate the timeline (e.g. "sharpened UX router") — shows up in the trend |
@@ -140,6 +141,16 @@ reformat the script output**. Reply with exactly one line: `Apply any of these?
 Reply with the numbers.` when numbered edits exist, otherwise `Nothing to apply.`
 Apply only numbered edits the user explicitly confirms, then suggest recording the
 change with `/tt note`.
+
+## `$1` = "instructions"
+
+Silently run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-instructions.py"` (fall back
+to `python` if needed), passing through every argument after `instructions`, including
+`--init`, `--explain ID`, `--json`, `--check`, and `--min-rate N`. Show the script
+output verbatim; do not summarize or reformat it. `--init` creates or refreshes only a
+hash-bound scaffold. Never invent, add, or apply probes without showing the proposed
+directive entries and receiving explicit user confirmation. Treat `unobserved` as missing
+evidence, never as a violation; capture-disabled probes are excluded from rates.
 
 ## `$1` = "tips"
 

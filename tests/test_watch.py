@@ -729,6 +729,45 @@ def test_demo_event_generator():
     assert kinds <= {"read", "scan", "skill"} and "read" in kinds
 
 
+def test_cached_adherence_snapshot_renders_current_stale_and_disabled():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md"], adherence=mod.DEMO_ADHERENCE)
+    frame = plain(app.render(time.time(), width=100, height=20))
+    assert "instructions: 5/6 observable · 9/12 followed · 1 never triggered" in frame
+    disabled = {
+        **mod.DEMO_ADHERENCE,
+        "summary": {**mod.DEMO_ADHERENCE["summary"], "capture_disabled": 2},
+    }
+    app.set_adherence(disabled)
+    assert "2 capture disabled" in plain(app.render(time.time(), 120, 20))
+    app.set_adherence({"status": "stale"})
+    assert "manifest stale · rates withheld" in plain(app.render(time.time(), 70, 20))
+    app.set_adherence({"status": "invalid"})
+    assert "manifest invalid" in plain(app.render(time.time(), 70, 20))
+
+
+def test_load_adherence_is_fail_open(monkeypatch):
+    mod = load_script("tt-watch.py", FIXTURE)
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *_args, **_kwargs: type("Result", (), {"returncode": 0, "stdout": "{}"})(),
+    )
+    assert mod.load_adherence() is None
+
+    def fail(*_args, **_kwargs):
+        raise mod.subprocess.TimeoutExpired("stats", 5)
+
+    monkeypatch.setattr(mod.subprocess, "run", fail)
+    assert mod.load_adherence() is None
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *_args, **_kwargs: type("Result", (), {"returncode": 1, "stdout": ""})(),
+    )
+    assert mod.load_adherence() is None
+
+
 def test_main_tty_mode_writes_alt_screen(monkeypatch, capsys):
     mod = load_script("tt-watch.py", FIXTURE)
     monkeypatch.setattr(sys, "argv", ["tt-watch.py", "--demo", "--seconds", "0.2"])
@@ -789,6 +828,17 @@ def test_main_live_mode_resyncs_inventory_on_deterministic_clock(monkeypatch, ca
     clock = [0.0]
     calls = []
 
+    class LiveTail:
+        def __init__(self, _path, from_start=False):
+            self.from_start = from_start
+            self.sent = False
+
+        def poll(self):
+            if self.from_start or self.sent:
+                return []
+            self.sent = True
+            return [{"t": "read", "path": "docs/README.md", "session": "live"}]
+
     def tick():
         clock[0] += 0.1
         return clock[0]
@@ -801,6 +851,7 @@ def test_main_live_mode_resyncs_inventory_on_deterministic_clock(monkeypatch, ca
 
     monkeypatch.setattr(mod.time, "time", tick)
     monkeypatch.setattr(mod.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(mod, "Tail", LiveTail)
     monkeypatch.setattr(mod, "inventory", tracked_inventory)
     monkeypatch.setattr(
         sys, "argv", ["tt-watch.py", "--seconds", str(mod.INVENTORY_SYNC_SECS + 0.5)]

@@ -23,11 +23,14 @@ def test_doctor_all_checks_pass(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(mod.time, "time", lambda: 1_784_282_400)
     assert mod.main() == 0
     out = capsys.readouterr().out
-    assert out.count("✓") == 9
+    assert out.count("✓") == 8
+    assert out.count("!") == 2
     assert "1 usable events, latest 2026-07-17T10:00:00Z" in out
     assert "prompt logging: hash (set by the plugin default)" in out
+    assert "task-cluster previews unavailable" in out
+    assert "instructions: no manifest" in out
     assert "Python:" not in out  # the label stays lowercase; paths may contain Python
-    assert "all checks passed" in out
+    assert "telemetry healthy — 2 optional setup warnings" in out
 
 
 def test_doctor_warns_before_first_event_and_without_statusline(tmp_path, capsys):
@@ -35,8 +38,8 @@ def test_doctor_warns_before_first_event_and_without_statusline(tmp_path, capsys
     mod = load_script("tt-doctor.py", tmp_path)
     assert mod.main() == 0
     out = capsys.readouterr().out
-    assert out.count("!") == 3
-    assert "telemetry healthy — 3 optional setup warnings" in out
+    assert out.count("!") == 5
+    assert "telemetry healthy — 5 optional setup warnings" in out
 
 
 def test_doctor_fails_actionably_on_broken_project(tmp_path, monkeypatch, capsys):
@@ -48,7 +51,7 @@ def test_doctor_fails_actionably_on_broken_project(tmp_path, monkeypatch, capsys
     out = capsys.readouterr().out
     assert out.count("✗") == 3
     assert "run /tt setup" in out and "reinstall the plugin" in out
-    assert "attention needed — 3 failed, 2 warnings" in out
+    assert "attention needed — 3 failed, 4 warnings" in out
 
 
 def test_doctor_liveness_distinguishes_current_missing_recent_and_stale(tmp_path, monkeypatch):
@@ -162,6 +165,9 @@ def test_doctor_validates_config_values(tmp_path):
         ("TT_LOG_PROMPTS='plaintext'\n", "hash, truncate, or off"),
         ("TT_ROTATE_BYTES='0'\n", "positive integer"),
         ("TT_EXPERIMENTAL_OUTCOMES='maybe'\n", "must be on or off"),
+        ("TT_LOG_TOPICS='maybe'\n", "must be on or off"),
+        ("TT_LOG_COMMANDS='raw'\n", "off, classified, or full"),
+        ("TT_EDIT_REGEX='([broken'\n", "invalid"),
         ("TT_ROTATE_BYTES=nope\n", "unparseable assignment"),
     ):
         config.write_text(value)
@@ -271,12 +277,12 @@ def test_prompts_health_reports_the_selecting_layer_and_rejects_invalid(tmp_path
     # Zonder leesbare lagen geldt de ingebouwde fallback.
     monkeypatch.setattr(mod, "PLUGIN_ROOT", str(tmp_path / "nergens"))
     state, message = mod.prompts_health()
-    assert state == "PASS" and "hash (set by the built-in fallback)" in message
+    assert state == "WARN" and "hash (set by the built-in fallback)" in message
     user_config = tmp_path / "user-config.sh"
     user_config.write_text("TT_LOG_PROMPTS='off'\n")
     monkeypatch.setenv("TT_USER_CONFIG", str(user_config))
     state, message = mod.prompts_health()
-    assert state == "PASS" and "off (set by the user default)" in message
+    assert state == "WARN" and "off (set by the user default)" in message
     (tmp_path / ".trigger-tree").mkdir()
     (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_LOG_PROMPTS='truncate'\n")
     state, message = mod.prompts_health()
@@ -284,6 +290,71 @@ def test_prompts_health_reports_the_selecting_layer_and_rejects_invalid(tmp_path
     (tmp_path / ".trigger-tree" / "config.sh").write_text("TT_LOG_PROMPTS='alles'\n")
     state, message = mod.prompts_health()
     assert state == "FAIL" and "invalid mode 'alles' from the project override" in message
+
+
+def test_instructions_health_absent_invalid_stale_disabled_and_current(tmp_path):
+    mod = load_script("tt-doctor.py", tmp_path)
+    assert mod.instructions_health()[0] == "WARN"
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    manifest = telemetry / "directives.json"
+    manifest.write_text("{")
+    assert mod.instructions_health()[0] == "FAIL"
+
+    instruction = tmp_path / "CLAUDE.md"
+    instruction.write_text("route design\n")
+    import hashlib
+
+    value = {
+        "schema": 1,
+        "instruction_files": [
+            {"path": "CLAUDE.md", "sha256": hashlib.sha256(b"route design\n").hexdigest()}
+        ],
+        "directives": [
+            {
+                "id": "route-design",
+                "source": {"file": "CLAUDE.md", "line": 1},
+                "probe": {
+                    "type": "route_followed",
+                    "topics": ["design"],
+                    "paths": ["docs/design.md"],
+                },
+            }
+        ],
+    }
+    manifest.write_text(json.dumps(value))
+    instruction.write_text("changed\n")
+    assert "stale" in mod.instructions_health()[1]
+    instruction.write_text("route design\n")
+    assert "capture disabled" in mod.instructions_health()[1]
+    (telemetry / "config.sh").write_text(
+        "TT_LOG_TOPICS='on'\nTT_LOG_COMMANDS='classified'\nTT_EDIT_REGEX='^src/'\n"
+    )
+    assert mod.instructions_health() == (
+        "PASS",
+        "instructions: manifest current and configured probes are observable",
+    )
+
+
+def test_doctor_all_pass_summary_branch(tmp_path, monkeypatch, capsys):
+    mod = load_script("tt-doctor.py", tmp_path)
+    for name in (
+        "hooks_health",
+        "liveness_health",
+        "codex_trust_health",
+        "config_health",
+        "prompts_health",
+        "instructions_health",
+        "coverage_health",
+        "surfaces_health",
+        "python_health",
+        "ignore_health",
+        "statusline_health",
+        "history_health",
+    ):
+        monkeypatch.setattr(mod, name, lambda: ("PASS", "ok"))
+    assert mod.main() == 0
+    assert "all checks passed" in capsys.readouterr().out
 
 
 def test_doctor_warns_on_watched_symlinked_surfaces(tmp_path, monkeypatch):

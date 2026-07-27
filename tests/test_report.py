@@ -71,6 +71,72 @@ def test_heat_color_and_escape(monkeypatch):
     assert large_tree.count("<g>") == 106  # one folder row plus every active file
 
 
+def test_adherence_section_handles_absent_stale_and_current_safely():
+    mod = load_script("tt-report.py", FIXTURE)
+    assert "tt instructions --init" in "".join(mod.adherence_html(None))
+    stale = "".join(mod.adherence_html({"status": "stale", "drift": [{"path": "<CLAUDE.md>"}]}))
+    assert "Rates are withheld" in stale and "&lt;CLAUDE.md&gt;" in stale
+    invalid = "".join(mod.adherence_html({"status": "invalid", "error": "<bad>"}))
+    assert "Manifest invalid" in invalid and "&lt;bad&gt;" in invalid
+    current = {
+        "status": "current",
+        "summary": {
+            "directives": 3,
+            "observable": 2,
+            "unobservable_ratio": 0.33,
+            "capture_disabled": 1,
+            "never_triggered": 1,
+        },
+        "directives": [
+            {
+                "id": "safe-route",
+                "source": {"file": "CLAUDE.md", "line": 2},
+                "status": "measured",
+                "opportunities": 2,
+                "followed": 1,
+                "unobserved": 1,
+                "rate": 0.5,
+                "confidence": "provisional",
+            },
+            {
+                "id": "disabled",
+                "source": {"file": "CLAUDE.md", "line": 3},
+                "status": "capture-disabled",
+            },
+            {
+                "id": "never",
+                "source": {"file": "CLAUDE.md", "line": 3},
+                "status": "never-triggered",
+                "confidence": "provisional",
+            },
+            {
+                "id": "subjective",
+                "source": {"file": "CLAUDE.md", "line": 4},
+                "status": "unobservable",
+                "why": "<diff>",
+            },
+        ],
+        "cost": {
+            "headline": "Always loaded <forever>",
+            "never_triggered": [{"id": "safe-route", "estimated_tokens": 4}],
+        },
+    }
+    html = "".join(mod.adherence_html(current))
+    assert "Unobserved means evidence was not captured" in html
+    assert "50%" in html and "excluded from rates" in html
+    assert "&lt;diff&gt;" in html and "&lt;forever&gt;" in html
+
+
+def test_report_explains_prompt_privacy_when_no_clusters(tmp_path, monkeypatch, capsys):
+    (tmp_path / ".trigger-tree").mkdir()
+    (tmp_path / ".trigger-tree" / "history.jsonl").write_text(
+        '{"t":"prompt","session":"S","prompt_hash":"abc","ts":"2026-07-01T00:00:00Z"}\n'
+    )
+    mod = load_script("tt-report.py", tmp_path)
+    html = open(run_report(mod, monkeypatch, capsys, tmp_path), encoding="utf-8").read()
+    assert "No task-cluster previews are available in the current privacy mode" in html
+
+
 def test_mature_report_renders_visuals_and_keeps_tables(tmp_path, monkeypatch, capsys):
     docs = tmp_path / "docs"
     docs.mkdir()

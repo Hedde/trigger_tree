@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.25.0 — 2026-07-27
+
+- Adds deterministic instruction-adherence measurement: a hash-bound,
+  schema-validated directive manifest, six observable probe types plus explicit
+  unobservable probes, per-session evidence, confidence and maturity labels,
+  compaction-aware uncertainty, weekly trends, and `tt instructions` commands
+  for initialization, inspection, explanation, and CI checks.
+- Extends local hook capture with bounded topic labels, successful in-project
+  edit paths, classified command-pattern IDs, skill use, and observable commit
+  boundaries. Capture gaps are reported as `capture-disabled` or `unobserved`,
+  never silently counted as instruction violations.
+- Keeps the new telemetry privacy-preserving and opt-in per project: topics and
+  command capture default to off, edit capture defaults to matching nothing,
+  setup explains and enables bounded topics, classified commands, and a
+  conservative edit scope, and raw prompts, diffs, command output, and external
+  paths are never required for adherence metrics.
+- Documents the manifest and probe contract, observability limits, configuration
+  and privacy boundaries, injected instruction imports, dashboard/report
+  interpretation, and the distinction between static instruction validation and
+  local evidence-based adherence.
+
 ## 1.24.0 — 2026-07-23
 
 Both findings below were reported by @BartWaardenburg — thank you.

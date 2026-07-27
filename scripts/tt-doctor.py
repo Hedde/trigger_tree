@@ -9,6 +9,7 @@ import sys
 import time
 from datetime import datetime
 
+import tt_adherence
 from tt_runtime import user_config_path
 from tt_scope import is_poor_coverage, parse_ignore, scan_markdown, symlinked_surfaces
 
@@ -16,6 +17,7 @@ ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCHEMA_VERSION = 1
 SUPPORTED_PYTHON = (3, 10), (3, 14)
+MANIFEST_PATH = os.path.join(ROOT, ".trigger-tree", "directives.json")
 
 
 def load_json(path):
@@ -276,7 +278,7 @@ def config_health():
     ]
     if malformed:
         return "FAIL", f"config: unparseable assignment `{malformed[0]}` — use KEY='value'"
-    for name in ("TT_WATCH_REGEX", "TT_SCAN_REGEX", "TT_ALWAYS_LOADED_REGEX"):
+    for name in ("TT_WATCH_REGEX", "TT_SCAN_REGEX", "TT_ALWAYS_LOADED_REGEX", "TT_EDIT_REGEX"):
         if name in assignments:
             try:
                 re.compile(assignments[name])
@@ -288,6 +290,12 @@ def config_health():
     experimental = assignments.get("TT_EXPERIMENTAL_OUTCOMES")
     if experimental is not None and experimental not in ("on", "off"):
         return "FAIL", "config: TT_EXPERIMENTAL_OUTCOMES must be on or off"
+    topics = assignments.get("TT_LOG_TOPICS")
+    if topics is not None and topics not in ("on", "off"):
+        return "FAIL", "config: TT_LOG_TOPICS must be on or off"
+    commands = assignments.get("TT_LOG_COMMANDS")
+    if commands is not None and commands not in ("off", "classified", "full"):
+        return "FAIL", "config: TT_LOG_COMMANDS must be off, classified, or full"
     rotate = assignments.get("TT_ROTATE_BYTES")
     if rotate is not None:
         try:
@@ -317,7 +325,72 @@ def prompts_health():
         return "FAIL", (
             f"prompt logging: invalid mode '{mode}' from the {source} — use hash, truncate, or off"
         )
-    return "PASS", f"prompt logging: {mode} (set by the {source})"
+    if mode == "truncate":
+        return "PASS", f"prompt logging: {mode} (set by the {source}); task previews available"
+    return "WARN", (
+        f"prompt logging: {mode} (set by the {source}); task-cluster previews unavailable — "
+        "run /tt setup truncate to enable future local previews"
+    )
+
+
+def _effective_config(name, fallback):
+    value, source = fallback, "built-in fallback"
+    for label, path in (
+        ("plugin default", os.path.join(PLUGIN_ROOT, "scripts", "tt-config.sh")),
+        ("user default", user_config_path()),
+        ("project override", os.path.join(ROOT, ".trigger-tree", "config.sh")),
+    ):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except OSError:
+            continue
+        match = re.search(rf"(?m)^{re.escape(name)}='([^']*)'", text)
+        if match:
+            value, source = match.group(1), label
+    return value, source
+
+
+def instructions_health():
+    if not os.path.isfile(MANIFEST_PATH) or os.path.islink(MANIFEST_PATH):
+        return (
+            "WARN",
+            "instructions: no manifest — run `tt instructions --init`, then review and confirm probes",
+        )
+    try:
+        manifest = tt_adherence.load_manifest(MANIFEST_PATH)
+    except tt_adherence.ManifestError as error:
+        return "FAIL", f"instructions: invalid manifest ({error}) — run `tt instructions --init`"
+    drift = tt_adherence.manifest_drift(manifest, ROOT)
+    if drift:
+        paths = ", ".join(item["path"] for item in drift[:3])
+        return (
+            "WARN",
+            f"instructions: manifest stale ({paths}) — run `tt instructions --init`; rates withheld",
+        )
+
+    topics, _ = _effective_config("TT_LOG_TOPICS", "off")
+    commands, _ = _effective_config("TT_LOG_COMMANDS", "off")
+    edit_regex, _ = _effective_config("TT_EDIT_REGEX", r"(?!)")
+    capture = {
+        "topics": topics == "on",
+        "commands": commands in ("classified", "full"),
+        "edits": edit_regex != r"(?!)",
+        "tests": True,
+        "commits": True,
+    }
+    disabled = []
+    for directive in manifest["directives"]:
+        probe_type = directive["probe"]["type"]
+        if probe_type != "unobservable" and not tt_adherence._capture_enabled(probe_type, capture):
+            disabled.append(probe_type)
+    if disabled:
+        names = ", ".join(sorted(set(disabled)))
+        return (
+            "WARN",
+            f"instructions: manifest current; capture disabled for {names} probes — "
+            "run /tt setup; excluded from rates",
+        )
+    return "PASS", "instructions: manifest current and configured probes are observable"
 
 
 def python_health():
@@ -363,6 +436,7 @@ def main():
             codex_trust_health(),
             config_health(),
             prompts_health(),
+            instructions_health(),
             coverage_health(),
             surfaces_health(),
             python_health(),

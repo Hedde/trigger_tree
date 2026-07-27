@@ -26,7 +26,15 @@ from tt_scope import is_poor_coverage, scan_markdown, suggested_regex
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-GITIGNORE_LINES = [".trigger-tree/*", "!.trigger-tree/config.sh", "!.trigger-tree/gate.json"]
+GITIGNORE_LINES = [
+    ".trigger-tree/*",
+    "!.trigger-tree/config.sh",
+    "!.trigger-tree/gate.json",
+    "!.trigger-tree/directives.json",
+]
+DEFAULT_EDIT_REGEX = (
+    r"^(?!\.git/|\.trigger-tree/)(?!.*(?:^|/)(?:node_modules|vendor|dist|build)/).+"
+)
 # python3-with-fallback so the same registration works on macOS/Linux/Windows(Git Bash)
 STATUSLINE_CMD = (
     'python3 "$CLAUDE_PROJECT_DIR"/.claude/tt-statusline.py 2>/dev/null'
@@ -234,14 +242,34 @@ def configure_prompts(mode, explicit=False):
     os.chmod(dst_dir, 0o700)
     dst = os.path.join(dst_dir, "config.sh")
     if os.path.isfile(dst):
+        capture_changed = False
+        text = open(dst, encoding="utf-8").read()
+        for name, value in (
+            ("TT_LOG_TOPICS", "on"),
+            ("TT_LOG_COMMANDS", "classified"),
+            ("TT_EDIT_REGEX", DEFAULT_EDIT_REGEX),
+        ):
+            if not re.search(rf"(?m)^{name}=", text):
+                write_assignment(dst, name, value)
+                text = open(dst, encoding="utf-8").read()
+                capture_changed = True
         if explicit and write_prompt_mode(dst, mode):
             report("updated", f".trigger-tree/config.sh ({prompt_mode_message(mode)})")
+        elif capture_changed:
+            report(
+                "updated",
+                ".trigger-tree/config.sh (existing prompt setting preserved; topics on; "
+                "commands classified; edit paths enabled)",
+            )
         else:
             report("skipped", ".trigger-tree/config.sh (existing prompt setting preserved)")
         return
     source = open(os.path.join(SCRIPT_DIR, "tt-config.sh"), encoding="utf-8").read()
     atomic_write(dst, source)
     write_prompt_mode(dst, mode)
+    write_assignment(dst, "TT_LOG_TOPICS", "on")
+    write_assignment(dst, "TT_LOG_COMMANDS", "classified")
+    write_assignment(dst, "TT_EDIT_REGEX", DEFAULT_EDIT_REGEX)
     report("created", f".trigger-tree/config.sh ({prompt_mode_message(mode)})")
 
 

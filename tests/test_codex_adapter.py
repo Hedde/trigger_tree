@@ -36,6 +36,15 @@ def test_translate_codex_lifecycle_and_tool_payloads(tmp_path, monkeypatch):
         )[0]
         == "skill"
     )
+    for edit_tool in ("apply_patch", "Edit", "Write", "MultiEdit"):
+        route, edit = mod.translate(
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": edit_tool,
+                "tool_input": {"file_path": "scripts/a.py"},
+            }
+        )
+        assert route == "edit" and edit["tool_name"] == edit_tool
     assert mod.translate({"hook_event_name": "PostToolUseFailure", "tool_name": "Bash"})[0] == (
         "bash-failure"
     )

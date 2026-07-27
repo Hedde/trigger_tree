@@ -10,11 +10,14 @@ import html
 import json
 import math
 import os
+import re
 import stat
 import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
+
+from tt_runtime import user_config_path
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -78,6 +81,23 @@ def plugin_version():
         return "unknown"
 
 
+def prompt_mode():
+    mode = "hash"
+    for path in (
+        os.path.join(SCRIPT_DIR, "tt-config.sh"),
+        user_config_path(),
+        os.path.join(ROOT, ".trigger-tree", "config.sh"),
+    ):
+        try:
+            text = open(path, encoding="utf-8").read()
+        except OSError:
+            continue
+        match = re.search(r"(?m)^TT_LOG_PROMPTS='(hash|truncate|off)'", text)
+        if match:
+            mode = match.group(1)
+    return mode
+
+
 def heat_color(count, max_count):
     if count <= 0:
         return HEAT[0]
@@ -99,6 +119,96 @@ def agent_label(file_row):
     )[:2]
     suffix = ", ".join(f"{esc(name)} {count}" for name, count in top_subagents)
     return f"main {main} · sub {sub}" + (f" ({suffix})" if suffix else "")
+
+
+def adherence_html(adherence):
+    """Render an additive, honest instruction-adherence section."""
+    if not adherence:
+        return [
+            "<h2 id=instructions>Instruction adherence</h2>",
+            "<p class=muted>No instruction manifest. Run <code>tt instructions --init</code> "
+            "to propose deterministic probes, then review and confirm them.</p>",
+        ]
+    status = adherence.get("status")
+    if status == "stale":
+        drift = ", ".join(esc(item.get("path")) for item in adherence.get("drift", []))
+        return [
+            "<h2 id=instructions>Instruction adherence</h2>",
+            f"<div class=note><b>Manifest stale</b> — instruction files changed"
+            f"{': ' + drift if drift else ''}. Run <code>tt instructions --init</code>. "
+            "Rates are withheld until the manifest is current.</div>",
+        ]
+    if status == "invalid":
+        return [
+            "<h2 id=instructions>Instruction adherence</h2>",
+            f"<div class=note><b>Manifest invalid</b> — {esc(adherence.get('error'))}. "
+            "Run <code>tt instructions --init</code>.</div>",
+        ]
+
+    summary = adherence.get("summary", {})
+    observable = summary.get("observable", 0)
+    directives = summary.get("directives", 0)
+    ratio = round(summary.get("unobservable_ratio", 0) * 100)
+    parts = [
+        "<h2 id=instructions>Instruction adherence</h2>",
+        "<p><b>Did the instructions change what happened?</b> "
+        "Each rate comes from deterministic, per-session evidence. "
+        "<b>Unobserved means evidence was not captured; it does not mean violated.</b></p>",
+        "<div class=kpi>"
+        f"<div><b>{observable}/{directives}</b>observable directives</div>"
+        f"<div><b>{ratio}%</b>unobservable</div>"
+        f"<div><b>{summary.get('never_triggered', 0)}</b>never triggered</div>"
+        f"<div><b>{summary.get('capture_disabled', 0)}</b>capture disabled</div>"
+        "</div>",
+    ]
+    if adherence.get("cost", {}).get("headline"):
+        parts.append(f"<div class=note>{esc(adherence['cost']['headline'])}</div>")
+        parts.append(
+            "<p class=muted>Token counts are estimates at four characters per token. "
+            "Never-triggered is a review prompt, not a removal recommendation.</p>"
+        )
+    parts.append(
+        "<div class=scroll><table><tr><th>Directive</th><th>Source</th>"
+        "<th>Opportunities</th><th>Followed</th><th>Unobserved</th>"
+        "<th>Rate</th><th>Confidence</th></tr>"
+    )
+    for item in adherence.get("directives", []):
+        source = item.get("source", {})
+        source_label = f"{source.get('file', '—')}:{source.get('line', '—')}"
+        status = item.get("status")
+        if status == "unobservable":
+            values = ("—", "—", "—", "unobservable", esc(item.get("why")))
+        elif status == "capture-disabled":
+            values = ("—", "—", "—", "capture disabled", "excluded from rates")
+        elif status == "never-triggered":
+            values = ("0", "0", "0", "never triggered", esc(item.get("confidence")))
+        else:
+            rate = item.get("rate")
+            values = (
+                str(item.get("opportunities", 0)),
+                str(item.get("followed", 0)),
+                str(item.get("unobserved", 0)),
+                "—" if rate is None else f"{round(rate * 100)}%",
+                esc(item.get("confidence")),
+            )
+        parts.append(
+            f"<tr><td><code>{esc(item.get('id'))}</code></td>"
+            f"<td><small>{esc(source_label)}</small></td>"
+            + "".join(f"<td>{value}</td>" for value in values)
+            + "</tr>"
+        )
+    parts.append("</table></div>")
+    never = adherence.get("cost", {}).get("never_triggered", [])
+    if never:
+        parts.append(
+            "<p class=muted><b>Never-triggered review:</b> "
+            + ", ".join(
+                f"<code>{esc(item.get('id'))}</code> (~{esc(item.get('estimated_tokens'))} tokens)"
+                for item in never
+            )
+            + ".</p>"
+        )
+    return parts
 
 
 def _points(values, width, height, pad=12):
@@ -316,11 +426,13 @@ def main():
     )
     parts.append(
         "<nav class=toc aria-label='Report sections'><b>Jump to:</b> "
-        "<a href='#heat'>heat</a><a href='#folders'>folders</a>"
+        "<a href='#instructions'>instructions</a><a href='#heat'>heat</a>"
+        "<a href='#folders'>folders</a>"
         "<a href='#untouched'>untouched</a><a href='#trend'>trend</a>"
         "<a href='#search'>search</a><a href='#tasks'>tasks</a>"
         "<a href='#routing'>routing</a></nav>"
     )
+    parts.extend(adherence_html(s.get("adherence")))
 
     heat_model = s.get("heat_model", {})
     half_life = heat_model.get("half_life_days", 30)
@@ -574,6 +686,18 @@ def main():
                 f"<tr><td>{c['count']}</td><td>{c['variants']}</td><td>{prompt}</td><td>{paths}</td></tr>"
             )
         parts.append("</table></div>")
+        if not any(c.get("prompts") for c in s["clusters"]):
+            parts.append(
+                "<p class=muted>Prompt previews are unavailable in the current privacy mode. "
+                "Use <code>/tt setup truncate</code> to enable future local previews; "
+                "bounded instruction topics remain separate from prompt text.</p>"
+            )
+    elif prompt_mode() != "truncate":
+        parts.append(
+            "<h2 id=tasks>Task clusters</h2><p class=muted>No task-cluster previews are "
+            "available in the current privacy mode. Use <code>/tt setup truncate</code> "
+            "to enable future local previews.</p>"
+        )
 
     if s.get("router_coverage"):
         parts.append("<h2 id=routing>Folder-router coverage</h2><div class=scroll><table>")

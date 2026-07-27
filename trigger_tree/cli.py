@@ -7,6 +7,7 @@ from pathlib import Path
 SUBCOMMANDS = (
     "doctor",
     "gate",
+    "instructions",
     "log",
     "report",
     "setup",

@@ -28,6 +28,8 @@ def normalize_tool(payload):
         route = "bash"
     elif tool in ("Read", "Glob", "Grep"):
         route = "read"
+    elif tool in ("apply_patch", "Edit", "Write", "MultiEdit"):
+        route = "edit"
     elif tool == "Skill":
         route = "skill"
     elif tool.startswith("mcp__"):

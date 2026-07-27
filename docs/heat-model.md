@@ -14,6 +14,15 @@ The health score combines coverage, router reachability, and search behavior. It
 ## Boundaries
 
 - Injected context is invisible to Read telemetry and appears as always loaded.
+- Instruction adherence does not infer that injected text was understood. It evaluates
+  only user-confirmed deterministic probes over observable events. `followed` is
+  supporting evidence; `unobserved` means evidence was not captured, never violated.
+- Zero probe opportunities is `never-triggered`, not 0% adherence. Capture-disabled and
+  unobservable directives are excluded from rates. Negative evidence that crosses a
+  compaction boundary is degraded and excluded from the primary rate.
+- Adherence and heat mature differently. A directive rate is provisional below five
+  usable opportunities; the overall dataset separately remains `cold-start`, `warming`,
+  or `mature`.
 - Glob/Grep counts require an explicit path or static directory prefix; scan telemetry undercounts by design.
 - A read proves discovery, not comprehension, correctness, or compliance.
 - Untouched and dead-path candidates are review prompts, not removal recommendations. Protected, referenced, critical, safety, and template paths remain distinct.
@@ -28,3 +37,4 @@ The health score combines coverage, router reachability, and search behavior. It
   the measurement cannot see.
 
 See the [glossary](glossary.md) for canonical definitions.
+The full probe contract is in [instruction adherence](instruction-adherence.md).

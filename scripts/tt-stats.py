@@ -29,6 +29,7 @@ from fnmatch import fnmatch
 from itertools import combinations
 from statistics import median
 
+import tt_adherence
 from tt_runtime import user_config_path
 from tt_scope import git_visible_files, symlinked_surfaces
 
@@ -48,7 +49,19 @@ HEAT_WINDOWS_DAYS = (7, 30, 90)
 ROUTER_NAMES = ("README.md", "_index.md", "index.md", "CLAUDE.md")
 TREND_MIN_EVENTS = 10
 MAX_CO_READ_PATHS = 200
-EVENT_TYPES = {"session", "prompt", "read", "scan", "skill", "note", "outcome"}
+EVENT_TYPES = {
+    "command",
+    "commit",
+    "edit",
+    "note",
+    "outcome",
+    "prompt",
+    "read",
+    "scan",
+    "session",
+    "skill",
+    "test",
+}
 
 
 def _conf_texts():
@@ -153,7 +166,9 @@ def valid_event(event):
     if "ts" in event and not isinstance(event["ts"], str):
         return False
     required = (
-        "path" if event_type in ("read", "scan") else "skill" if event_type == "skill" else None
+        "path"
+        if event_type in ("read", "scan", "edit")
+        else "skill" if event_type == "skill" else None
     )
     return required is None or isinstance(event.get(required), str) and bool(event[required])
 
@@ -192,7 +207,15 @@ def load_events_with_diagnostics(paths):
                 # Claude's tool_use_id is stable for that call, so count it once even
                 # when the duplicate straddles a rotated archive.
                 tool_use_id = event.get("tool_use_id")
-                if tool_use_id and event.get("t") in ("read", "scan", "skill"):
+                if tool_use_id and event.get("t") in (
+                    "command",
+                    "commit",
+                    "edit",
+                    "read",
+                    "scan",
+                    "skill",
+                    "test",
+                ):
                     identity = (event.get("session"), event.get("t"), tool_use_id)
                     if identity in seen_tool_calls:
                         continue
@@ -950,6 +973,60 @@ def main():
             "oversized_prompts_skipped": co_read_skipped_buckets,
         },
     }
+    manifest_path = os.path.join(ROOT, ".trigger-tree", "directives.json")
+    if safe_regular_file(manifest_path):
+        try:
+            manifest = tt_adherence.load_manifest(manifest_path)
+            drift = tt_adherence.manifest_drift(manifest, ROOT)
+            if drift:
+                out["adherence"] = {
+                    "status": "stale",
+                    "drift": drift,
+                    "message": "instruction files changed; run tt instructions --init",
+                }
+            else:
+                adherence = tt_adherence.evaluate(
+                    events,
+                    manifest,
+                    heat_as_of,
+                    capture={
+                        "topics": _conf_value("TT_LOG_TOPICS", "off") == "on",
+                        "commands": _conf_value("TT_LOG_COMMANDS", "off") in ("classified", "full"),
+                        "edits": _conf_value("TT_EDIT_REGEX", r"(?!)") != r"(?!)",
+                        "tests": True,
+                        "commits": True,
+                    },
+                    maturity=maturity,
+                )
+                cost = tt_adherence.estimate_cost(
+                    manifest,
+                    ROOT,
+                    sorted(always_loaded_set),
+                    sessions=len(sessions),
+                    observed_days=days,
+                )
+                never_ids = {
+                    item["id"]
+                    for item in adherence["directives"]
+                    if item.get("status") == "never-triggered"
+                }
+                never_cost = sum(
+                    item["estimated_tokens"]
+                    for item in cost["directives"]
+                    if item["id"] in never_ids
+                )
+                cost["never_triggered"] = [
+                    item for item in cost["directives"] if item["id"] in never_ids
+                ]
+                cost["headline"] = (
+                    "Your always-loaded context is "
+                    f"~{cost['estimated_tokens_per_session']} tokens per session. "
+                    f"{len(never_ids)} directives (~{never_cost} tokens) have not been "
+                    f"triggered in {len(sessions)} sessions over {days} days."
+                )
+                out["adherence"] = {"status": "current", **adherence, "cost": cost}
+        except tt_adherence.ManifestError as error:
+            out["adherence"] = {"status": "invalid", "error": str(error)}
     if args.badge:
         print(write_badge(badge_payload(health, maturity)))
     else:

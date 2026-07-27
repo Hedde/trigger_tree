@@ -33,6 +33,18 @@ TT_CRITICAL_GLOB=''
 # truncate (recommended), hash, and off.
 TT_LOG_PROMPTS='hash'
 
+# Bounded topic labels can support instruction-adherence measurement without prompt
+# text. Kept off until project setup explicitly enables it.
+TT_LOG_TOPICS='off'
+
+# Values: off, classified (stable manifest pattern IDs only), or full (raw command).
+# Kept off until project setup explicitly enables classified capture.
+TT_LOG_COMMANDS='off'
+
+# Project-relative edit paths only. Setup installs a conservative project scope;
+# the plugin fallback matches nothing so existing installs never record more silently.
+TT_EDIT_REGEX='(?!)'
+
 # Rotate history.jsonl to history-<timestamp>.jsonl when it exceeds this many bytes.
 TT_ROTATE_BYTES='5242880'
 

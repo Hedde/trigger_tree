@@ -8,6 +8,15 @@ In the project’s gitignored `.trigger-tree/history.jsonl` and rotated archives
 
 Injected guidance is loaded without a Read tool call. It is classified as always loaded rather than misrepresented as cold.
 
+## Can trigger-tree tell me whether my CLAUDE.md works?
+
+It cannot prove understanding or causation. It can measure a narrower question: when a
+user-confirmed directive probe applied, did the local event stream observe the requested
+behavior? `/tt instructions --init` creates the committed manifest scaffold and
+`/tt instructions` reports `followed`, `unobserved`, `never-triggered`, unobservable,
+and capture-disabled directives. Unobserved never means violated. See
+[instruction adherence](instruction-adherence.md).
+
 ## A file is untouched but important
 
 Untouched is a review signal. Check whether it is protected or missing from its folder router; the right fix may be a link, not deletion.
@@ -37,6 +46,11 @@ reports the effective mode with the layer that selected it. `/tt setup` asks per
 project for `truncate` (a local, gitignored preview of at most 200 characters),
 `hash`, or `off`; the project choice wins over the user default, and changing
 the mode affects future events without rewriting history.
+
+Topic labels for adherence are separate. Existing installs default
+`TT_LOG_TOPICS`, `TT_LOG_COMMANDS`, and edit capture to off; setup explains and writes
+each choice explicitly. Topic labels come only from the repository's bounded vocabulary
+and never contain prompt-derived free text.
 
 ## How do I uninstall or publish the health badge?
 

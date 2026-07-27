@@ -2,6 +2,7 @@
 .trigger-tree/*
 !.trigger-tree/config.sh
 !.trigger-tree/gate.json
+!.trigger-tree/directives.json
 !tests/fixture-project/.trigger-tree/
 !tests/fixture-project/.trigger-tree/**
 tests/fixture-project/.trigger-tree/report.html

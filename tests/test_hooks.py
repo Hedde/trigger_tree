@@ -18,7 +18,7 @@ def test_every_documented_post_tool_use_has_a_logger_route():
     }
     entries = manifest["hooks"]["PostToolUse"]
     routes = {entry["matcher"]: entry["hooks"][0]["command"] for entry in entries}
-    assert set(routes) == {"Bash|Read|Glob|Grep|Skill|mcp__.*"}
+    assert set(routes) == {"Bash|Read|Glob|Grep|Skill|Edit|Write|MultiEdit|mcp__.*"}
     for groups in manifest["hooks"].values():
         for group in groups:
             hook = group["hooks"][0]
@@ -36,7 +36,10 @@ def test_every_documented_post_tool_use_has_a_logger_route():
 def test_codex_hooks_use_the_adapter_and_remain_silent():
     manifest = json.load(open(os.path.join(REPO, "hooks", "hooks.json"), encoding="utf-8"))
     assert set(manifest["hooks"]) == {"SessionStart", "UserPromptSubmit", "PostToolUse", "Stop"}
-    assert manifest["hooks"]["PostToolUse"][0]["matcher"] == "Bash|Read|Glob|Grep|mcp__.*"
+    assert (
+        manifest["hooks"]["PostToolUse"][0]["matcher"]
+        == "Bash|Read|Glob|Grep|Skill|apply_patch|Edit|Write|mcp__.*"
+    )
     for groups in manifest["hooks"].values():
         for group in groups:
             for hook in group["hooks"]:

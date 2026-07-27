@@ -8,3 +8,8 @@ TT_WATCH_REGEX='^(docs|agents|skills|codex-skills|agent-briefs)/.*\.md$|^\.claud
 # templates, and local (gitignored) submission drafts. Agents are steered via
 # CLAUDE.md and docs/ instead.
 TT_SCOPE_IGNORE='.github/*,CHANGELOG.md,CODE_OF_CONDUCT.md,CONTRIBUTING.md,PRIVACY.md,README.md,SECURITY.md,dist-submissions/*'
+
+# Explicitly enabled for this repository's committed adherence manifest.
+TT_LOG_TOPICS='on'
+TT_LOG_COMMANDS='classified'
+TT_EDIT_REGEX='^(?!\.git/|\.trigger-tree/)(?!.*(?:^|/)(?:node_modules|vendor|dist|build)/).+'

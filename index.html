@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>trigger-tree — see which docs your AI actually discovers</title>
-<meta name="description" content="See which docs your AI actually discovers. Local documentation-discovery telemetry with a real-time dashboard, heat maps, and evidence-backed router fixes.">
+<title>trigger-tree — gate docs and measure instruction adherence</title>
+<meta name="description" content="Gate documentation discovery in CI and measure whether CLAUDE.md directives change observable agent behavior. Local, deterministic, and zero-token.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="trigger-tree — see which docs your AI actually discovers">
-<meta property="og:description" content="Local, zero-token evidence for documentation discovery, heat, and health.">
+<meta property="og:title" content="trigger-tree — gate docs and measure instruction adherence">
+<meta property="og:description" content="A telemetry-free CI gate plus local, deterministic evidence for project-instruction adherence.">
 <meta property="og:image" content="https://hedde.github.io/trigger_tree/assets/social-card.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -19,7 +19,7 @@
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "trigger-tree",
-  "description": "Local, zero-token documentation-discovery telemetry for AI coding agents: heat and cold maps, a documentation health grade, and evidence-backed router fixes.",
+  "description": "A telemetry-free documentation-discovery CI gate plus local, deterministic measurement of project-instruction adherence, heat, and health.",
   "url": "https://hedde.github.io/trigger_tree/",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "macOS, Linux, Windows",
@@ -37,7 +37,8 @@
     --amber:#ffb300; --hot:#e53935; --dim:#4a5361;
   }
   * { box-sizing:border-box; margin:0; }
-  body { background:var(--bg); color:var(--fg); font:16px/1.6 -apple-system,'Segoe UI',sans-serif; }
+  html { scroll-behavior:smooth; overflow-x:hidden; }
+  body { background:var(--bg); color:var(--fg); font:16px/1.6 -apple-system,'Segoe UI',sans-serif; overflow-x:hidden; }
   a { color:var(--green); }
   .wrap { max-width:960px; margin:0 auto; padding:3rem 1.25rem; }
   .hero { text-align:center; margin-bottom:2.5rem; }
@@ -45,6 +46,11 @@
   .hero h1 { font-size:2.4rem; letter-spacing:-.02em; }
   .hero p.tag { color:var(--muted); font-size:1.15rem; max-width:640px; margin:.75rem auto 0; }
   .hero .creds { margin-top:1rem; color:var(--green); font-size:.95rem; }
+  .section-nav { display:flex; flex-wrap:wrap; justify-content:center; gap:.4rem 1rem; margin:1rem auto 2rem; }
+  .section-nav a { color:var(--muted); font-size:.9rem; text-underline-offset:.2rem; }
+  .offers { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin:2rem 0; }
+  .offer { border-left:3px solid var(--green); padding:.4rem 1rem; }
+  .offer p { color:var(--muted); }
   .term { background:var(--panel); border:1px solid var(--line); border-radius:10px;
           box-shadow:0 20px 60px rgba(0,0,0,.5); overflow:hidden; margin:2rem auto; max-width:720px; }
   .term-bar { display:flex; gap:.45rem; padding:.6rem .9rem; border-bottom:1px solid var(--line); align-items:center; }
@@ -59,6 +65,9 @@
   .fade { transition:color 1.2s ease, text-shadow 1.2s ease; }
   .spin { color:var(--green); } .tick { color:var(--muted); }
   .hint { color:var(--dim); font-size:.75rem; padding:0 1.2rem 1rem; font-family:ui-monospace,monospace; }
+  .adherence-demo { border-top:1px solid var(--line); padding:.8rem 1.2rem 1rem;
+                    font:12px/1.55 ui-monospace,Menlo,Consolas,monospace; overflow-x:auto; }
+  .adherence-demo b { color:var(--bright); }
   .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin:3rem 0; }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1.25rem; }
   .card h3 { margin-bottom:.4rem; font-size:1.05rem; }
@@ -92,14 +101,22 @@
   table { border-collapse:collapse; width:100%; }
   th,td { text-align:left; padding:.5rem .7rem; border-bottom:1px solid var(--line); font-size:.95rem; }
   th { color:var(--muted); } td code { color:var(--bright); }
+  .table-wrap { overflow-x:auto; max-width:100%; }
   .bubble { position:fixed; background:var(--panel); border:1px solid var(--green); color:var(--fg);
             border-radius:10px; padding:.6rem .9rem; font-size:.85rem; max-width:260px; z-index:9;
             box-shadow:0 8px 30px rgba(0,0,0,.6); pointer-events:none; opacity:0; transition:opacity .3s; }
   footer { text-align:center; color:var(--muted); margin-top:4rem; font-size:.9rem; }
   @media (max-width:850px) { .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-  @media (max-width:580px) { .grid, .install-grid, .health-story, .compare { grid-template-columns:1fr; }
+  @media (max-width:580px) { .grid, .install-grid, .health-story, .compare, .offers { grid-template-columns:1fr; }
     .compare div + div { border-left:0; border-top:1px solid var(--line); } }
   @media (prefers-reduced-motion: reduce) { .pulse { text-shadow:none; } }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f7faf7; --panel:#fff; --line:#d7e0d8; --fg:#172019; --muted:#58645b;
+            --cold:#305faa; --cool:#087f80; --green:#477b24; --bright:#315c18;
+            --amber:#9a6300; --hot:#b52323; --dim:#7a867d; }
+    .term { box-shadow:0 16px 45px rgba(22,40,25,.14); }
+    .pulse { color:#111 !important; }
+  }
 </style>
 </head>
 <body>
@@ -107,10 +124,23 @@
   <div class="hero">
     <img class="hero-logo" src="assets/trigger-tree-logo.png" alt="trigger-tree documentation discovery logo" width="160" height="160" fetchpriority="high">
     <h1>🌳 trigger-tree</h1>
-    <p class="tag">See which docs your AI <b>actually discovers</b> —<br>
-       and which project knowledge it never finds.</p>
+    <p class="tag"><b>Gate documentation discovery in CI.</b><br>
+       Measure whether the CLAUDE.md you pay for on every request changes observable behavior.</p>
     <p class="creds">100% local · zero model tokens · no cloud, no analytics vendors</p>
   </div>
+
+  <nav class="section-nav" aria-label="Page sections">
+    <a href="#offers">What it does</a><a href="#gate">CI gate</a>
+    <a href="#adherence">Instruction adherence</a><a href="#install">Install</a>
+    <a href="#use">Use it</a><a href="#faq">FAQ</a>
+  </nav>
+
+  <section class="offers" id="offers" aria-label="Primary capabilities">
+    <div class="offer"><h2 style="margin:0 0 .35rem">CI gate · day one</h2>
+      <p>Deterministic and telemetry-free. A regression fails the PR with the affected file and a suggested fix.</p></div>
+    <div class="offer"><h2 style="margin:0 0 .35rem">Instruction adherence · a few sessions</h2>
+      <p>Per directive: opportunities, followed evidence, uncertainty, and the recurring cost of always-loaded context.</p></div>
+  </section>
 
   <div class="term" id="term">
     <div class="term-bar">
@@ -120,6 +150,12 @@
       <span class="title">tt watch — live doc-discovery</span>
     </div>
     <pre id="screen"></pre>
+    <div class="adherence-demo" aria-label="Example instruction adherence panel">
+      <b>instruction adherence</b> · 2 observable · 1 unobservable<br>
+      route-telemetry&nbsp;&nbsp;&nbsp;&nbsp; 7/8 followed · 88% · warming<br>
+      checks-before-commit 5/6 followed · 83% · warming<br>
+      <span class="f">~190 tokens/session · unobserved ≠ violated</span>
+    </div>
     <div class="hint">every flash is a real doc read rippling up the tree · ← older prompts · → newer prompts · <span id="hintx">this demo is the plugin</span></div>
   </div>
 
@@ -143,13 +179,52 @@
     <div class="card"><h3>📈 Proof, not vibes</h3>
       <p><code>/tt suggestions</code> proposes fixes with evidence. <code>/tt note</code> marks the change; the trend shows whether it worked.</p></div>
     <div class="card"><h3>🔒 Local by design</h3>
-      <p>Paths and prompt markers stay local and gitignored. Installation defaults to a 200-character preview—even before setup—which can be changed to hashes or markers only. Stdlib only, zero network calls.</p></div>
+      <p>Telemetry stays local and gitignored. Before setup, prompts are hashes and new adherence capture is off. Setup makes each privacy choice explicit. Stdlib only, zero network calls.</p></div>
     <div class="card"><h3>🅰️ A grade your PO gets</h3>
       <p>Coverage, verified folder-router reachability, and search concentration distilled into one <b>documentation health</b> score — trackable sprint over sprint.</p></div>
     <div class="card"><h3>⚡ Zero model tokens</h3>
       <p>Hooks run shell-side in milliseconds. Measuring costs nothing — not in tokens, not in latency, not in context.</p></div>
     <div class="card"><h3>🤝 Claude Code · Codex</h3>
       <p>Native lifecycle hooks feed one git-root dataset on both agents. Python CI covers macOS, Linux, Windows and Python 3.10–3.14; native Windows hook launch uses Claude's documented exec form but is not exercised end-to-end in CI.</p></div>
+  </div>
+
+  <h2 id="gate">Gate your CI on discoverability</h2>
+  <p class="install-note" style="max-width:720px;margin-top:0">The structural gate works
+  immediately: router coverage, orphaned docs, folder entry points, and watch scope.
+  It needs no telemetry and nothing leaves your runner.</p>
+  <pre class="block">- uses: Hedde/trigger_tree@v1.25.0   # GitHub Actions
+# GitLab CI: pip install trigger-tree
+#   tt gate --code-quality gl-code-quality-report.json</pre>
+  <p class="install-note">Commit a baseline once (<code>tt gate --update-baseline</code>).
+  A PR that makes docs harder to discover fails with the exact file and fix. The gate
+  checks wiring, not whether an instruction changed behavior. Discoverable never means discovered;
+  behavior is proven by telemetry, not by the gate.</p>
+  <span class="pill" title="this repository's committed gate baseline"><span class="pill-label">docs discoverability</span><span class="pill-value">100%</span></span>
+
+  <h2 id="adherence">Does your CLAUDE.md actually work?</h2>
+  <p style="color:var(--muted);max-width:760px">Injected instructions are already loaded,
+  so trigger-tree measures a narrower question: when a user-confirmed directive applied,
+  did its deterministic probe observe the requested behavior?</p>
+  <div class="table-wrap">
+    <table aria-label="Representative instruction adherence results">
+      <tr><th>Directive</th><th>Opportunities</th><th>Followed</th><th>Rate</th><th>Confidence</th></tr>
+      <tr><td>Route telemetry questions</td><td>8</td><td>7</td><td>88%</td><td>warming</td></tr>
+      <tr><td>Run checks before committing</td><td>6</td><td>5</td><td>83%</td><td>warming</td></tr>
+      <tr><td>Preserve stdlib-only runtime</td><td>—</td><td>—</td><td>—</td><td>unobservable</td></tr>
+    </table>
+  </div>
+  <p class="install-note"><b>Your always-loaded context is ~190 tokens per session.</b>
+  2 directives (~34 tokens) have not been triggered in 12 sessions over 9.8 days.</p>
+  <p class="install-note"><b>Unobserved means evidence was not captured; it does not mean
+  violated.</b> Zero opportunities is never-triggered, not 0%. Rates below five usable
+  opportunities are provisional. Measurement is deterministic and zero-token; only
+  model-assisted manifest authoring uses tokens, and the user confirms every probe.</p>
+
+  <h2>Honest time to value</h2>
+  <div class="compare">
+    <div><b>CI gate</b><p>Immediate. No telemetry required.</p></div>
+    <div><b>Instruction adherence</b><p>After several applicable opportunities—usually a few working sessions.</p></div>
+    <div><b>Heat and health</b><p>Directional during warm-up; strongest after roughly a month.</p></div>
   </div>
 
   <h2>Why this matters</h2>
@@ -179,18 +254,7 @@
     <div><b>trigger-tree</b><p>Which local project docs did the coding assistant discover?</p></div>
   </div>
 
-  <h2>Gate your CI on discoverability</h2>
-  <p class="install-note" style="max-width:720px;margin-top:0">The gate scores repository structure only —
-  router coverage, orphaned docs, folder entry points, watch scope. Deterministic, telemetry-free, and
-  nothing leaves your runner. Discoverable never means discovered; what agents actually read stays local, and whether your CLAUDE.md truly instructs the routing is proven by telemetry, not by the gate.</p>
-  <pre class="block">- uses: Hedde/trigger_tree@v1.23.0   # GitHub Actions
-# GitLab CI: pip install trigger-tree
-#   tt gate --code-quality gl-code-quality-report.json</pre>
-  <p class="install-note">Commit a baseline once (<code>tt gate --update-baseline</code>) and every PR that makes
-  your docs harder to discover fails with the exact file and the fix — plus a live README badge:</p>
-  <span class="pill" title="this repository's committed gate baseline"><span class="pill-label">docs discoverability</span><span class="pill-value">100%</span></span>
-
-  <h2>Install</h2>
+  <h2 id="install">Install</h2>
   <div class="install-grid">
     <section class="install-card">
       <h3>Claude Code</h3>
@@ -214,7 +278,7 @@ codex plugin add trigger-tree@trigger-tree
   marketplace/Installed plugins. It will appear under OpenAI Curated only after a separate OpenAI submission,
   review, approval, and publish step. Prefer a standalone CLI without a plugin? <code>pipx install trigger-tree</code> (or <code>uvx --from trigger-tree tt</code>) gives the same local <code>tt</code> toolkit.</p>
 
-  <h2>Use it</h2>
+  <h2 id="use">Use it</h2>
   <p class="install-note">Claude Code uses the <code>/tt</code> commands below. In Codex, ask for the same outcome—for
   example “Show trigger-tree status” or “Open the trigger-tree live dashboard.”</p>
   <table>
@@ -222,6 +286,7 @@ codex plugin add trigger-tree@trigger-tree
     <tr><td><code>/tt status</code></td><td>Snapshot: reads, hot files, untouched paths</td></tr>
     <tr><td><code>/tt watch</code></td><td>This dashboard, live, in your terminal</td></tr>
     <tr><td><code>/tt insights</code></td><td>Heat/cold map, router reachability, search patterns + HTML</td></tr>
+    <tr><td><code>/tt instructions</code></td><td>Per-directive opportunities, followed evidence, uncertainty, and cost</td></tr>
     <tr><td><code>/tt suggestions</code></td><td>Max 5 evidence-backed router fixes</td></tr>
     <tr><td><code>/tt badge</code></td><td>Write a public-safe docs-health endpoint JSON</td></tr>
     <tr><td><code>/tt note</code></td><td>Annotate router changes on the timeline</td></tr>
@@ -231,11 +296,13 @@ codex plugin add trigger-tree@trigger-tree
     <tr><td><code>/tt uninstall</code></td><td>Remove statusline wiring while preserving telemetry for explicit deletion</td></tr>
   </table>
 
-  <h2>Common questions</h2>
-  <h3 style="margin:1.2rem 0 .3rem;font-size:1.05rem">Does Claude Code actually read my CLAUDE.md?</h3>
-  <p style="color:var(--muted);max-width:720px">Your root <code>CLAUDE.md</code> is injected at launch, so that part is
-  guaranteed — trigger-tree classifies it as always loaded and never judges it. The real question is whether the docs
-  it points to are ever discovered. That is what gets measured: every read of a watched doc, per prompt, per session.</p>
+  <h2 id="faq">Common questions</h2>
+  <h3 style="margin:1.2rem 0 .3rem;font-size:1.05rem">Can it tell me whether my CLAUDE.md works?</h3>
+  <p style="color:var(--muted);max-width:720px">It cannot prove understanding or causation.
+  It can show whether a user-confirmed, deterministic probe observed the requested
+  behavior when a directive applied. Run <code>/tt instructions --init</code>, review and
+  commit the manifest, then <code>/tt instructions</code>. Capture-disabled probes are
+  excluded, and unobserved never means violated.</p>
   <h3 style="margin:1.2rem 0 .3rem;font-size:1.05rem">Why does my coding agent ignore our conventions?</h3>
   <p style="color:var(--muted);max-width:720px">Often it never found the doc that states them — an unread guardrail fails
   silently. The heat/cold map shows which conventions were actually consulted, and <code>/tt suggestions</code> proposes

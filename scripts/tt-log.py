@@ -7,6 +7,7 @@ Events (first argument):
   read     PostToolUse on Read|Glob|Grep (Read → "read", Glob/Grep → "scan")
   bash     PostToolUse on Bash (rg/grep/find doc targets → "scan";
            cat/head/tail/sed/awk doc files → "read")
+  edit     PostToolUse on edit tools (project-relative path and tool only)
   skill    PostToolUse on Skill (logs the skill name)
   note     manual annotation: tt-log.py note "text" (e.g. "sharpened UX router")
   ingest   external adapter entry point: tt-log.py ingest '{"t":"read","path":"docs/x.md"}'
@@ -32,6 +33,12 @@ import sys
 import tempfile
 import time
 
+from tt_adherence import (
+    ManifestError,
+    manifest_fingerprint,
+    safe_command_pattern,
+    validate_manifest,
+)
 from tt_runtime import project_root, user_config_path
 
 ROOT = project_root()
@@ -45,8 +52,41 @@ DEFAULTS = {
     ),
     "TT_SCAN_REGEX": r"^(docs|agents|skills|agent-briefs)(/|$)",
     "TT_LOG_PROMPTS": "hash",
+    # Privacy-first upgrade defaults: absent settings never begin recording more.
+    "TT_LOG_TOPICS": "off",
+    "TT_LOG_COMMANDS": "off",
+    "TT_EDIT_REGEX": r"(?!)",
     "TT_ROTATE_BYTES": "5242880",
     "TT_EXPERIMENTAL_OUTCOMES": "off",
+}
+
+MAX_TOPICS = 8
+MAX_VOCABULARY = 512
+MAX_MANIFEST_BYTES = 1024 * 1024
+MAX_COMMAND_BYTES = 16384
+MAX_COMMAND_PATTERNS = 128
+TOPIC_STOPWORDS = {
+    "and",
+    "are",
+    "change",
+    "check",
+    "decode",
+    "design",
+    "develop",
+    "for",
+    "from",
+    "into",
+    "live",
+    "read",
+    "solve",
+    "the",
+    "then",
+    "this",
+    "understand",
+    "use",
+    "want",
+    "with",
+    "work",
 }
 
 
@@ -273,6 +313,162 @@ def rel_path(target):
     return t[len(root) :] if t.startswith(root) else t
 
 
+def project_relative_path(target):
+    """Return one normalized in-project path, never an external/escaping path."""
+    if not target:
+        return None
+    candidate = str(target).replace("\\", "/")
+    absolute = os.path.abspath(
+        candidate if os.path.isabs(candidate) else os.path.join(ROOT, candidate)
+    )
+    root = os.path.abspath(ROOT)
+    try:
+        if os.path.commonpath((root, absolute)) != root or absolute == root:
+            return None
+    except ValueError:
+        return None
+    return os.path.relpath(absolute, root).replace("\\", "/")
+
+
+def manifest_details():
+    """Load the bounded committed manifest and return (value, semantic hash)."""
+    path = os.path.join(ROOT, ".trigger-tree", "directives.json")
+    try:
+        if os.path.getsize(path) > MAX_MANIFEST_BYTES:
+            return {}, None
+        with open(path, encoding="utf-8") as handle:
+            value = json.load(handle)
+    except (OSError, ValueError):
+        return {}, None
+    if not isinstance(value, dict):
+        return {}, None
+    try:
+        normalized = validate_manifest(value)
+    except ManifestError:
+        return {}, None
+    return normalized, manifest_fingerprint(normalized)
+
+
+def _router_topics(path):
+    """Extract canonical labels from the first column of markdown router rows."""
+    try:
+        lines = open(path, encoding="utf-8").read().splitlines()
+    except OSError:
+        return set()
+    topics = set()
+    for line in lines:
+        if not line.startswith("|") or line.count("|") < 3:
+            continue
+        first = line.split("|")[1]
+        if re.fullmatch(r"[\s:.-]+", first) or first.strip().lower() in (
+            "task",
+            "if you want to…",
+        ):
+            continue
+        for word in re.findall(r"[A-Za-z][A-Za-z0-9_-]{2,}", first.lower()):
+            if word not in TOPIC_STOPWORDS:
+                topics.add(word)
+    return topics
+
+
+def topic_vocabulary(manifest):
+    """Return a bounded, deterministic alphabet from routers and declared topics."""
+    topics = _router_topics(os.path.join(ROOT, "CLAUDE.md"))
+    topics.update(_router_topics(os.path.join(ROOT, "docs", "README.md")))
+    for directive in manifest.get("directives", []) if isinstance(manifest, dict) else []:
+        probe = directive.get("probe", {}) if isinstance(directive, dict) else {}
+        for topic in probe.get("topics", []) if isinstance(probe, dict) else []:
+            normalized = str(topic).strip().lower()
+            if normalized and len(normalized) <= 80:
+                topics.add(normalized)
+    return sorted(topics)[:MAX_VOCABULARY]
+
+
+def prompt_topics(prompt, vocabulary):
+    """Match whole canonical terms only; no prompt-derived text is returned."""
+    found = []
+    for topic in vocabulary:
+        if re.search(
+            r"(?<![A-Za-z0-9_-])" + re.escape(topic) + r"(?![A-Za-z0-9_-])",
+            prompt,
+            re.IGNORECASE,
+        ):
+            found.append(topic)
+            if len(found) == MAX_TOPICS:
+                break
+    return found
+
+
+def command_patterns(manifest):
+    """Return unique stable manifest IDs and their bounded regex patterns."""
+    patterns, seen = [], set()
+    directives = manifest.get("directives", []) if isinstance(manifest, dict) else []
+    for directive in directives:
+        if len(patterns) == MAX_COMMAND_PATTERNS:
+            break
+        probe = directive.get("probe", {}) if isinstance(directive, dict) else {}
+        pattern_id = probe.get("pattern_id") if isinstance(probe, dict) else None
+        pattern = probe.get("pattern") if isinstance(probe, dict) else None
+        if (
+            not isinstance(pattern_id, str)
+            or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", pattern_id)
+            or pattern_id in seen
+            or not isinstance(pattern, str)
+            or not pattern
+            or not safe_command_pattern(pattern)
+        ):
+            continue
+        try:
+            re.compile(pattern)
+        except re.error:
+            continue
+        seen.add(pattern_id)
+        patterns.append((pattern_id, pattern))
+    return patterns
+
+
+def classified_command(command, manifest):
+    """Match a bounded command against manifest patterns, returning IDs only."""
+    command = command[:MAX_COMMAND_BYTES]
+    matched = []
+    for pattern_id, pattern in command_patterns(manifest):
+        if re.search(pattern, command):
+            matched.append(pattern_id)
+    return matched
+
+
+def is_commit_command(command):
+    """Recognize an executed git commit segment without inspecting command output."""
+    for segment in shell_segments(command):
+        for index, word in enumerate(segment):
+            if os.path.basename(word).lower() != "git":
+                continue
+            args = [value.lower() for value in segment[index + 1 :] if not value.startswith("-")]
+            if args and args[0] == "commit":
+                return True
+    return False
+
+
+def edit_paths(tool_input):
+    """Extract path fields or apply_patch headers, returning no patch content."""
+    found = []
+    for key in ("file_path", "path", "filename"):
+        if isinstance(tool_input.get(key), str):
+            found.append(tool_input[key])
+    for key in ("patch", "input"):
+        patch = tool_input.get(key)
+        if not isinstance(patch, str):
+            continue
+        for match in re.finditer(r"(?m)^\*\*\* (?:Add|Update|Delete) File: (.+)$", patch):
+            found.append(match.group(1).strip())
+    normalized = []
+    for target in found:
+        rel = project_relative_path(target)
+        if rel and rel not in normalized:
+            normalized.append(rel)
+    return normalized
+
+
 def shell_segments(command):
     """Tokenize a shell command without executing it, split at control operators."""
     try:
@@ -427,16 +623,15 @@ def looks_like_test_command(command):
         words = [os.path.basename(word).lower() for word in segment]
         if words[0] in ("pytest", "py.test") or words[:2] in (["cargo", "test"], ["go", "test"]):
             return True
-        if (
-            len(words) >= 2
-            and words[0] in ("npm", "pnpm", "yarn", "bun")
-            and words[1]
-            in (
-                "test",
-                "run",
-            )
-        ):
-            return True
+        if len(words) >= 2 and words[0] in ("npm", "pnpm", "yarn", "bun"):
+            if words[1] == "test":
+                return True
+            if (
+                words[1] == "run"
+                and len(words) >= 3
+                and (words[2] == "test" or words[2].startswith("test:"))
+            ):
+                return True
         if words[:2] in (["mix", "test"], ["swift", "test"], ["dotnet", "test"]):
             return True
     return False
@@ -479,6 +674,9 @@ def main():
         if obj.get("t") not in (
             "read",
             "scan",
+            "edit",
+            "command",
+            "commit",
             "skill",
             "note",
             "prompt",
@@ -487,10 +685,12 @@ def main():
             "outcome",
         ):
             return
-        if obj["t"] in ("read", "scan"):
+        if obj["t"] in ("read", "scan", "edit"):
             if not obj.get("path"):
                 return
-            obj["path"] = rel_path(str(obj["path"]))
+            obj["path"] = project_relative_path(obj["path"])
+            if not obj["path"]:
+                return
         obj.setdefault("ts", ts)
         obj.setdefault("session", os.environ.get("CLAUDE_SESSION_ID", "external"))
         obj.setdefault("agent", "external")
@@ -570,6 +770,11 @@ def main():
             entry["prompt"] = prompt[:200]
         elif mode == "hash":
             entry["prompt_hash"] = hashlib.sha1(prompt.encode()).hexdigest()[:10]
+        if cfg["TT_LOG_TOPICS"] == "on":
+            manifest, manifest_hash = manifest_details()
+            entry["topics"] = prompt_topics(prompt, topic_vocabulary(manifest))
+            if manifest_hash:
+                entry["manifest_hash"] = manifest_hash
         # mode "off": marker only — fingerprints still work, no prompt text stored
         append(entry, rotate)
 
@@ -596,8 +801,59 @@ def main():
             rotate,
         )
 
+    elif event == "edit":
+        tool = data.get("tool_name", "?")
+        tool_input = data.get("tool_input") or {}
+        for path in edit_paths(tool_input):
+            if re.search(cfg["TT_EDIT_REGEX"], path):
+                manifest, manifest_hash = manifest_details()
+                entry = hook_identity(
+                    {
+                        "t": "edit",
+                        "ts": ts,
+                        "session": session,
+                        "tool": tool,
+                        "path": path,
+                        "agent": agent,
+                    }
+                )
+                if manifest_hash:
+                    entry["manifest_hash"] = manifest_hash
+                append(entry, rotate)
+
     elif event == "bash":
         command = (data.get("tool_input") or {}).get("command", "")
+        manifest, manifest_hash = manifest_details()
+        command_mode = cfg["TT_LOG_COMMANDS"]
+        if command and command_mode in ("classified", "full"):
+            command_entry = hook_identity(
+                {
+                    "t": "command",
+                    "ts": ts,
+                    "session": session,
+                    "status": "pass",
+                }
+            )
+            if command_mode == "classified":
+                command_entry["matched"] = classified_command(command, manifest)
+            else:
+                command_entry["command"] = command[:MAX_COMMAND_BYTES]
+                command_entry["matched"] = classified_command(command, manifest)
+            if manifest_hash:
+                command_entry["manifest_hash"] = manifest_hash
+            append(command_entry, rotate)
+        if command and is_commit_command(command):
+            commit_entry = hook_identity(
+                {
+                    "t": "commit",
+                    "ts": ts,
+                    "session": session,
+                    "git_head": git_head(),
+                }
+            )
+            if manifest_hash:
+                commit_entry["manifest_hash"] = manifest_hash
+            append(commit_entry, rotate)
         if looks_like_test_command(command):
             append(
                 hook_identity({"t": "test", "ts": ts, "session": session, "status": "pass"}),
@@ -635,6 +891,20 @@ def main():
 
     elif event == "bash-failure":
         command = (data.get("tool_input") or {}).get("command", "")
+        manifest, manifest_hash = manifest_details()
+        command_mode = cfg["TT_LOG_COMMANDS"]
+        if command and command_mode in ("classified", "full"):
+            command_entry = hook_identity(
+                {"t": "command", "ts": ts, "session": session, "status": "fail"}
+            )
+            if command_mode == "classified":
+                command_entry["matched"] = classified_command(command, manifest)
+            else:
+                command_entry["command"] = command[:MAX_COMMAND_BYTES]
+                command_entry["matched"] = classified_command(command, manifest)
+            if manifest_hash:
+                command_entry["manifest_hash"] = manifest_hash
+            append(command_entry, rotate)
         if looks_like_test_command(command):
             append(
                 hook_identity({"t": "test", "ts": ts, "session": session, "status": "fail"}),

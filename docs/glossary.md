@@ -12,3 +12,10 @@
 | Router | A concise entry page that points an assistant to task-specific documentation. |
 | Dead-path candidate | An untouched path lacking routing evidence, presented only for human review. |
 | Fingerprint / cluster | A privacy-preserving task signature and groups of sessions with similar consulted paths. |
+| Directive | One project instruction, identified by a stable slug and source line span in the committed manifest. |
+| Probe | A user-confirmed pair of deterministic trigger and satisfaction predicates for one directive. |
+| Opportunity | A session in which a probe's trigger fired and its required capture was available. |
+| Followed | The opportunity's declared satisfaction evidence was observed in the same session. |
+| Unobserved | An opportunity where satisfaction evidence was not captured; never a claim that the directive was violated. |
+| Unobservable | A manifest-level declaration that the event stream cannot machine-check a directive. |
+| Never-triggered | A probe with zero opportunities in the observed period; a recurring-cost review prompt, not 0% adherence or a removal recommendation. |

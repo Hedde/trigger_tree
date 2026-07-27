@@ -14,10 +14,14 @@ def test_full_setup_and_idempotency(tmp_path, monkeypatch, capsys):
     assert os.path.isfile(tmp_path / ".claude" / "tt-statusline.py")
     assert os.path.isfile(tmp_path / ".trigger-tree" / "config.sh")
     assert "TT_LOG_PROMPTS='truncate'" in (tmp_path / ".trigger-tree" / "config.sh").read_text()
+    assert "TT_LOG_TOPICS='on'" in (tmp_path / ".trigger-tree" / "config.sh").read_text()
+    assert "TT_LOG_COMMANDS='classified'" in (tmp_path / ".trigger-tree" / "config.sh").read_text()
+    assert "TT_EDIT_REGEX='^(?!" in (tmp_path / ".trigger-tree" / "config.sh").read_text()
     settings = json.load(open(tmp_path / ".claude" / "settings.json"))
     assert settings["statusLine"]["command"].endswith("tt-statusline.py")
     gitignore = (tmp_path / ".gitignore").read_text()
     assert ".trigger-tree/*" in gitignore and "!.trigger-tree/config.sh" in gitignore
+    assert "!.trigger-tree/directives.json" in gitignore
 
     mod.main([])  # second run: everything skipped, nothing duplicated
     out2 = capsys.readouterr().out
@@ -85,7 +89,10 @@ def test_existing_config_is_preserved_without_explicit_mode(tmp_path, capsys):
     mod = load_script("tt-setup.py", tmp_path)
     mod.main([])
     assert "existing prompt setting preserved" in capsys.readouterr().out
-    assert config.read_text() == "TT_LOG_PROMPTS='hash'\nTT_ROTATE_BYTES='42'\n"
+    content = config.read_text()
+    assert "TT_LOG_PROMPTS='hash'\nTT_ROTATE_BYTES='42'\n" in content
+    assert "TT_LOG_TOPICS='on'" in content
+    assert "TT_LOG_COMMANDS='classified'" in content
 
 
 def test_prompt_assignment_is_appended_when_missing(tmp_path):

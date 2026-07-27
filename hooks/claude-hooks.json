@@ -4,7 +4,7 @@
     "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py", "--client", "claude"], "timeout": 5}]}],
     "SessionEnd": [{"hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py", "--client", "claude"], "timeout": 5}]}],
     "PostToolUse": [
-      {"matcher": "Bash|Read|Glob|Grep|Skill|mcp__.*", "hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py", "--client", "claude"], "timeout": 5}]}
+      {"matcher": "Bash|Read|Glob|Grep|Skill|Edit|Write|MultiEdit|mcp__.*", "hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py", "--client", "claude"], "timeout": 5}]}
     ],
     "PostToolUseFailure": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "python3", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/tt-codex-hook.py", "--client", "claude"], "timeout": 5}]}]
   }

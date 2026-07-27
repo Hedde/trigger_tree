@@ -1,10 +1,21 @@
+import importlib.util
 import json
 import re
+import stat
 from pathlib import Path
+from zipfile import ZipFile
 
 from conftest import REPO
 
 ROOT = Path(REPO)
+
+
+def load_codex_builder():
+    path = ROOT / ".github" / "scripts" / "build_codex_zip.py"
+    spec = importlib.util.spec_from_file_location("build_codex_zip_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_codex_manifest_is_complete_and_references_real_components():
@@ -68,6 +79,7 @@ def test_claude_command_contract_uses_plugin_root_and_only_real_scripts():
     assert set(references) == {
         "tt-doctor.py",
         "tt-gate.py",
+        "tt-instructions.py",
         "tt-log.py",
         "tt-open.sh",
         "tt-report.py",
@@ -82,3 +94,34 @@ def test_claude_command_contract_uses_plugin_root_and_only_real_scripts():
     assert "zero to three, never a quota" in text
     assert "silently verify against the repository" in text
     assert "not proof of failed routing" in text
+
+
+def test_codex_upload_archive_is_complete_and_reproducible(tmp_path):
+    builder = load_codex_builder()
+    first = builder.build(tmp_path / "first.zip")
+    second = builder.build(tmp_path / "second.zip")
+    assert first.read_bytes() == second.read_bytes()
+
+    with ZipFile(first) as archive:
+        entries = archive.infolist()
+        assert [entry.filename for entry in entries] == sorted(
+            [entry.filename for entry in entries]
+        )
+        assert len(entries) == len({entry.filename for entry in entries})
+        assert all(entry.date_time == builder.TIMESTAMP for entry in entries)
+        names = {entry.filename for entry in entries}
+        assert "scripts/tt-instructions.py" in names
+        assert "scripts/tt_adherence.py" in names
+        assert "scripts/tt_runtime.py" in names
+        assert "scripts/tt_scope.py" in names
+        assert "skills/trigger-tree/SKILL.md" in names
+        assert "codex-skills/trigger-tree/SKILL.md" not in names
+        assert names == set(builder.FILES.values()) | {
+            f"{parent.as_posix()}/"
+            for destination in builder.FILES.values()
+            for parent in Path(destination).parents
+            if str(parent) != "."
+        }
+        by_name = {entry.filename: entry for entry in entries}
+        assert stat.S_IMODE(by_name["scripts/tt-log.py"].external_attr >> 16) == 0o755
+        assert stat.S_IMODE(by_name["scripts/tt_adherence.py"].external_attr >> 16) == 0o644

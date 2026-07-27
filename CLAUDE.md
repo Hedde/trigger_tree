@@ -5,6 +5,7 @@ Keep this file as a router. Read only the references needed for the task.
 | Task | Start here |
 |---|---|
 | Product behavior or terminology | `docs/README.md`, then `docs/glossary.md` |
+| Instruction adherence, directives, or probes | `docs/instruction-adherence.md` |
 | Telemetry, heat, health, or limitations | `docs/heat-model.md` |
 | TUI or HTML report | `docs/dashboard.md` |
 | Hook/config changes | `docs/configuration.md` and `docs/platform-support.md` |

@@ -24,6 +24,7 @@ import random
 import re
 import select
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -99,6 +100,23 @@ HEAT_HALF_LIFE_DAYS = 30.0
 HEAT_DEAD_THRESHOLD = 0.05
 INJECTED = 141
 TIP_ROTATE_SECS = 30.0
+
+DEMO_ADHERENCE = {
+    "status": "current",
+    "summary": {
+        "directives": 6,
+        "observable": 5,
+        "unobservable": 1,
+        "capture_disabled": 0,
+        "never_triggered": 1,
+    },
+    "directives": [
+        {"status": "measured", "opportunities": 8, "followed": 6, "unobserved": 2},
+        {"status": "measured", "opportunities": 4, "followed": 3, "unobserved": 1},
+        {"status": "never-triggered", "opportunities": 0, "followed": 0, "unobserved": 0},
+        {"status": "unobservable"},
+    ],
+}
 
 
 def prompt_mode():
@@ -256,8 +274,26 @@ def load_all_events():
     return list(iter_all_events())
 
 
+def load_adherence():
+    """Load one cached aggregate snapshot; rendering never rescans history."""
+    try:
+        process = subprocess.run(
+            [sys.executable, os.path.join(SCRIPT_DIR, "tt-stats.py")],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+            env={**os.environ, "TT_PROJECT_DIR": ROOT},
+        )
+        if process.returncode:
+            return None
+        return json.loads(process.stdout).get("adherence")
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        return None
+
+
 class App:
-    def __init__(self, files, tips=None):
+    def __init__(self, files, tips=None, adherence=None):
         self.files = list(files)
         self.counts = Counter()
         # path -> (decayed score at reference timestamp, reference timestamp).
@@ -280,10 +316,40 @@ class App:
         self.settings_open = False
         self.settings_message = ""
         self.tips = list(tips or [])
+        self.adherence = adherence
 
     def sync_inventory(self, files):
         """Make the live tree reflect disk; historical counters remain intact."""
         self.files = sorted(set(files))
+
+    def set_adherence(self, adherence):
+        self.adherence = adherence
+
+    def _adherence_line(self, width):
+        value = self.adherence
+        if not value:
+            return None
+        status = value.get("status")
+        if status == "stale":
+            text = "instructions: manifest stale · rates withheld · run tt instructions --init"
+            return c256(AMBER, " " + text[: max(1, width - 2)], bold=True)
+        if status == "invalid":
+            text = "instructions: manifest invalid · run tt instructions --init"
+            return c256(RED, " " + text[: max(1, width - 2)], bold=True)
+        summary = value.get("summary", {})
+        measured = [
+            item for item in value.get("directives", []) if item.get("status") == "measured"
+        ]
+        followed = sum(item.get("followed", 0) for item in measured)
+        opportunities = sum(item.get("opportunities", 0) for item in measured)
+        text = (
+            f"instructions: {summary.get('observable', 0)}/{summary.get('directives', 0)} "
+            f"observable · {followed}/{opportunities} followed · "
+            f"{summary.get('never_triggered', 0)} never triggered"
+        )
+        if summary.get("capture_disabled"):
+            text += f" · {summary['capture_disabled']} capture disabled"
+        return c256(COOL, " " + text[: max(1, width - 2)], bold=True)
 
     def _trim_buckets(self):
         """Bound both browseable buckets and per-session references to them."""
@@ -537,6 +603,9 @@ class App:
             + c256(DIM, f"  {os.path.basename(ROOT)} · live doc-discovery"),
             "",
         ]
+        adherence_line = self._adherence_line(width)
+        if adherence_line:
+            header.insert(-1, adherence_line)
         if self.settings_open:
             current = prompt_mode()
             choices = (
@@ -932,7 +1001,11 @@ def main():
     ap.add_argument("--client", choices=("auto", "claude", "codex"), default="auto")
     args = ap.parse_args()
 
-    app = App(inventory(), load_tips(detect_client(args.client)))
+    app = App(
+        inventory(),
+        load_tips(detect_client(args.client)),
+        adherence=DEMO_ADHERENCE if args.demo else load_adherence(),
+    )
     tail = Tail(HIST)
     replay_events, replay_i = [], 0
     if args.replay:
@@ -940,7 +1013,7 @@ def main():
     else:
         for ev in iter_all_events():
             app.feed(ev, live=False)  # historic counts, no flashing
-    rng = random.Random()
+    rng = random.Random(42) if args.demo else random.Random()
     demo = demo_event(app.files or ["CLAUDE.md"], rng) if args.demo else None
     next_evt = time.time() + 0.5
     next_inventory_sync = time.time() + INVENTORY_SYNC_SECS
@@ -991,6 +1064,7 @@ def main():
                     app.feed(ev)
                 if now >= next_inventory_sync:
                     app.sync_inventory(inventory())
+                    app.set_adherence(load_adherence())
                     next_inventory_sync = now + INVENTORY_SYNC_SECS
             size = shutil.get_terminal_size(fallback=(100, 34))
             frame = app.render(now, size.columns, size.lines)

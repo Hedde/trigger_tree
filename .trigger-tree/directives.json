@@ -1,0 +1,208 @@
+{
+  "schema": 1,
+  "instruction_files": [
+    {
+      "path": "CLAUDE.md",
+      "sha256": "957c071c528aa33c51e9c545feb876b1f5e5f638225516be0162a4a1c1a2f2eb"
+    }
+  ],
+  "directives": [
+    {
+      "id": "preserve-explicit-uncertainty",
+      "source": {
+        "file": "CLAUDE.md",
+        "line": 16
+      },
+      "text": "Preserve explicit uncertainty.",
+      "probe": {
+        "type": "unobservable",
+        "why": "requires judging wording and claims, not the event stream"
+      }
+    },
+    {
+      "id": "preserve-local-only-telemetry",
+      "source": {
+        "file": "CLAUDE.md",
+        "line": 16
+      },
+      "text": "Preserve local-only telemetry.",
+      "probe": {
+        "type": "unobservable",
+        "why": "requires auditing runtime behavior and the diff"
+      }
+    },
+    {
+      "id": "preserve-stdlib-runtime",
+      "source": {
+        "file": "CLAUDE.md",
+        "line": 16
+      },
+      "text": "Preserve stdlib-only runtime code.",
+      "probe": {
+        "type": "unobservable",
+        "why": "requires auditing imports and packaging, not the event stream"
+      }
+    },
+    {
+      "id": "route-dashboard-work",
+      "source": {
+        "file": "CLAUDE.md",
+        "line": 10
+      },
+      "text": "TUI or HTML report work starts with docs/dashboard.md.",
+      "probe": {
+        "type": "route_followed",
+        "topics": [
+          "dashboard",
+          "report",
+          "tui"
+        ],
+        "paths": [
+          "docs/dashboard.md"
+        ]
+      }
+    },
+    {
+      "id": "route-documentation-structure",
+      "source": {
+        "file": "CLAUDE.md",
+        "line": 14
+      },
+      "text": "Documentation structure work starts with docs/structuring-docs.md.",
+      "probe": {
+        "type": "route_followed",
+        "topics": [
+          "documentation",
+          "router",
+          "structure"
+        ],
+        "paths": [
+          "docs/structuring-docs.md"
+        ]
+      }
+    },
+    {
+      "id": "route-hook-config-work",
+      "source": {
+        "file": "CLAUDE.md",
+        "line": 11
+      },
+      "text": "Hook and configuration work starts with the configuration and platform guides.",
+      "probe": {
+        "type": "route_followed",
+        "topics": [
+          "configuration",
+          "hook",
+          "platform"
+        ],
+        "paths": [
+          "docs/configuration.md",
+          "docs/platform-support.md"
+        ]
+      }
+    },
+    {
+      "id": "route-instruction-adherence",
+      "source": {
+        "file": "CLAUDE.md",
+        "line": 8
+      },
+      "text": "Instruction adherence work starts with docs/instruction-adherence.md.",
+      "probe": {
+        "type": "route_followed",
+        "topics": [
+          "adherence",
+          "directive",
+          "instruction",
+          "probe"
+        ],
+        "paths": [
+          "docs/instruction-adherence.md"
+        ]
+      }
+    },
+    {
+      "id": "route-privacy-work",
+      "source": {
+        "file": "CLAUDE.md",
+        "line": 12
+      },
+      "text": "Privacy-sensitive work starts with both privacy references.",
+      "probe": {
+        "type": "route_followed",
+        "topics": [
+          "privacy",
+          "sensitive"
+        ],
+        "paths": [
+          "docs/privacy.md",
+          "PRIVACY.md"
+        ]
+      }
+    },
+    {
+      "id": "route-release-work",
+      "source": {
+        "file": "CLAUDE.md",
+        "line": 13
+      },
+      "text": "Tests, CI, and release work starts with the development guide.",
+      "probe": {
+        "type": "route_followed",
+        "topics": [
+          "ci",
+          "release",
+          "test"
+        ],
+        "paths": [
+          "docs/development.md",
+          "CONTRIBUTING.md"
+        ]
+      }
+    },
+    {
+      "id": "route-telemetry-work",
+      "source": {
+        "file": "CLAUDE.md",
+        "line": 9
+      },
+      "text": "Telemetry, heat, health, and limitation work starts with docs/heat-model.md.",
+      "probe": {
+        "type": "route_followed",
+        "topics": [
+          "health",
+          "heat",
+          "limitation",
+          "telemetry"
+        ],
+        "paths": [
+          "docs/heat-model.md"
+        ]
+      }
+    },
+    {
+      "id": "run-full-checks-before-commit",
+      "source": {
+        "file": "CLAUDE.md",
+        "line": 16
+      },
+      "text": "Before shipping, run the full checks in docs/development.md.",
+      "probe": {
+        "type": "command_before_commit",
+        "pattern_id": "coverage-gate",
+        "pattern": "coverage report --fail-under=100"
+      }
+    },
+    {
+      "id": "tests-before-commit",
+      "source": {
+        "file": "CLAUDE.md",
+        "line": 16
+      },
+      "text": "Before shipping, run the full checks in docs/development.md.",
+      "probe": {
+        "type": "tests_before_commit"
+      }
+    }
+  ]
+}

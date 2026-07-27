@@ -7,6 +7,8 @@ tt-report.py against it, labels the output as an example, and writes the result 
 the repository root for the website to link.
 """
 
+import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -17,7 +19,13 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 OUT = os.path.join(REPO, "demo-report.html")
 
 FILES = {
-    "CLAUDE.md": "# demo-project\n\nStart at [the docs router](docs/README.md).\n",
+    "CLAUDE.md": (
+        "# demo-project\n\n"
+        "Design work starts at docs/design/index.md.\n"
+        "Run tests before committing changes.\n"
+        "Match the surrounding code style.\n"
+        "Never edit generated/** files.\n"
+    ),
     "docs/README.md": (
         "# Documentation router\n\n- [Design](design/index.md)\n"
         "- [Database](database/index.md)\n- [Operations](operations/index.md)\n"
@@ -72,8 +80,31 @@ def build_events():
                 "ts": f"2026-07-{day:02d}T09:01:00Z",
                 "session": session,
                 "prompt": PROMPTS[index % len(PROMPTS)],
+                "topics": (
+                    ["design"]
+                    if "style" in PROMPTS[index % len(PROMPTS)]
+                    or "empty" in PROMPTS[index % len(PROMPTS)]
+                    else []
+                ),
             }
         )
+        if index < 6:
+            events.append(
+                {
+                    "t": "commit",
+                    "ts": f"2026-07-{day:02d}T09:05:00Z",
+                    "session": session,
+                }
+            )
+            if index < 4:
+                events.append(
+                    {
+                        "t": "test",
+                        "ts": f"2026-07-{day:02d}T09:04:00Z",
+                        "session": session,
+                        "status": "pass",
+                    }
+                )
         if day in (5, 11, 17):
             events.append(
                 {
@@ -113,8 +144,6 @@ def build_events():
 
 
 def main():
-    import json
-
     workdir = tempfile.mkdtemp(prefix="tt-demo-report-")
     try:
         for relative, content in FILES.items():
@@ -124,6 +153,51 @@ def main():
                 handle.write(content)
         telemetry = os.path.join(workdir, ".trigger-tree")
         os.makedirs(telemetry)
+        claude = FILES["CLAUDE.md"].encode()
+        manifest = {
+            "schema": 1,
+            "instruction_files": [
+                {"path": "CLAUDE.md", "sha256": hashlib.sha256(claude).hexdigest()}
+            ],
+            "directives": [
+                {
+                    "id": "route-design-work",
+                    "source": {"file": "CLAUDE.md", "line": 3},
+                    "probe": {
+                        "type": "route_followed",
+                        "topics": ["design"],
+                        "paths": ["docs/design/index.md"],
+                    },
+                },
+                {
+                    "id": "test-before-commit",
+                    "source": {"file": "CLAUDE.md", "line": 4},
+                    "probe": {"type": "tests_before_commit"},
+                },
+                {
+                    "id": "match-code-style",
+                    "source": {"file": "CLAUDE.md", "line": 5},
+                    "probe": {
+                        "type": "unobservable",
+                        "why": "requires reading the diff, not the event stream",
+                    },
+                },
+                {
+                    "id": "avoid-generated-files",
+                    "source": {"file": "CLAUDE.md", "line": 6},
+                    "probe": {"type": "path_avoided", "forbidden": "generated/**"},
+                },
+            ],
+        }
+        with open(os.path.join(telemetry, "directives.json"), "w", encoding="utf-8") as handle:
+            json.dump(manifest, handle, indent=2)
+            handle.write("\n")
+        with open(os.path.join(telemetry, "config.sh"), "w", encoding="utf-8") as handle:
+            handle.write(
+                "TT_LOG_TOPICS='on'\n"
+                "TT_LOG_COMMANDS='classified'\n"
+                "TT_EDIT_REGEX='^(docs|src|generated)/'\n"
+            )
         with open(os.path.join(telemetry, "history.jsonl"), "w", encoding="utf-8") as handle:
             for event in build_events():
                 handle.write(json.dumps(event) + "\n")

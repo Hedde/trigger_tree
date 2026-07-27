@@ -5,6 +5,7 @@ Use this page as the router for the full reference.
 | If you want to… | Read… |
 |---|---|
 | Understand the live view and report | [Dashboard and report](dashboard.md) |
+| Measure whether project instructions change behavior | [Instruction adherence](instruction-adherence.md) |
 | Interpret heat, reads, searches, maturity, or health | [Heat model](heat-model.md) |
 | Change watched paths, privacy, or outcomes | [Configuration](configuration.md) |
 | Audit what is recorded | [Privacy](privacy.md) |
