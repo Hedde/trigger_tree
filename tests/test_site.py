@@ -53,6 +53,9 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "--muted:#58645b" in html
     assert "color-scheme:light" in html
     assert "prefers-color-scheme" not in html
+    assert 'class="page-frame"' in html
+    assert "touch-action:pan-y pinch-zoom" in html
+    assert "body {" in html and "overflow-x:hidden" not in html
     assert 'src="https://' not in html
     assert '<link rel="canonical" href="https://hedde.github.io/trigger_tree/">' in html
     assert '"@type": "SoftwareApplication"' in html and "application/ld+json" in html
@@ -67,7 +70,11 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "% TIPS.length" in html and "30000" in html
     assert "copyInstall()" in html and 'btn.textContent = "copied ✓"' in html
     assert "uvx --from trigger-tree tt" in html
-    assert 'video src="docs/assets/demo.mp4" autoplay loop muted playsinline' in html
+    assert (
+        'video id="demo-video" src="docs/assets/demo.mp4" preload="none" loop muted playsinline'
+        in html
+    )
+    assert "new IntersectionObserver" in html
     assert "real footage — tt watch --demo" in html
 
 
