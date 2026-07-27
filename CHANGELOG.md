@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.27.0 — 2026-07-27
+
+- Adds an optional `reason` to `unobservable` probes: `subjective-condition`,
+  `requires-diff`, `requires-judgment`, or `outside-capture`. The unobservable
+  count previously merged two unrelated findings. A directive with no
+  objectively testable condition is unlikely to fire for the model either, since
+  it cannot recognise when the rule applies any more reliably than a probe can,
+  and that is advice the author can act on. A directive needing the diff is a
+  boundary of this tool and says nothing about the rule.
+- Reports the two separately, adding `no_testable_condition` and
+  `unobservable_reasons` to the stats payload, and prints a line about untestable
+  conditions only when there are any.
+- The field is optional, so manifests written before it validate and report
+  exactly as they did.
+
 ## 1.26.1 — 2026-07-27
 
 - Counts every file reached through a `CLAUDE.md` `@import` chain toward the

@@ -134,8 +134,16 @@ def _print_report(adherence):
         elif status == "capture-disabled":
             detail = "capture-disabled (excluded from rates)"
         else:
-            detail = f"unobservable · {item['why']}"
+            reason = item.get("reason")
+            detail = f"unobservable{f' · {reason}' if reason else ''} · {item['why']}"
         print(f"- {item['id']}: {detail}")
+    # Only advice the author can act on earns a line; tool boundaries do not.
+    actionable = summary.get("no_testable_condition", 0)
+    if actionable:
+        print(
+            f"{actionable} directive(s) have no objectively testable condition; "
+            "a rule whose trigger cannot be evaluated is unlikely to fire at all."
+        )
     print(adherence["cost"]["headline"])
 
 

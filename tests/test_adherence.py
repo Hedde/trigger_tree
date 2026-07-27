@@ -902,3 +902,80 @@ def test_selftest_cli_reports_status_and_exit_code(tmp_path, capsys):
     assert "UNREACHABLE" in out and "unobservable · nothing to exercise" in out
     with pytest.raises(SystemExit):
         mod.main(["--selftest", "--check"])
+
+
+def test_unobservable_reasons_separate_bad_rules_from_tool_boundaries(tmp_path):
+    """A rule with no testable condition is advice; a diff-only rule is our limit."""
+    mod = load_script("tt_adherence.py", tmp_path)
+    value = manifest(
+        "rules\n",
+        [
+            directive(
+                "be-concise",
+                {
+                    "type": "unobservable",
+                    "why": "no condition to evaluate",
+                    "reason": "subjective-condition",
+                },
+            ),
+            directive(
+                "stdlib-only",
+                {"type": "unobservable", "why": "needs the diff", "reason": "requires-diff"},
+            ),
+            directive("legacy", {"type": "unobservable", "why": "unclassified"}),
+        ],
+    )
+    result = mod.evaluate([], value, None)
+    summary = result["summary"]
+    assert summary["unobservable"] == 3
+    assert summary["no_testable_condition"] == 1
+    assert summary["unobservable_reasons"] == {"requires-diff": 1, "subjective-condition": 1}
+    by_id = {item["id"]: item for item in result["directives"]}
+    assert by_id["be-concise"]["reason"] == "subjective-condition"
+    # An older manifest without a reason keeps validating and reports no reason.
+    assert "reason" not in by_id["legacy"]
+
+    with pytest.raises(mod.ManifestError, match="unobservable reason must be one of"):
+        mod.validate_manifest(
+            manifest(
+                "rules\n",
+                [directive("bad", {"type": "unobservable", "why": "w", "reason": "invented"})],
+            )
+        )
+
+
+def test_report_flags_untestable_conditions_only_when_present(tmp_path, monkeypatch, capsys):
+    mod = load_script("tt-instructions.py", tmp_path)
+    payload = {
+        "status": "current",
+        "summary": {
+            "observable": 0,
+            "unobservable": 1,
+            "capture_disabled": 0,
+            "no_testable_condition": 1,
+        },
+        "directives": [
+            {
+                "id": "be-concise",
+                "source": {"file": "CLAUDE.md", "line": 1},
+                "status": "unobservable",
+                "why": "no condition to evaluate",
+                "reason": "subjective-condition",
+            }
+        ],
+        "cost": {"headline": "cost"},
+    }
+    monkeypatch.setattr(mod, "_adherence", lambda: payload)
+    assert mod.main([]) == 0
+    out = capsys.readouterr().out
+    assert "unobservable · subjective-condition · no condition" in out
+    assert "unlikely to fire at all" in out
+
+    quiet = {**payload, "summary": {**payload["summary"], "no_testable_condition": 0}}
+    quiet["directives"] = [{**payload["directives"][0]}]
+    quiet["directives"][0].pop("reason")
+    monkeypatch.setattr(mod, "_adherence", lambda: quiet)
+    assert mod.main([]) == 0
+    out = capsys.readouterr().out
+    assert "unlikely to fire at all" not in out
+    assert "unobservable · no condition to evaluate" in out

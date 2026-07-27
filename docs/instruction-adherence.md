@@ -73,6 +73,14 @@ reinterpreted.
 | `path_avoided` | An edit path matches `forbidden` | No satisfaction predicate: the matching edit is reported as unobserved |
 | `unobservable` | Never | Declares honestly that the event stream cannot check the directive |
 
+An `unobservable` probe may declare an optional `reason`: `subjective-condition`,
+`requires-diff`, `requires-judgment`, or `outside-capture`. The split matters. A rule
+with no objectively testable condition is unlikely to fire for the model either, since
+it cannot recognise when the rule applies any more reliably than a probe can; that is
+advice to the author. The other three are boundaries of this tool and say nothing about
+the rule. The report counts them separately and only calls out the first. The field is
+optional, so manifests written before it keep validating unchanged.
+
 Command probes include both a stable `pattern_id` and a bounded regular-expression
 `pattern`. Classified command capture records only matched IDs. Patterns reject unsafe
 features that could violate the hook timeout.

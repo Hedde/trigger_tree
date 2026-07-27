@@ -16,7 +16,8 @@
       "text": "Preserve explicit uncertainty.",
       "probe": {
         "type": "unobservable",
-        "why": "requires judging wording and claims, not the event stream"
+        "why": "requires judging wording and claims, not the event stream",
+        "reason": "requires-judgment"
       }
     },
     {
@@ -28,7 +29,8 @@
       "text": "Preserve local-only telemetry.",
       "probe": {
         "type": "unobservable",
-        "why": "requires auditing runtime behavior and the diff"
+        "why": "requires auditing runtime behavior and the diff",
+        "reason": "requires-diff"
       }
     },
     {
@@ -40,7 +42,8 @@
       "text": "Preserve stdlib-only runtime code.",
       "probe": {
         "type": "unobservable",
-        "why": "requires auditing imports and packaging, not the event stream"
+        "why": "requires auditing imports and packaging, not the event stream",
+        "reason": "requires-diff"
       }
     },
     {

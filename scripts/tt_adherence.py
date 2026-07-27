@@ -27,6 +27,17 @@ PROBE_TYPES = (
     "unobservable",
 )
 COMMAND_PROBES = {"command_after_edit", "command_before_commit"}
+# Why a directive cannot be machine-checked. The distinction matters: a rule with
+# no objectively testable condition is unlikely to fire for the model either, so
+# it is advice to the author. The rest are boundaries of this tool, not defects
+# in the rule, and the two must not be reported as one number.
+UNOBSERVABLE_REASONS = (
+    "outside-capture",
+    "requires-diff",
+    "requires-judgment",
+    "subjective-condition",
+)
+AUTHOR_ACTIONABLE_REASONS = {"subjective-condition"}
 TOPIC_PROBES = {"route_followed", "skill_used"}
 EDIT_PROBES = {"command_after_edit", "path_avoided"}
 
@@ -156,6 +167,13 @@ def validate_manifest(manifest):
             )
             if not valid:
                 raise ManifestError(f"{directive_id}: invalid or missing {key}")
+        # Optional so existing manifests keep validating unchanged.
+        if probe_type == "unobservable" and probe.get("reason") is not None:
+            if probe["reason"] not in UNOBSERVABLE_REASONS:
+                raise ManifestError(
+                    f"{directive_id}: unobservable reason must be one of "
+                    f"{', '.join(UNOBSERVABLE_REASONS)}"
+                )
         if probe_type in COMMAND_PROBES:
             pattern_id = probe["pattern_id"]
             if pattern_id in seen_patterns:
@@ -596,6 +614,7 @@ def evaluate(events, manifest, now, capture=None, maturity="cold-start"):
                     "source": directive["source"],
                     "status": "unobservable",
                     "why": probe["why"],
+                    **({"reason": probe["reason"]} if probe.get("reason") else {}),
                 }
             )
             continue
@@ -704,6 +723,15 @@ def evaluate(events, manifest, now, capture=None, maturity="cold-start"):
             "observable": observable,
             "unobservable": unobservable,
             "unobservable_ratio": round(unobservable / len(output), 2) if output else 0.0,
+            # Split so the author-actionable half is not hidden inside a boundary count.
+            "no_testable_condition": sum(
+                item.get("reason") in AUTHOR_ACTIONABLE_REASONS for item in output
+            ),
+            "unobservable_reasons": {
+                reason: sum(item.get("reason") == reason for item in output)
+                for reason in UNOBSERVABLE_REASONS
+                if any(item.get("reason") == reason for item in output)
+            },
             "capture_disabled": disabled,
             "never_triggered": sum(item.get("status") == "never-triggered" for item in output),
             "awaiting_capture": sum(item.get("status") == "awaiting-capture" for item in output),
