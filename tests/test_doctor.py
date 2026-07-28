@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 from conftest import load_script
 
@@ -447,3 +448,25 @@ def test_liveness_names_the_clients_that_have_written(tmp_path, monkeypatch):
         json.dumps({"t": "session", "session": "s", "ts": "2026-07-28T09:00:00Z"}) + "\n"
     )
     assert "recorded clients" not in mod.liveness_health()[1]
+
+
+def test_liveness_names_clients_on_the_branch_codex_actually_reaches(tmp_path, monkeypatch):
+    """Codex exports no session id, so the lenient branch is all it ever reaches."""
+    mod = load_script("tt-doctor.py", tmp_path)
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    for name in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_SESSION_ID", "TT_SESSION_ID"):
+        monkeypatch.delenv(name, raising=False)
+    fresh = datetime.now(timezone.utc).isoformat()
+    telemetry.joinpath("history.jsonl").write_text(
+        json.dumps({"t": "session", "session": "c", "ts": fresh, "client": "claude"}) + "\n"
+    )
+    status, message = mod.liveness_health()
+    assert status == "PASS" and "recorded clients: claude" in message
+
+    stale = "2020-01-01T00:00:00+00:00"
+    telemetry.joinpath("history.jsonl").write_text(
+        json.dumps({"t": "session", "session": "c", "ts": stale, "client": "claude"}) + "\n"
+    )
+    status, message = mod.liveness_health()
+    assert status == "WARN" and "recorded clients: claude" in message

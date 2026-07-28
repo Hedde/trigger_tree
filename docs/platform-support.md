@@ -18,8 +18,12 @@ wiring that do set those. Hook events themselves take the id from the payload on
 so capture never depended on the variable; `tt doctor`'s current-session liveness check
 did (issue #21).
 
-When the running client has recorded nothing, `tt doctor` names the clients that have,
-so telemetry from one client cannot read as another client's hooks working.
+Codex exports no session id at all, so its lifecycle hooks take the id from the payload
+and `tt doctor` cannot identify a live Codex session. The current-session check therefore
+runs on Claude Code only; under Codex the liveness line falls back to recency. To keep
+that from reading as a clean bill of health, every liveness line names the clients that
+have actually recorded, so telemetry from one client cannot pass as another client's
+hooks working.
 
 ## Instruction-adherence capture
 

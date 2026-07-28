@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.27.2 — 2026-07-28
+
+- Completes the issue #21 fix for Codex. Codex exports no session id, so the
+  current-session liveness check never reaches its strict branch there and a
+  Codex user in a Claude-only project still saw a clean pass. Every liveness
+  line now names the clients that have actually recorded, on the recency branch
+  Codex reaches as well as the strict one, so one client's telemetry cannot read
+  as another client's hooks working.
+- Capture was never affected on either client: hook events take the session id
+  from the payload on stdin, so Codex and Claude telemetry has always been
+  attributed correctly.
+
 ## 1.27.1 — 2026-07-28
 
 - Fixes `tt doctor`'s current-session liveness check, which could never run

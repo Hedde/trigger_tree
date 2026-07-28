@@ -280,9 +280,12 @@ def liveness_health():
     if age_days > 7:
         return (
             "WARN",
-            f"hook liveness: events exist but are stale ({age_days} days) — informational; start a fresh session to verify",
+            f"hook liveness: events exist but are stale ({age_days} days){_clients_seen(events)} — informational; start a fresh session to verify",
         )
-    return "PASS", "hook liveness: recent session/read activity found"
+    # Codex exports no session id, so this lenient branch is all a Codex user
+    # ever reaches. Naming the clients keeps another client's telemetry from
+    # reading as your own hooks working, which is the issue #21 failure mirrored.
+    return "PASS", f"hook liveness: recent session/read activity found{_clients_seen(events)}"
 
 
 def config_health():
