@@ -14,6 +14,22 @@ def user_config_path():
     return os.path.join(os.path.expanduser("~"), ".trigger-tree", "config.sh")
 
 
+def session_id():
+    """Resolve the running client's session id from the process environment.
+
+    Claude Code exports `CLAUDE_CODE_SESSION_ID`. `CLAUDE_SESSION_ID` is only a
+    `${...}` template placeholder substituted into hook command strings, so it
+    never reaches the environment and reading it alone silently disables every
+    check that depends on knowing the live session (issue #21). It stays as a
+    fallback because other clients and explicit hook wiring do set it.
+    """
+    for name in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_SESSION_ID", "TT_SESSION_ID"):
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
+
+
 def project_root(cwd=None):
     """Resolve one dataset root: explicit override, git root, Claude root, then cwd."""
     explicit = os.environ.get("TT_PROJECT_DIR")

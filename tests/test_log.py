@@ -1230,7 +1230,7 @@ def test_skill_event(tmp_path, monkeypatch):
 
 def test_note_uses_session_env(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
-    monkeypatch.setenv("CLAUDE_SESSION_ID", "sess-env")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "sess-env")
     monkeypatch.setattr(sys, "argv", ["tt-log.py", "note", "router", "tweak"])
     mod.main()
     entry = read_history(tmp_path)[0]
@@ -1250,7 +1250,7 @@ def test_note_uses_session_env(tmp_path, monkeypatch):
 
 def test_ingest_external_events(tmp_path, monkeypatch):
     mod = load_script("tt-log.py", tmp_path)
-    monkeypatch.setenv("CLAUDE_SESSION_ID", "codex-1")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "codex-1")
 
     def ingest(payload):
         monkeypatch.setattr(sys, "argv", ["tt-log.py", "ingest", payload])

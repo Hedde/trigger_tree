@@ -23,9 +23,14 @@ def scrub_ambient_trigger_tree_environment():
 
     CODEX_HOME and TT_USER_CONFIG point at empty locations so a developer's
     real Codex trust state and user-wide config never leak into tests.
+
+    Session ids are scrubbed too: running the suite inside a live Claude Code
+    session otherwise leaks that session id into every liveness assertion, so
+    the tests would behave differently on a laptop than in CI.
     """
+    ambient = ("CLAUDE_PROJECT_DIR", "GITHUB_STEP_SUMMARY", "CLAUDE_CODE_SESSION_ID")
     for name in tuple(os.environ):
-        if name.startswith("TT_") or name in ("CLAUDE_PROJECT_DIR", "GITHUB_STEP_SUMMARY"):
+        if name.startswith("TT_") or name in ambient:
             os.environ.pop(name, None)
     suite_dir = tempfile.mkdtemp(prefix="tt-suite-")
     os.environ["CODEX_HOME"] = os.path.join(suite_dir, "codex-home")

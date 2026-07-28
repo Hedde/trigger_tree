@@ -8,6 +8,19 @@
 
 CI runs tests on all three platforms and Python 3.10–3.14. Native Windows hook launch is not exercised end to end in CI. Claude’s documented shell-free exec form is used, and the hook path requires `python3` on `PATH`; its hook condition filters tool calls, not operating systems.
 
+## Session identity
+
+Claude Code exports the live session id as `CLAUDE_CODE_SESSION_ID`. `CLAUDE_SESSION_ID`
+is only a `${...}` placeholder that Claude Code substitutes into hook command strings, so
+it never reaches the process environment. trigger-tree reads `CLAUDE_CODE_SESSION_ID`
+first and falls back to `CLAUDE_SESSION_ID` and `TT_SESSION_ID` for clients or hook
+wiring that do set those. Hook events themselves take the id from the payload on stdin,
+so capture never depended on the variable; `tt doctor`'s current-session liveness check
+did (issue #21).
+
+When the running client has recorded nothing, `tt doctor` names the clients that have,
+so telemetry from one client cannot read as another client's hooks working.
+
 ## Instruction-adherence capture
 
 Claude Code PostToolUse hooks capture supported `Edit`, `Write`, and `MultiEdit` calls.

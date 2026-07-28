@@ -82,7 +82,7 @@ def test_logger_and_statusline():
             "tt-log.py",
             ["note", "router", "tweak"],
             project=tmp,
-            env_extra={"CLAUDE_SESSION_ID": "S"},
+            env_extra={"CLAUDE_CODE_SESSION_ID": "S"},
         )
         assert "router tweak" in open(hist, encoding="utf-8").read()
 

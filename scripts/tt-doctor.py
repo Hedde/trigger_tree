@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 
 import tt_adherence
-from tt_runtime import user_config_path
+from tt_runtime import session_id, user_config_path
 from tt_scope import is_poor_coverage, parse_ignore, scan_markdown, symlinked_surfaces
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
@@ -227,15 +227,38 @@ def _lifecycle_events():
     return events
 
 
+def _clients_seen(events):
+    """Summarize which clients have ever written, so a silent one is nameable.
+
+    A project can look healthy on another client's telemetry while the one you
+    are running has never recorded anything (issue #21). Naming both makes that
+    visible in a single run instead of requiring a history read.
+    """
+    newest = {}
+    for event in events:
+        client = event.get("client")
+        if isinstance(client, str) and client:
+            # A client that wrote without a usable timestamp is still recorded;
+            # dropping it would hide the very silence this line exists to show.
+            stamp = event.get("ts") if isinstance(event.get("ts"), str) else ""
+            newest[client] = max(newest.get(client, ""), stamp)
+    if not newest:
+        return ""
+    listed = ", ".join(
+        f"{client} {newest[client][:10] or 'unknown date'}" for client in sorted(newest)
+    )
+    return f" (recorded clients: {listed})"
+
+
 def liveness_health():
     events = _lifecycle_events()
-    current = os.environ.get("CLAUDE_SESSION_ID")
+    current = session_id()
     if current:
         if any(event.get("t") == "session" and event.get("session") == current for event in events):
             return "PASS", "hook liveness: current session start was recorded"
         return (
             "FAIL",
-            "hook liveness: current session start is absent — check /hooks, restart the session, then reinstall the plugin if still absent",
+            f"hook liveness: current session start is absent{_clients_seen(events)} — check /hooks, restart the session, then reinstall the plugin if still absent",
         )
     state_paths = glob.glob(os.path.join(ROOT, ".trigger-tree", "sessions", "*.json"))
     newest_state = max((os.path.getmtime(path) for path in state_paths), default=0)

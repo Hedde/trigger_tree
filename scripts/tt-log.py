@@ -39,7 +39,7 @@ from tt_adherence import (
     safe_command_pattern,
     validate_manifest,
 )
-from tt_runtime import project_root, user_config_path
+from tt_runtime import project_root, session_id, user_config_path
 
 ROOT = project_root()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -692,7 +692,7 @@ def main():
             if not obj["path"]:
                 return
         obj.setdefault("ts", ts)
-        obj.setdefault("session", os.environ.get("CLAUDE_SESSION_ID", "external"))
+        obj.setdefault("session", session_id() or "external")
         obj.setdefault("agent", "external")
         obj.setdefault("client", "external")
         append(obj, rotate)
@@ -702,7 +702,7 @@ def main():
         tool = os.path.basename(sys.argv[2]).lower() if len(sys.argv) > 2 else ""
         if tool not in ("cat", "head", "tail", "sed", "awk", "get-content", "gc", "type"):
             return
-        session = os.environ.get("TT_SHELL_SESSION") or os.environ.get("CLAUDE_SESSION_ID", "?")
+        session = os.environ.get("TT_SHELL_SESSION") or session_id() or "?"
         shell_client = os.environ.get("TT_SHELL_CLIENT") or None
         for path in reader_arg_paths(tool, sys.argv[3:], cfg["TT_WATCH_REGEX"], os.getcwd()):
             append(
@@ -723,7 +723,7 @@ def main():
     if event == "note":
         text = " ".join(sys.argv[2:]).strip()[:300]
         if text:
-            session = os.environ.get("CLAUDE_SESSION_ID", "?")
+            session = session_id() or "?"
             append(
                 {"t": "note", "ts": ts, "session": session, "text": text, "client": "unknown"},
                 rotate,

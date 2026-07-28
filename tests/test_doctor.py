@@ -62,14 +62,14 @@ def test_doctor_liveness_distinguishes_current_missing_recent_and_stale(tmp_path
         '{"schema_version":1,"t":"session","session":"CURRENT","ts":"2026-07-22T10:00:00Z"}\n'
     )
     mod = load_script("tt-doctor.py", tmp_path)
-    monkeypatch.setenv("CLAUDE_SESSION_ID", "CURRENT")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "CURRENT")
     assert mod.liveness_health()[0] == "PASS"
-    monkeypatch.setenv("CLAUDE_SESSION_ID", "MISSING")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "MISSING")
     state, message = mod.liveness_health()
     assert (
         state == "FAIL" and "/hooks" in message and "restart" in message and "reinstall" in message
     )
-    monkeypatch.delenv("CLAUDE_SESSION_ID")
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID")
     monkeypatch.setattr(mod.time, "time", lambda: 2_000_000_000)
     state, message = mod.liveness_health()
     assert state == "WARN" and "stale" in message and "informational" in message
@@ -374,3 +374,76 @@ def test_doctor_warns_on_watched_symlinked_surfaces(tmp_path, monkeypatch):
     state, message = mod.surfaces_health()
     assert state == "WARN"
     assert "docs/linked" in message and "outside the inventory" in message
+
+
+def test_liveness_reads_the_variable_claude_code_actually_exports(tmp_path, monkeypatch):
+    """Regression for issue #21.
+
+    Claude Code exports CLAUDE_CODE_SESSION_ID. CLAUDE_SESSION_ID is only a
+    ${...} placeholder substituted into hook command strings, so reading it
+    alone made the strict branch unreachable and doctor reported PASS in a
+    project where the Claude hooks had never recorded anything.
+    """
+    mod = load_script("tt-doctor.py", tmp_path)
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    (telemetry / "history.jsonl").write_text(
+        json.dumps({"t": "session", "session": "LIVE", "ts": "2026-07-28T10:00:00Z"}) + "\n"
+    )
+    for name in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_SESSION_ID", "TT_SESSION_ID"):
+        monkeypatch.delenv(name, raising=False)
+
+    # The real Claude Code variable must drive the strict branch.
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "LIVE")
+    assert mod.liveness_health() == ("PASS", "hook liveness: current session start was recorded")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "ABSENT")
+    status, message = mod.liveness_health()
+    assert status == "FAIL" and "current session start is absent" in message
+
+    # The placeholder name stays supported for clients that do export it.
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID")
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "ABSENT")
+    assert mod.liveness_health()[0] == "FAIL"
+
+
+def test_session_id_prefers_claude_code_over_the_placeholder(monkeypatch):
+    import tt_runtime
+
+    for name in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_SESSION_ID", "TT_SESSION_ID"):
+        monkeypatch.delenv(name, raising=False)
+    assert tt_runtime.session_id() is None
+    monkeypatch.setenv("TT_SESSION_ID", "explicit")
+    assert tt_runtime.session_id() == "explicit"
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "placeholder")
+    assert tt_runtime.session_id() == "placeholder"
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "real")
+    assert tt_runtime.session_id() == "real"
+
+
+def test_liveness_names_the_clients_that_have_written(tmp_path, monkeypatch):
+    """Issue #21: another client's telemetry must not read as your client working."""
+    mod = load_script("tt-doctor.py", tmp_path)
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    telemetry.joinpath("history.jsonl").write_text(
+        "\n".join(
+            json.dumps(event)
+            for event in (
+                {"t": "session", "session": "c1", "ts": "2026-07-20T09:00:00Z", "client": "codex"},
+                {"t": "read", "session": "c1", "ts": "2026-07-28T09:00:00Z", "client": "codex"},
+                {"t": "session", "session": "x", "ts": "2026-07-01T09:00:00Z", "client": 7},
+                {"t": "session", "session": "y", "ts": None, "client": "gemini"},
+            )
+        )
+        + "\n"
+    )
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "LIVE")
+    status, message = mod.liveness_health()
+    assert status == "FAIL"
+    assert "recorded clients: codex 2026-07-28, gemini unknown date" in message
+    assert "client 7" not in message
+
+    telemetry.joinpath("history.jsonl").write_text(
+        json.dumps({"t": "session", "session": "s", "ts": "2026-07-28T09:00:00Z"}) + "\n"
+    )
+    assert "recorded clients" not in mod.liveness_health()[1]

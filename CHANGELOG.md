@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.27.1 — 2026-07-28
+
+- Fixes `tt doctor`'s current-session liveness check, which could never run
+  under Claude Code (issue #21, reported by @BartWaardenburg). It read
+  `CLAUDE_SESSION_ID`, which Claude Code substitutes into hook command strings
+  but never exports, so the strict branch was unreachable and every run fell
+  through to a lenient check that passes on any recent event from any client. A
+  project carrying only Codex telemetry reported healthy Claude hooks.
+- Session identity now resolves through one shared helper that prefers
+  `CLAUDE_CODE_SESSION_ID` and keeps `CLAUDE_SESSION_ID` and `TT_SESSION_ID` as
+  fallbacks. The same variable was used for external, shell-capture, and note
+  events, which lost their session attribution the same way. Hook events read
+  the id from the payload on stdin and were never affected.
+- Names the clients that have recorded events when the running client's session
+  is absent, so one client's telemetry cannot read as another's hooks working.
+- Scrubs ambient session ids in the test suite. The previous tests set the
+  variable production read, so they passed either way and kept the mismatch
+  invisible; they now assert the variable Claude Code actually exports.
+
 ## 1.27.0 — 2026-07-27
 
 - Adds an optional `reason` to `unobservable` probes: `subjective-condition`,

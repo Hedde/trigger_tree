@@ -168,7 +168,8 @@ JSON never exposes a provisional letter; before mature measurement it says `meas
 
 1. Take everything after the subcommand as the note text. Silently run:
    `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tt-log.py" note "<text>"`
-   (the CLAUDE_SESSION_ID environment variable is picked up automatically when present).
+   (the session id is picked up automatically from CLAUDE_CODE_SESSION_ID, or CLAUDE_SESSION_ID
+   / TT_SESSION_ID when a client or hook sets those instead).
 2. Answer with exactly one line: `🌳 Noted: "<text>" — it will show up in the trend timeline.`
    Empty text → `Usage: /tt note <text>` in one line.
 
