@@ -13,6 +13,11 @@ always-loaded cost.
 manifest replaces metrics with a refresh instruction instead of silently evaluating old
 probes. Its grade is a summary, not a verdict.
 
+Both surfaces also report agent personas when agent capture is on: the report lists
+invocations, sessions, last use, and never-invoked definitions; the dashboard shows one
+line with the most used persona and the never-invoked count. Neither says anything when
+capture is off, because silence would then measure nothing rather than disuse.
+
 The live dashboard includes a compact instruction-adherence panel in demo and measured
 modes. The complete evidence (up to five recent session IDs per directive), trend, cost
 method, and never-triggered review prompts remain in `/tt insights` and

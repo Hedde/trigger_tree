@@ -125,6 +125,19 @@ def build_suggestions(stats):
             f"current documentation inventory."
         )
 
+    # Personas are an observation, never a numbered edit: this tool only proposes
+    # verified router changes, and an unused persona needs judgment, not an edit.
+    agents = stats.get("agents") or {}
+    if agents.get("capture") == "on" and agents.get("never_invoked"):
+        names = ", ".join(item["name"] for item in agents["never_invoked"][:3])
+        extra = len(agents["never_invoked"]) - 3
+        observations.append(
+            f"Worth a look: {len(agents['never_invoked'])} agent persona(s) never invoked "
+            f"in {agents['measurable_sessions']} measurable session(s) ({names}"
+            f"{f', +{extra} more' if extra > 0 else ''}). Each definition is loaded every "
+            f"request; review whether it is dead or just rare."
+        )
+
     protected = [
         item
         for item in stats.get("review_candidates", [])

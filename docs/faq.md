@@ -18,6 +18,14 @@ behavior? `/tt instructions --init` creates the committed manifest scaffold and
 directives. Unobserved never means violated. See
 [instruction adherence](instruction-adherence.md).
 
+**Can it tell me which agent personas I actually use?**
+Yes, once `TT_LOG_AGENTS=on` (written by `/tt setup`). Only the persona name of a launched
+subagent is recorded, never the task given to it. `/tt insights` reports invocations per
+persona and which definitions have never been invoked. A definition's description is in
+the system prompt on every request, so an unused persona is recurring cost in the same way
+an untriggered directive is. Never-invoked is a review prompt, not a removal
+recommendation, and it is withheld entirely until agent capture has actually run.
+
 ## A file is untouched but important
 
 Untouched is a review signal. Check whether it is protected or missing from its folder router; the right fix may be a link, not deletion.

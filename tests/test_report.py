@@ -365,3 +365,45 @@ def test_experimental_outcome_view_renders_with_causal_warning(tmp_path, monkeyp
     assert "Experimental outcome correlation" in html
     assert "experimental correlation — not causal" in html
     assert "does not show that reading a document caused an outcome" in html
+
+
+def test_agents_section_reports_usage_or_explains_its_absence():
+    mod = load_script("tt-report.py", FIXTURE)
+    assert mod.agents_html(None) == []
+    assert mod.agents_html({"defined": 0, "invoked": 0}) == []
+
+    off = "".join(mod.agents_html({"defined": 3, "invoked": 0, "capture": "off"}))
+    assert "3 persona definition(s) found" in off and "capture is off" in off
+
+    current = {
+        "capture": "on",
+        "defined": 3,
+        "invoked": 2,
+        "measurable_sessions": 9,
+        "estimated_tokens_per_session": 180,
+        "usage": [
+            {
+                "name": "<backend>",
+                "invocations": 11,
+                "sessions": 7,
+                "defined": True,
+                "last_seen": "2026-07-29T09:00:00Z",
+            },
+            {"name": "ad-hoc", "invocations": 1, "sessions": 1, "defined": False},
+        ],
+        "never_invoked": [{"name": "<unused>", "path": ".claude/agents/unused.md"}],
+        "never_invoked_status": "measured",
+    }
+    html = "".join(mod.agents_html(current))
+    assert "2/3" in html and "~180" in html and "9" in html
+    assert "&lt;backend&gt;" in html and "2026-07-29" in html
+    assert "not on disk" in html
+    assert "Never invoked:" in html and "&lt;unused&gt;" in html
+    assert "review prompt, not a removal recommendation" in html
+
+    withheld = "".join(
+        mod.agents_html(
+            {**current, "never_invoked": [], "never_invoked_status": "awaiting-capture"}
+        )
+    )
+    assert "Never-invoked is withheld" in withheld

@@ -121,6 +121,55 @@ def agent_label(file_row):
     return f"main {main} · sub {sub}" + (f" ({suffix})" if suffix else "")
 
 
+def agents_html(agents):
+    """Render persona usage, or explain why it cannot be reported yet."""
+    if not agents or not agents.get("defined") and not agents.get("invoked"):
+        return []
+    parts = ["<h2 id=agents>Agent personas</h2>"]
+    if agents.get("capture") != "on":
+        parts.append(
+            f"<p class=muted>{agents['defined']} persona definition(s) found, but agent "
+            "capture is off, so which ones run cannot be observed. Enable it with "
+            "<code>/tt setup</code>; only the persona name is recorded.</p>"
+        )
+        return parts
+    parts.append(
+        "<p>Every definition's description sits in the system prompt on each request, so a "
+        "persona that is never invoked is recurring cost. <b>Never-invoked is a review "
+        "prompt, not a removal recommendation.</b></p>"
+    )
+    parts.append(
+        "<div class=kpi>"
+        f"<div><b>{agents['invoked']}/{agents['defined']}</b>definitions invoked</div>"
+        f"<div><b>~{agents['estimated_tokens_per_session']}</b>tokens per session</div>"
+        f"<div><b>{agents['measurable_sessions']}</b>measurable sessions</div>"
+        "</div>"
+    )
+    if agents.get("usage"):
+        parts.append(
+            "<div class=scroll><table><tr><th>Persona</th><th>Invocations</th>"
+            "<th>Sessions</th><th>Last used</th><th>Defined</th></tr>"
+        )
+        for item in agents["usage"]:
+            last = esc((item.get("last_seen") or "—")[:10])
+            defined = "yes" if item.get("defined") else "not on disk"
+            parts.append(
+                f"<tr><td><code>{esc(item['name'])}</code></td>"
+                f"<td>{item['invocations']}</td><td>{item['sessions']}</td>"
+                f"<td><small>{last}</small></td><td><small>{defined}</small></td></tr>"
+            )
+        parts.append("</table></div>")
+    if agents.get("never_invoked_status") == "awaiting-capture":
+        parts.append(
+            "<p class=muted>Never-invoked is withheld: no recorded session had agent "
+            "capture running, so silence here would measure nothing.</p>"
+        )
+    elif agents.get("never_invoked"):
+        listed = ", ".join(f"<code>{esc(item['name'])}</code>" for item in agents["never_invoked"])
+        parts.append(f"<p class=muted><b>Never invoked:</b> {listed}. Worth reviewing.</p>")
+    return parts
+
+
 def adherence_html(adherence):
     """Render an additive, honest instruction-adherence section."""
     if not adherence:
@@ -444,6 +493,7 @@ def main():
         "<a href='#routing'>routing</a></nav>"
     )
     parts.extend(adherence_html(s.get("adherence")))
+    parts.extend(agents_html(s.get("agents")))
 
     heat_model = s.get("heat_model", {})
     half_life = heat_model.get("half_life_days", 30)

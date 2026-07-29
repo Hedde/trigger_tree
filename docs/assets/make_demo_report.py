@@ -105,6 +105,16 @@ def build_events():
                         "status": "pass",
                     }
                 )
+        for persona, every in (("backend-engineer", 1), ("docs-writer", 3), ("ux-designer", 9)):
+            if index % every == 0:
+                events.append(
+                    {
+                        "t": "agent",
+                        "ts": f"2026-07-{day:02d}T09:06:00Z",
+                        "session": session,
+                        "agent_type": persona,
+                    }
+                )
         if index < 5:
             # In-scope edits that never touch the forbidden tree: the
             # path_avoided rule held wherever it could be checked.
@@ -208,8 +218,14 @@ def main():
             handle.write(
                 "TT_LOG_TOPICS='on'\n"
                 "TT_LOG_COMMANDS='classified'\n"
+                "TT_LOG_AGENTS='on'\n"
                 "TT_EDIT_REGEX='^(docs|src|generated)/'\n"
             )
+        agents_dir = os.path.join(workdir, ".claude", "agents")
+        os.makedirs(agents_dir)
+        for persona in ("backend-engineer", "docs-writer", "ux-designer", "release-manager"):
+            with open(os.path.join(agents_dir, f"{persona}.md"), "w", encoding="utf-8") as handle:
+                handle.write(f"---\nname: {persona}\n---\nSynthetic demo persona.\n")
         sys.path.insert(0, os.path.join(REPO, "scripts"))
         import tt_adherence
 

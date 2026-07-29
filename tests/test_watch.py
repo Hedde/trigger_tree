@@ -759,19 +759,19 @@ def test_load_adherence_is_fail_open(monkeypatch):
         "run",
         lambda *_args, **_kwargs: type("Result", (), {"returncode": 0, "stdout": "{}"})(),
     )
-    assert mod.load_adherence() is None
+    assert mod.load_adherence() == (None, None)
 
     def fail(*_args, **_kwargs):
         raise mod.subprocess.TimeoutExpired("stats", 5)
 
     monkeypatch.setattr(mod.subprocess, "run", fail)
-    assert mod.load_adherence() is None
+    assert mod.load_adherence() == (None, None)
     monkeypatch.setattr(
         mod.subprocess,
         "run",
         lambda *_args, **_kwargs: type("Result", (), {"returncode": 1, "stdout": ""})(),
     )
-    assert mod.load_adherence() is None
+    assert mod.load_adherence() == (None, None)
 
 
 def test_main_tty_mode_writes_alt_screen(monkeypatch, capsys):
@@ -961,3 +961,22 @@ def test_root_prefers_explicit_tt_project_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("TT_PROJECT_DIR", str(explicit))
     mod = load_script("tt-watch.py", tmp_path)
     assert mod.ROOT == str(explicit)
+
+
+def test_watch_shows_agent_personas_only_when_observed(monkeypatch):
+    import time
+
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/a.md"], agents=mod.DEMO_AGENTS)
+    frame = plain(app.render(time.time(), width=110, height=20))
+    assert "agents: 3/4 invoked · top backend-engineer 14x · 1 never invoked" in frame
+
+    # Capture off, or nothing invoked yet, says nothing rather than implying zero use.
+    app.set_adherence(None, {**mod.DEMO_AGENTS, "capture": "off"})
+    assert "agents:" not in plain(app.render(time.time(), 110, 20))
+    app.set_adherence(None, {**mod.DEMO_AGENTS, "usage": []})
+    assert "agents:" not in plain(app.render(time.time(), 110, 20))
+    app.set_adherence(None, None)
+    assert "agents:" not in plain(app.render(time.time(), 110, 20))
+    app.set_adherence(None, {**mod.DEMO_AGENTS, "never_invoked": []})
+    assert "never invoked" not in plain(app.render(time.time(), 110, 20))

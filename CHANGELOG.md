@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.28.1 — 2026-07-29
+
+- Completes the agent-persona surfaces. 1.28.0 added the measurement and the
+  stats payload but left the rendered surfaces silent, so `/tt insights`
+  published an HTML report that said nothing about personas while the skill
+  pointed at them.
+- The HTML report gains an agent-personas section with invocations, sessions,
+  last use, and never-invoked definitions. The live dashboard gains one line
+  with the most used persona and the never-invoked count. The published demo
+  report shows both, since that is what most people see first.
+- `tt suggestions` reports never-invoked personas as an observation, never as a
+  numbered edit: this tool proposes verified router changes only, and an unused
+  persona needs judgment rather than an edit.
+- Every surface stays silent when agent capture is off, because silence would
+  then measure missing instrumentation rather than disuse.
+- Documents the new surfaces in the dashboard guide and answers the persona
+  question in the FAQ.
+
 ## 1.28.0 — 2026-07-29
 
 - Measures subagent personas. Every definition under `.claude/agents/` or

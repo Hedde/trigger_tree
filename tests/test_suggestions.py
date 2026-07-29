@@ -248,3 +248,27 @@ def test_no_suggestions_has_no_confirmation_prompt(monkeypatch):
     mod = load_script("tt-suggestions.py", ".")
     out = run_main(mod, monkeypatch, base_stats())
     assert "No evidence-backed" in out and "Reply with" not in out
+
+
+def test_never_invoked_personas_are_an_observation_not_an_edit(tmp_path):
+    """Suggestions proposes verified router edits only; personas need judgment."""
+    mod = load_script("tt-suggestions.py", tmp_path)
+    stats = {
+        "maturity": "mature",
+        "agents": {
+            "capture": "on",
+            "measurable_sessions": 12,
+            "never_invoked": [{"name": f"p{i}"} for i in range(5)],
+        },
+    }
+    tiers = mod.build_suggestions(stats)
+    line = next(item for item in tiers["observations"] if "persona" in item)
+    assert "5 agent persona(s) never invoked in 12 measurable session(s)" in line
+    assert "p0, p1, p2, +2 more" in line
+    assert not any("persona" in item for item in tiers["edits"])
+
+    for quiet in ({}, {"capture": "off", "never_invoked": [{"name": "x"}]}, {"capture": "on"}):
+        assert not any(
+            "persona" in item
+            for item in mod.build_suggestions({**stats, "agents": quiet})["observations"]
+        )

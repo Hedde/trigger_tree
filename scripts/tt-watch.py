@@ -119,6 +119,22 @@ DEMO_ADHERENCE = {
 }
 
 
+DEMO_AGENTS = {
+    "capture": "on",
+    "defined": 4,
+    "invoked": 3,
+    "measurable_sessions": 11,
+    "estimated_tokens_per_session": 180,
+    "usage": [
+        {"name": "backend-engineer", "invocations": 14, "sessions": 7, "defined": True},
+        {"name": "docs-writer", "invocations": 5, "sessions": 4, "defined": True},
+        {"name": "ux-designer", "invocations": 1, "sessions": 1, "defined": True},
+    ],
+    "never_invoked": [{"name": "release-manager", "path": ".claude/agents/release-manager.md"}],
+    "never_invoked_status": "measured",
+}
+
+
 def prompt_mode():
     for text in _conf_texts():
         match = re.search(r"TT_LOG_PROMPTS='(hash|truncate|off)'", text)
@@ -286,14 +302,15 @@ def load_adherence():
             env={**os.environ, "TT_PROJECT_DIR": ROOT},
         )
         if process.returncode:
-            return None
-        return json.loads(process.stdout).get("adherence")
+            return None, None
+        payload = json.loads(process.stdout)
+        return payload.get("adherence"), payload.get("agents")
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
-        return None
+        return None, None
 
 
 class App:
-    def __init__(self, files, tips=None, adherence=None):
+    def __init__(self, files, tips=None, adherence=None, agents=None):
         self.files = list(files)
         self.counts = Counter()
         # path -> (decayed score at reference timestamp, reference timestamp).
@@ -317,13 +334,30 @@ class App:
         self.settings_message = ""
         self.tips = list(tips or [])
         self.adherence = adherence
+        self.agents = agents
 
     def sync_inventory(self, files):
         """Make the live tree reflect disk; historical counters remain intact."""
         self.files = sorted(set(files))
 
-    def set_adherence(self, adherence):
+    def set_adherence(self, adherence, agents=None):
         self.adherence = adherence
+        if agents is not None:
+            self.agents = agents
+
+    def _agents_line(self, width):
+        """One line, and only when there is something observed to say."""
+        value = self.agents
+        if not value or value.get("capture") != "on" or not value.get("usage"):
+            return None
+        top = value["usage"][0]
+        text = (
+            f"agents: {value['invoked']}/{value['defined']} invoked · "
+            f"top {top['name']} {top['invocations']}x"
+        )
+        if value.get("never_invoked"):
+            text += f" · {len(value['never_invoked'])} never invoked"
+        return c256(COOL, " " + text[: max(1, width - 2)], bold=True)
 
     def _adherence_line(self, width):
         value = self.adherence
@@ -608,6 +642,9 @@ class App:
         adherence_line = self._adherence_line(width)
         if adherence_line:
             header.insert(-1, adherence_line)
+        agents_line = self._agents_line(width)
+        if agents_line:
+            header.insert(-1, agents_line)
         if self.settings_open:
             current = prompt_mode()
             choices = (
@@ -1006,7 +1043,8 @@ def main():
     app = App(
         inventory(),
         load_tips(detect_client(args.client)),
-        adherence=DEMO_ADHERENCE if args.demo else load_adherence(),
+        adherence=DEMO_ADHERENCE if args.demo else load_adherence()[0],
+        agents=DEMO_AGENTS if args.demo else load_adherence()[1],
     )
     tail = Tail(HIST)
     replay_events, replay_i = [], 0
@@ -1066,7 +1104,7 @@ def main():
                     app.feed(ev)
                 if now >= next_inventory_sync:
                     app.sync_inventory(inventory())
-                    app.set_adherence(load_adherence())
+                    app.set_adherence(*load_adherence())
                     next_inventory_sync = now + INVENTORY_SYNC_SECS
             size = shutil.get_terminal_size(fallback=(100, 34))
             frame = app.render(now, size.columns, size.lines)
