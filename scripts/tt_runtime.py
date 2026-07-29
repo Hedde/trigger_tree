@@ -14,6 +14,22 @@ def user_config_path():
     return os.path.join(os.path.expanduser("~"), ".trigger-tree", "config.sh")
 
 
+def codex_install(script_dir):
+    """True when this copy of the plugin lives inside the Codex home.
+
+    The Codex manifest must declare `./skills/` for the portal validator, so a
+    marketplace install resolves that to the repository's Claude skill, which
+    passes `--client claude`. Where the files physically live is unambiguous
+    evidence, so it outranks a flag the wrong skill happened to supply.
+    """
+    home = os.environ.get("CODEX_HOME") or os.path.join(os.path.expanduser("~"), ".codex")
+    try:
+        home = os.path.abspath(home)
+        return os.path.commonpath([os.path.abspath(script_dir), home]) == home
+    except (OSError, ValueError):  # unrelated drives on Windows
+        return False
+
+
 def session_id():
     """Resolve the running client's session id from the process environment.
 

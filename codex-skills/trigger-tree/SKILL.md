@@ -5,6 +5,10 @@ description: Inspect and improve documentation discovery using trigger-tree's lo
 
 # trigger-tree for Codex
 
+Invoke this skill as `@trigger-tree <what you want>`, for example
+`@trigger-tree watch`, or simply ask in plain language ("show trigger-tree status",
+"open the live dashboard"). Both reach the same workflows below.
+
 Let `PLUGIN` be the plugin root: the directory two levels up from this `SKILL.md`.
 **Always run the commands below from the user's project directory — never `cd` into
 the plugin root** — and keep the `TT_PROJECT_DIR="$PWD"` prefix on every command, so

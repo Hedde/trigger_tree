@@ -1049,3 +1049,30 @@ def test_agent_definitions_skip_symlinks_and_unreadable_entries(tmp_path, monkey
     monkeypatch.setattr(mod, "safe_regular_file", lambda path: True)
     monkeypatch.setattr(mod.os.path, "getsize", lambda path: (_ for _ in ()).throw(OSError("gone")))
     assert mod.defined_agents(str(tmp_path)) == {}
+
+
+def test_codex_install_location_outranks_an_asserted_client(tmp_path, monkeypatch):
+    """Regression for a Codex session reported as claude by the wrong skill."""
+    mod = load_script("tt-stats.py", tmp_path)
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / ".codex"))
+    assert mod.codex_install(str(tmp_path / ".codex/plugins/cache/tt/1.0/scripts"))
+    assert not mod.codex_install(str(tmp_path / ".claude/plugins/cache/tt/1.0/scripts"))
+
+    # Unrelated drives on Windows raise rather than compare.
+    monkeypatch.setattr(
+        mod.os.path, "commonpath", lambda paths: (_ for _ in ()).throw(ValueError("drives"))
+    )
+    assert mod.codex_install(str(tmp_path)) is False
+
+    monkeypatch.setattr(mod, "codex_install", lambda _dir: True)
+    assert mod.detect_client("claude") == "codex"
+    monkeypatch.setattr(mod, "codex_install", lambda _dir: False)
+    assert mod.detect_client("claude") == "claude"
+
+
+def test_watch_detects_a_codex_install_regardless_of_the_flag(tmp_path, monkeypatch):
+    mod = load_script("tt-watch.py", tmp_path)
+    monkeypatch.setattr(mod, "codex_install", lambda _dir: True)
+    assert mod.detect_client("claude") == "codex"
+    monkeypatch.setattr(mod, "codex_install", lambda _dir: False)
+    assert mod.detect_client("claude") == "claude"

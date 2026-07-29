@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.28.2 — 2026-07-29
+
+- Treats the install location as authoritative when identifying the client. A
+  Codex marketplace install resolves its manifest's `./skills/` to the
+  repository's Claude skill, because the portal validator requires that path,
+  and that skill asserts `--client claude`. A Codex session was therefore
+  reported as Claude. Where the files live is observable, so it now outranks the
+  flag in `tt-open.sh`, `tt-stats.py`, and `tt-watch.py`. Recorded telemetry was
+  never affected: the `client` field comes from the hook manifests, not this
+  flag.
+- Explains that a runtime which blocks the first watcher launch is usually
+  asking for approval rather than failing permanently, so the retry that
+  succeeds no longer reads as a broken command.
+- Documents Codex invocation as `@trigger-tree <command>`, alongside the
+  plain-language form; both reach the same workflows.
+
 ## 1.28.1 — 2026-07-29
 
 - Completes the agent-persona surfaces. 1.28.0 added the measurement and the

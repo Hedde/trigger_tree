@@ -167,7 +167,8 @@ def test_gui_less_runtime_falls_back_to_a_manual_command_and_cleans_up(tmp_path)
     )
     assert result.returncode == 1
     assert "Could not open a terminal window automatically" in result.stderr
-    assert "Start the watcher manually in a second terminal:" in result.stderr
+    assert "approving and running it" in result.stderr
+    assert "Otherwise start the watcher manually in a second terminal:" in result.stderr
     assert "tt-watch.py" in result.stderr  # het exacte commando staat erbij
     assert not list(tmpdir.glob("tt-watch.*"))  # gelekte launcher is opgeruimd
 
@@ -182,5 +183,31 @@ def test_gui_less_iterm_runtime_falls_back_identically(tmp_path):
         text=True,
     )
     assert result.returncode == 1
-    assert "Start the watcher manually in a second terminal:" in result.stderr
+    assert "approving and running it" in result.stderr
+    assert "Otherwise start the watcher manually in a second terminal:" in result.stderr
     assert not list(tmpdir.glob("tt-watch.*"))
+
+
+def test_codex_install_outranks_a_claude_client_asserted_by_the_wrong_skill(tmp_path):
+    """A Codex marketplace install resolves ./skills/ to the repository's Claude
+    skill, which exports TT_CLIENT=claude inside a Codex session. Where the files
+    live is observable; the flag is only asserted, so the location wins."""
+    scripts = tmp_path / ".codex/plugins/cache/trigger-tree/trigger-tree/1.28.2/scripts"
+    scripts.mkdir(parents=True)
+    manifest = scripts.parent / ".claude-plugin"
+    manifest.mkdir()
+    (manifest / "plugin.json").write_text('{"version": "1.28.2"}')
+    launcher = scripts / "tt-open.sh"
+    shutil.copy(pathlib.Path(SCRIPTS) / "tt-open.sh", launcher)
+    env = dict(
+        os.environ,
+        CLAUDE_PROJECT_DIR=str(tmp_path),
+        TT_OPEN_DRYRUN="1",
+        TT_CLIENT="claude",
+        CLAUDE_PLUGIN_ROOT=str(scripts.parent),
+    )
+    result = subprocess.run(
+        [shutil.which("bash") or "bash", launcher], env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.rstrip().endswith("--client codex")

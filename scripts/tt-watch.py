@@ -32,7 +32,7 @@ import unicodedata
 from collections import Counter, deque
 from datetime import datetime, timezone
 
-from tt_runtime import user_config_path
+from tt_runtime import codex_install, user_config_path
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 HIST = os.path.join(ROOT, ".trigger-tree", "history.jsonl")
@@ -192,6 +192,10 @@ def terminal_safe(value):
 
 
 def detect_client(explicit="auto"):
+    # Install location outranks the flag: a Codex marketplace install can load
+    # the Claude skill, which asserts --client claude in a Codex session.
+    if codex_install(SCRIPT_DIR):
+        return "codex"
     if explicit in ("claude", "codex"):
         return explicit
     if os.environ.get("CODEX_HOME") or os.environ.get("PLUGIN_ROOT"):

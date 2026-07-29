@@ -31,7 +31,14 @@ esac
 
 # Per-invocation plugin roots outrank the ambient CODEX_HOME: that one stays
 # exported in shell profiles, so it must not relabel Claude-launched sessions.
-CLIENT="${TT_CLIENT:-}"
+# Where this copy is installed is unambiguous and outranks everything else: a
+# Codex marketplace install resolves its ./skills/ to the repository's Claude
+# skill, which then exports TT_CLIENT=claude inside a Codex session.
+case "$SCRIPT_DIR" in
+  */.codex/plugins/*) CLIENT="codex" ;;
+  */.claude/plugins/*) CLIENT="claude" ;;
+  *) CLIENT="${TT_CLIENT:-}" ;;
+esac
 if [ -z "$CLIENT" ]; then
   if [ -n "${PLUGIN_ROOT:-}" ]; then
     CLIENT="codex"
@@ -40,11 +47,7 @@ if [ -z "$CLIENT" ]; then
   elif [ -n "${CODEX_HOME:-}" ]; then
     CLIENT="codex"
   else
-    case "$SCRIPT_DIR" in
-      */.claude/plugins/*) CLIENT="claude" ;;
-      */.codex/plugins/*) CLIENT="codex" ;;
-      *) CLIENT="auto" ;;
-    esac
+    CLIENT="auto"
   fi
 fi
 
@@ -71,7 +74,9 @@ manual_fallback() {
   # command instead of dying on set -e without a word.
   if [ -n "${LAUNCH:-}" ]; then rm -f "$LAUNCH"; fi
   echo "Could not open a terminal window automatically ($1)." >&2
-  echo "Start the watcher manually in a second terminal:" >&2
+  echo "If your runtime asks to approve this command, approving and running it" >&2
+  echo "again usually succeeds; this is not a permanent failure." >&2
+  echo "Otherwise start the watcher manually in a second terminal:" >&2
   echo "$CMD" >&2
   exit 1
 }

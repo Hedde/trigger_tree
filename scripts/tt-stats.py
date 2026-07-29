@@ -30,7 +30,7 @@ from itertools import combinations
 from statistics import median
 
 import tt_adherence
-from tt_runtime import user_config_path
+from tt_runtime import codex_install, user_config_path
 from tt_scope import git_visible_files, symlinked_surfaces
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
@@ -513,6 +513,10 @@ def jaccard(a, b):
 
 
 def detect_client(explicit="auto"):
+    # Install location outranks the flag: a Codex marketplace install can load
+    # the Claude skill, which asserts --client claude in a Codex session.
+    if codex_install(SCRIPT_DIR):
+        return "codex"
     if explicit in ("claude", "codex"):
         return explicit
     if os.environ.get("CODEX_HOME") or os.environ.get("PLUGIN_ROOT"):

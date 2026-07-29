@@ -102,7 +102,7 @@ hooks are trusted in the TUI. Repeat the review after an upgrade that changes a
 hook. Then ask Codex to run `python3 "$PLUGIN_ROOT/scripts/tt-watch.py" --demo`;
 the bundled trigger-tree skill covers setup, doctor, and insights.
 
-The Claude `/tt` skill is explicitly user-triggered. Codex installs the equivalent skill and lifecycle hooks through its plugin marketplace.
+The Claude `/tt` skill is explicitly user-triggered. Codex installs the equivalent skill and lifecycle hooks through its plugin marketplace, and invokes it as `@trigger-tree <command>` (for example `@trigger-tree watch`) or with the same request in plain language; both work.
 
 Prefer a standalone CLI — for CI, git-hook ingestion, or dashboards without a plugin?
 `pipx install trigger-tree` (or `uvx --from trigger-tree tt`), then `tt doctor`, `tt watch --demo`, `tt stats`.

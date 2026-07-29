@@ -25,6 +25,14 @@ that from reading as a clean bill of health, every liveness line names the clien
 have actually recorded, so telemetry from one client cannot pass as another client's
 hooks working.
 
+## Invoking the skill
+
+Claude Code uses `/tt <command>`. Codex uses `@trigger-tree <command>`, and plain-language
+requests reach the same workflows. A Codex marketplace install resolves its manifest's
+`./skills/` to the repository's Claude skill, which asserts `--client claude`; the scripts
+therefore treat the install location as authoritative and report `codex` regardless of the
+flag, so a wrongly loaded skill cannot mislabel a session.
+
 ## Agent persona capture
 
 Claude Code launches subagents through an `Agent` tool call whose input carries
