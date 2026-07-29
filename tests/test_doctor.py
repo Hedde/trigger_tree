@@ -470,3 +470,25 @@ def test_liveness_names_clients_on_the_branch_codex_actually_reaches(tmp_path, m
     )
     status, message = mod.liveness_health()
     assert status == "WARN" and "recorded clients: claude" in message
+
+
+def test_agents_health_reports_definitions_without_capture(tmp_path, monkeypatch):
+    """Personas cost tokens every request, so unobservable usage is worth naming."""
+    mod = load_script("tt-doctor.py", tmp_path)
+    assert mod.agents_health() is None
+
+    agents = tmp_path / ".claude" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "backend-engineer.md").write_text("persona\n")
+    (agents / "text-writer.md").write_text("persona\n")
+    status, message = mod.agents_health()
+    assert status == "WARN"
+    assert "2 persona definition(s)" in message and "capture is off" in message
+
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir(exist_ok=True)
+    (telemetry / "config.sh").write_text("TT_LOG_AGENTS='on'\n")
+    assert mod.agents_health() == ("PASS", "agents: 2 persona definition(s), capture on")
+
+    (telemetry / "config.sh").write_text("TT_LOG_AGENTS='maybe'\n")
+    assert mod.config_health() == ("FAIL", "config: TT_LOG_AGENTS must be on or off")

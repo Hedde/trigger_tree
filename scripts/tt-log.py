@@ -55,12 +55,14 @@ DEFAULTS = {
     # Privacy-first upgrade defaults: absent settings never begin recording more.
     "TT_LOG_TOPICS": "off",
     "TT_LOG_COMMANDS": "off",
+    "TT_LOG_AGENTS": "off",
     "TT_EDIT_REGEX": r"(?!)",
     "TT_ROTATE_BYTES": "5242880",
     "TT_EXPERIMENTAL_OUTCOMES": "off",
 }
 
 MAX_TOPICS = 8
+MAX_AGENT_NAME = 64
 MAX_VOCABULARY = 512
 MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_COMMAND_BYTES = 16384
@@ -927,6 +929,25 @@ def main():
             ),
             rotate,
         )
+
+    elif event == "agent":
+        # Persona name only. The launch payload also carries `description` and
+        # `prompt`; neither is read, so no task text can reach disk.
+        if cfg["TT_LOG_AGENTS"] == "on":
+            name = str((data.get("tool_input") or {}).get("subagent_type") or "").strip()
+            if name and len(name) <= MAX_AGENT_NAME and re.fullmatch(r"[\w.-]+", name):
+                append(
+                    hook_identity(
+                        {
+                            "t": "agent",
+                            "ts": ts,
+                            "session": session,
+                            "agent_type": name,
+                            "agent": agent,
+                        }
+                    ),
+                    rotate,
+                )
 
     elif event == "skill":
         name = (data.get("tool_input") or {}).get("skill", "")

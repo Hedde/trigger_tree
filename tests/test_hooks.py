@@ -18,7 +18,7 @@ def test_every_documented_post_tool_use_has_a_logger_route():
     }
     entries = manifest["hooks"]["PostToolUse"]
     routes = {entry["matcher"]: entry["hooks"][0]["command"] for entry in entries}
-    assert set(routes) == {"Bash|Read|Glob|Grep|Skill|Edit|Write|MultiEdit|mcp__.*"}
+    assert set(routes) == {"Bash|Read|Glob|Grep|Skill|Agent|Task|Edit|Write|MultiEdit|mcp__.*"}
     for groups in manifest["hooks"].values():
         for group in groups:
             hook = group["hooks"][0]

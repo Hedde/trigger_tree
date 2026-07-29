@@ -17,6 +17,10 @@ The health score combines coverage, router reachability, and search behavior. It
 - Instruction adherence does not infer that injected text was understood. It evaluates
   only user-confirmed deterministic probes over observable events. `followed` is
   supporting evidence; `unobserved` means evidence was not captured, never violated.
+- Agent personas follow the same rule as directives. Every definition's description sits
+  in the system prompt on each request, so a persona never invoked is recurring cost. It
+  is only reported as never-invoked over sessions where agent capture was running;
+  otherwise the status is `awaiting-capture` and no cost claim is made.
 - Always-loaded cost counts every file injected through a `CLAUDE.md` import chain, not
   only watched documentation, because injected content is billed regardless of its name.
 - Zero probe opportunities is `never-triggered`, not 0% adherence, and only over sessions

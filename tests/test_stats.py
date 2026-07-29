@@ -956,3 +956,96 @@ def test_import_graph_stops_at_the_bound(tmp_path, monkeypatch):
     assert len(mod.claude_import_graph(["CLAUDE.md"])) == total + 1
     monkeypatch.setattr(mod, "MAX_IMPORTED_FILES", 1)
     assert len(mod.claude_import_graph(["CLAUDE.md"])) < total + 1
+
+
+def test_agent_usage_counts_personas_and_scopes_never_invoked(tmp_path, monkeypatch):
+    """Never-invoked is a cost finding only where agent capture was running."""
+    agents = tmp_path / ".claude" / "agents"
+    agents.mkdir(parents=True)
+    for name in ("backend-engineer", "text-writer", "ux-designer"):
+        (agents / f"{name}.md").write_text(f"persona {name}\n")
+    (agents / "notes.txt").write_text("ignored\n")
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir(exist_ok=True)
+    (telemetry / "config.sh").write_text("TT_LOG_AGENTS='on'\n")
+    write_history(
+        tmp_path,
+        [
+            {"t": "session", "session": "S1", "ts": "2026-07-29T09:00:00Z"},
+            {
+                "t": "agent",
+                "session": "S1",
+                "ts": "2026-07-29T09:01:00Z",
+                "agent_type": "backend-engineer",
+            },
+            {
+                "t": "agent",
+                "session": "S1",
+                "ts": "2026-07-29T09:02:00Z",
+                "agent_type": "backend-engineer",
+            },
+            {
+                "t": "agent",
+                "session": "S2",
+                "ts": "2026-07-29T09:03:00Z",
+                "agent_type": "text-writer",
+            },
+            {"t": "agent", "session": "S2", "ts": "2026-07-29T09:04:00Z", "agent_type": 7},
+            {
+                "t": "agent",
+                "session": "S2",
+                "ts": "2026-07-29T09:05:00Z",
+                "agent_type": "ad-hoc-undefined",
+            },
+        ],
+    )
+    mod = load_script("tt-stats.py", tmp_path)
+    usage = run_stats(mod, monkeypatch)["agents"]
+    assert usage["capture"] == "on"
+    assert usage["defined"] == 3 and usage["invoked"] == 3
+    assert usage["measurable_sessions"] == 2
+    top = usage["usage"][0]
+    assert top["name"] == "backend-engineer" and top["invocations"] == 2 and top["sessions"] == 1
+    assert top["first_seen"] == "2026-07-29T09:01:00Z"
+    # A persona invoked without a definition is still counted, and flagged as such.
+    assert {item["name"]: item["defined"] for item in usage["usage"]}["ad-hoc-undefined"] is False
+    assert [item["name"] for item in usage["never_invoked"]] == ["ux-designer"]
+    assert usage["never_invoked_status"] == "measured"
+    assert usage["estimated_tokens_per_session"] > 0
+
+
+def test_agent_never_invoked_is_withheld_until_capture_runs(tmp_path, monkeypatch):
+    agents = tmp_path / ".claude" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "unused.md").write_text("persona\n")
+    write_history(tmp_path, [{"t": "session", "session": "S", "ts": "2026-07-29T09:00:00Z"}])
+    mod = load_script("tt-stats.py", tmp_path)
+    usage = run_stats(mod, monkeypatch)["agents"]
+    assert usage["capture"] == "off"
+    assert usage["defined"] == 1 and usage["never_invoked"] == []
+    assert usage["never_invoked_status"] == "awaiting-capture"
+
+
+def test_agent_definitions_skip_symlinks_and_unreadable_entries(tmp_path, monkeypatch):
+    agents = tmp_path / ".claude" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "real.md").write_text("persona\n")
+    (agents / "linked.md").symlink_to(tmp_path / "outside.md")
+    (tmp_path / "agents").mkdir()
+    (tmp_path / "agents" / "second.md").write_text("persona\n")
+    write_history(tmp_path, [{"t": "session", "session": "S", "ts": "2026-07-29T09:00:00Z"}])
+    mod = load_script("tt-stats.py", tmp_path)
+    found = mod.defined_agents(str(tmp_path))
+    assert sorted(found) == ["real", "second"]
+
+    real = mod.safe_regular_file
+
+    def vanish(path):
+        return real(path) and not path.endswith("real.md")
+
+    monkeypatch.setattr(mod, "safe_regular_file", vanish)
+    assert sorted(mod.defined_agents(str(tmp_path))) == ["second"]
+
+    monkeypatch.setattr(mod, "safe_regular_file", lambda path: True)
+    monkeypatch.setattr(mod.os.path, "getsize", lambda path: (_ for _ in ()).throw(OSError("gone")))
+    assert mod.defined_agents(str(tmp_path)) == {}

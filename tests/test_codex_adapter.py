@@ -36,6 +36,17 @@ def test_translate_codex_lifecycle_and_tool_payloads(tmp_path, monkeypatch):
         )[0]
         == "skill"
     )
+    for agent_tool in ("Agent", "Task"):
+        assert (
+            mod.translate(
+                {
+                    "hook_event_name": "PostToolUse",
+                    "tool_name": agent_tool,
+                    "tool_input": {"subagent_type": "backend-engineer"},
+                }
+            )[0]
+            == "agent"
+        )
     for edit_tool in ("apply_patch", "Edit", "Write", "MultiEdit"):
         route, edit = mod.translate(
             {

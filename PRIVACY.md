@@ -26,6 +26,9 @@ inside the project you use it in:
 - **Optional edits**: paths matching `TT_EDIT_REGEX`, normalized relative to the
   project, plus tool name and event metadata. External paths, file content, arguments,
   diffs, and patches are not stored.
+- **Optional agent names**: `TT_LOG_AGENTS='on'` stores the persona name of a
+  launched subagent (for example `backend-engineer`). The launch payload also
+  carries the task prompt and description; trigger-tree never reads either.
 - **Optional commands**: `TT_LOG_COMMANDS='classified'` stores only stable IDs of
   user-confirmed manifest patterns that matched. `full` additionally stores a bounded
   command line. Command output is never stored. Missing configuration means off.

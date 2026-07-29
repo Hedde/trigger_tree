@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.28.0 — 2026-07-29
+
+- Measures subagent personas. Every definition under `.claude/agents/` or
+  `agents/` puts its description in the system prompt on every request, so a
+  persona never invoked is recurring cost in exactly the way an untriggered
+  directive is. The stats payload now reports invocations per persona, sessions,
+  first and last use, and which definitions have never been invoked.
+- Capture is opt-in through the new `TT_LOG_AGENTS`, written by `/tt setup` and
+  absent-means-off, so no existing install starts recording more. Only the
+  persona name is stored; the launch payload's task prompt and description are
+  never read.
+- Never-invoked is reported only over sessions where agent capture was actually
+  running. Otherwise the status is `awaiting-capture` and no cost claim is made,
+  the same distinction the adherence report draws.
+- `tt doctor` names persona definitions found while capture is off, so silence
+  cannot be mistaken for an unused persona.
+- The Claude Code tool name and payload field were verified against real
+  transcripts before implementation rather than assumed. Codex routes the same
+  tool names, but whether it surfaces a subagent launch to hooks is unverified
+  and documented as such instead of silently degrading.
+
 ## 1.27.2 — 2026-07-28
 
 - Completes the issue #21 fix for Codex. Codex exports no session id, so the

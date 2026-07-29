@@ -1419,3 +1419,47 @@ def test_user_config_path_prefers_the_env_override(tmp_path, monkeypatch):
     monkeypatch.setenv("USERPROFILE", str(tmp_path))  # Windows expanduser
     expected = os.path.join(str(tmp_path), ".trigger-tree", "config.sh")
     assert mod.user_config_path() == expected
+
+
+def test_agent_capture_records_only_the_persona_name(tmp_path, monkeypatch):
+    """Launching a subagent must record which persona ran, never its task text."""
+    mod = load_script("tt-log.py", tmp_path)
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    payload = json.dumps(
+        {
+            "session_id": "S",
+            "tool_name": "Agent",
+            "tool_input": {
+                "subagent_type": "backend-engineer",
+                "prompt": "SECRET TASK TEXT",
+                "description": "SECRET DESCRIPTION",
+            },
+        }
+    )
+    # Absent config records nothing: an upgrade never starts capturing more.
+    run_main(mod, monkeypatch, ["agent"], payload)
+    assert not (telemetry / "history.jsonl").exists()
+
+    (telemetry / "config.sh").write_text("TT_LOG_AGENTS='on'\n")
+    run_main(mod, monkeypatch, ["agent"], payload)
+    events = read_history(tmp_path)
+    assert [event["t"] for event in events] == ["agent"]
+    assert events[0]["agent_type"] == "backend-engineer"
+    raw = (telemetry / "history.jsonl").read_text()
+    assert "SECRET TASK TEXT" not in raw and "SECRET DESCRIPTION" not in raw
+
+    # A missing or implausible persona name is skipped rather than stored.
+    for bad in (
+        {},
+        {"subagent_type": ""},
+        {"subagent_type": "a b/../c"},
+        {"subagent_type": "x" * 65},
+    ):
+        run_main(
+            mod,
+            monkeypatch,
+            ["agent"],
+            json.dumps({"session_id": "S", "tool_name": "Agent", "tool_input": bad}),
+        )
+    assert len(read_history(tmp_path)) == 1

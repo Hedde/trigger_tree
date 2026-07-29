@@ -153,6 +153,32 @@ def codex_trust_health():
     )
 
 
+def agents_health():
+    """Report persona definitions whose usage cannot currently be observed.
+
+    Every definition's description sits in the system prompt on each request,
+    so an unused persona is recurring cost in the same way an untriggered
+    directive is. Silence only means that once capture is on.
+    """
+    defined = []
+    for base in (".claude/agents", "agents"):
+        top = os.path.join(ROOT, *base.split("/"))
+        if not os.path.isdir(top) or os.path.islink(top):
+            continue
+        defined += [name for name in sorted(os.listdir(top)) if name.endswith(".md")]
+    if not defined:
+        return None
+    enabled, _ = _effective_config("TT_LOG_AGENTS", "off")
+    if enabled != "on":
+        return (
+            "WARN",
+            f"agents: {len(defined)} persona definition(s) found but agent capture is off"
+            " — run /tt setup to record which personas are actually used; until then"
+            " never-invoked cannot be distinguished from never-observed",
+        )
+    return "PASS", f"agents: {len(defined)} persona definition(s), capture on"
+
+
 def watch_regex():
     for path in (
         os.path.join(ROOT, ".trigger-tree", "config.sh"),
@@ -319,6 +345,9 @@ def config_health():
     topics = assignments.get("TT_LOG_TOPICS")
     if topics is not None and topics not in ("on", "off"):
         return "FAIL", "config: TT_LOG_TOPICS must be on or off"
+    agents = assignments.get("TT_LOG_AGENTS")
+    if agents is not None and agents not in ("on", "off"):
+        return "FAIL", "config: TT_LOG_AGENTS must be on or off"
     commands = assignments.get("TT_LOG_COMMANDS")
     if commands is not None and commands not in ("off", "classified", "full"):
         return "FAIL", "config: TT_LOG_COMMANDS must be off, classified, or full"
@@ -476,6 +505,7 @@ def main():
             liveness_health(),
             codex_trust_health(),
             config_health(),
+            agents_health(),
             prompts_health(),
             instructions_health(),
             coverage_health(),

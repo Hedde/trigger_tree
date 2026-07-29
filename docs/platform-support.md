@@ -25,6 +25,16 @@ that from reading as a clean bill of health, every liveness line names the clien
 have actually recorded, so telemetry from one client cannot pass as another client's
 hooks working.
 
+## Agent persona capture
+
+Claude Code launches subagents through an `Agent` tool call whose input carries
+`subagent_type`; that name is the only field recorded. Verified against real transcripts
+rather than assumed, after issue #21. The Codex adapter routes `Agent` and `Task` the
+same way, but whether Codex surfaces a subagent launch as a hook-visible tool call is
+unverified, so treat Codex persona counts as unsupported until observed. `tt doctor`
+reports persona definitions found while capture is off, so silence is never mistaken for
+an unused persona.
+
 ## Instruction-adherence capture
 
 Claude Code PostToolUse hooks capture supported `Edit`, `Write`, and `MultiEdit` calls.

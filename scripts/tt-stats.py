@@ -51,6 +51,7 @@ TREND_MIN_EVENTS = 10
 MAX_CO_READ_PATHS = 200
 MAX_IMPORTED_FILES = 200
 EVENT_TYPES = {
+    "agent",
     "command",
     "commit",
     "edit",
@@ -209,6 +210,7 @@ def load_events_with_diagnostics(paths):
                 # when the duplicate straddles a rotated archive.
                 tool_use_id = event.get("tool_use_id")
                 if tool_use_id and event.get("t") in (
+                    "agent",
                     "command",
                     "commit",
                     "edit",
@@ -230,6 +232,95 @@ def load_events(paths):
 
 
 IMPORT_RE = re.compile(r"(?<![\w`])@([^\s`]+)")
+
+
+AGENT_DIRS = (".claude/agents", "agents")
+
+
+def defined_agents(root):
+    """Enumerate persona definitions without following symlinks out of the project.
+
+    Definitions are read for their names and byte cost only; their content is
+    never recorded. `.claude/agents/` is deliberately not added to the watched
+    inventory, because that would change untouched counts and health grades for
+    every existing install.
+    """
+    found = {}
+    for base in AGENT_DIRS:
+        top = os.path.join(root, *base.split("/"))
+        if not os.path.isdir(top) or os.path.islink(top):
+            continue
+        for name in sorted(os.listdir(top)):
+            if not name.endswith(".md"):
+                continue
+            path = os.path.join(top, name)
+            if not safe_regular_file(path):
+                continue
+            try:
+                size = os.path.getsize(path)
+            except OSError:
+                continue
+            found.setdefault(name[:-3], {"path": f"{base}/{name}", "bytes": size})
+    return found
+
+
+def agent_usage(events, root, capture_enabled):
+    """Count persona invocations and name the definitions never invoked.
+
+    Sessions that predate agent capture cannot show an invocation, so silence
+    there is missing instrumentation rather than an unused persona. The same
+    distinction the adherence report draws between never-triggered and
+    awaiting-capture applies here and is reported the same way.
+    """
+    invoked = Counter()
+    sessions = defaultdict(set)
+    first_seen = {}
+    last_seen = {}
+    measurable = set()
+    for event in events:
+        if event.get("t") != "agent":
+            continue
+        measurable.add(str(event.get("session")))
+        name = event.get("agent_type")
+        if not isinstance(name, str) or not name:
+            continue
+        invoked[name] += 1
+        sessions[name].add(str(event.get("session")))
+        stamp = event.get("ts") if isinstance(event.get("ts"), str) else ""
+        if stamp:
+            first_seen[name] = min(first_seen.get(name, stamp), stamp)
+            last_seen[name] = max(last_seen.get(name, ""), stamp)
+    defined = defined_agents(root)
+    used = [
+        {
+            "name": name,
+            "invocations": invoked[name],
+            "sessions": len(sessions[name]),
+            "defined": name in defined,
+            "first_seen": first_seen.get(name),
+            "last_seen": last_seen.get(name),
+        }
+        for name in sorted(invoked, key=lambda item: (-invoked[item], item))
+    ]
+    never = [
+        {"name": name, "path": defined[name]["path"], "bytes": defined[name]["bytes"]}
+        for name in sorted(defined)
+        if name not in invoked
+    ]
+    return {
+        "capture": "on" if capture_enabled else "off",
+        "measurable_sessions": len(measurable),
+        "defined": len(defined),
+        "invoked": len(invoked),
+        "definition_bytes": sum(item["bytes"] for item in defined.values()),
+        "estimated_tokens_per_session": round(sum(item["bytes"] for item in defined.values()) / 4),
+        "usage": used,
+        # Only a real absence, never an artifact of capture having been off.
+        "never_invoked": never if (capture_enabled and measurable) else [],
+        "never_invoked_status": (
+            "measured" if (capture_enabled and measurable) else "awaiting-capture"
+        ),
+    }
 
 
 def claude_import_graph(docs):
@@ -966,6 +1057,7 @@ def main():
         "always_loaded_unread": always_loaded_unread,
         "always_loaded_imports": sorted(imported_files),
         "always_loaded_injected": sorted(injected_files),
+        "agents": agent_usage(events, ROOT, _conf_value("TT_LOG_AGENTS", "off") == "on"),
         "signal_integrity": {
             "subagent_reads": "captured",
             "subagent_read_events": sum(1 for e in reads if e.get("agent_id")),

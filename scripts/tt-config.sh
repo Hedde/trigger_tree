@@ -41,6 +41,10 @@ TT_LOG_TOPICS='off'
 # Kept off until project setup explicitly enables classified capture.
 TT_LOG_COMMANDS='off'
 
+# Records only the persona name of a launched subagent, never its task text.
+# Kept off until project setup explicitly enables it.
+TT_LOG_AGENTS='off'
+
 # Project-relative edit paths only. Setup installs a conservative project scope;
 # the plugin fallback matches nothing so existing installs never record more silently.
 TT_EDIT_REGEX='(?!)'

@@ -16,6 +16,8 @@ All default to off for an existing install with no configuration:
   repository's router/manifest vocabulary. No prompt-derived free text reaches disk,
   regardless of `TT_LOG_PROMPTS`.
 - `TT_LOG_COMMANDS=classified`: only stable IDs of manifest patterns that matched.
+- `TT_LOG_AGENTS=on`: the persona name of a launched subagent, nothing else. The
+  launch payload also carries the task prompt and a description; neither is read.
   `full` additionally stores a bounded command line; neither mode stores output.
 - `TT_EDIT_REGEX`: matching edits store only normalized in-project path, tool name, and
   event metadata. External paths, content, arguments unrelated to paths, and diffs are

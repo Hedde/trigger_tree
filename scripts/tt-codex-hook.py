@@ -30,6 +30,8 @@ def normalize_tool(payload):
         route = "read"
     elif tool in ("apply_patch", "Edit", "Write", "MultiEdit"):
         route = "edit"
+    elif tool in ("Agent", "Task"):
+        route = "agent"
     elif tool == "Skill":
         route = "skill"
     elif tool.startswith("mcp__"):

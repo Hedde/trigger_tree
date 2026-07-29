@@ -247,6 +247,7 @@ def configure_prompts(mode, explicit=False):
         for name, value in (
             ("TT_LOG_TOPICS", "on"),
             ("TT_LOG_COMMANDS", "classified"),
+            ("TT_LOG_AGENTS", "on"),
             ("TT_EDIT_REGEX", DEFAULT_EDIT_REGEX),
         ):
             if not re.search(rf"(?m)^{name}=", text):
@@ -259,7 +260,7 @@ def configure_prompts(mode, explicit=False):
             report(
                 "updated",
                 ".trigger-tree/config.sh (existing prompt setting preserved; topics on; "
-                "commands classified; edit paths enabled)",
+                "commands classified; agent names on; edit paths enabled)",
             )
         else:
             report("skipped", ".trigger-tree/config.sh (existing prompt setting preserved)")
@@ -269,6 +270,7 @@ def configure_prompts(mode, explicit=False):
     write_prompt_mode(dst, mode)
     write_assignment(dst, "TT_LOG_TOPICS", "on")
     write_assignment(dst, "TT_LOG_COMMANDS", "classified")
+    write_assignment(dst, "TT_LOG_AGENTS", "on")
     write_assignment(dst, "TT_EDIT_REGEX", DEFAULT_EDIT_REGEX)
     report("created", f".trigger-tree/config.sh ({prompt_mode_message(mode)})")
 

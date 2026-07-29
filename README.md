@@ -58,6 +58,13 @@ objectively testable condition is probably not firing for the model either, whic
 advice you can act on, while a rule that needs the diff is simply outside what the event
 stream can see. See [instruction adherence](docs/instruction-adherence.md).
 
+Subagent personas are measured the same way. Every definition under `.claude/agents/`
+puts its description in the system prompt on every request, so a persona you never invoke
+is recurring cost in exactly the way an untriggered rule is. `/tt insights` reports which
+personas ran, how often, and which have never been invoked. Opt in with `/tt setup`; only
+the persona name is recorded, never the task given to it. A persona is only called
+never-invoked over sessions where that capture was running.
+
 ## Honest time to value
 
 | Capability | When it becomes useful |
