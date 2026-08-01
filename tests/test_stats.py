@@ -963,8 +963,12 @@ def test_agent_usage_counts_personas_and_scopes_never_invoked(tmp_path, monkeypa
     agents = tmp_path / ".claude" / "agents"
     agents.mkdir(parents=True)
     for name in ("backend-engineer", "text-writer", "ux-designer"):
-        (agents / f"{name}.md").write_text(f"persona {name}\n")
+        (agents / f"{name}.md").write_text(
+            f"---\nname: {name}\ndescription: Handles {name} work.\n---\nBody for {name}.\n"
+        )
     (agents / "notes.txt").write_text("ignored\n")
+    # Prose without frontmatter is documentation, not a persona definition.
+    (agents / "README.md").write_text("# How our agents work\n")
     telemetry = tmp_path / ".trigger-tree"
     telemetry.mkdir(exist_ok=True)
     (telemetry / "config.sh").write_text("TT_LOG_AGENTS='on'\n")
@@ -1017,7 +1021,7 @@ def test_agent_usage_counts_personas_and_scopes_never_invoked(tmp_path, monkeypa
 def test_agent_never_invoked_is_withheld_until_capture_runs(tmp_path, monkeypatch):
     agents = tmp_path / ".claude" / "agents"
     agents.mkdir(parents=True)
-    (agents / "unused.md").write_text("persona\n")
+    (agents / "unused.md").write_text("---\nname: unused\ndescription: d\n---\nbody\n")
     write_history(tmp_path, [{"t": "session", "session": "S", "ts": "2026-07-29T09:00:00Z"}])
     mod = load_script("tt-stats.py", tmp_path)
     usage = run_stats(mod, monkeypatch)["agents"]
@@ -1026,28 +1030,26 @@ def test_agent_never_invoked_is_withheld_until_capture_runs(tmp_path, monkeypatc
     assert usage["never_invoked_status"] == "awaiting-capture"
 
 
-def test_agent_definitions_skip_symlinks_and_unreadable_entries(tmp_path, monkeypatch):
+def test_agent_definitions_skip_symlinks_prose_and_unreadable_entries(tmp_path, monkeypatch):
+    """Only Claude Code's own convention counts, and only real definition files."""
     agents = tmp_path / ".claude" / "agents"
     agents.mkdir(parents=True)
-    (agents / "real.md").write_text("persona\n")
+    (agents / "real.md").write_text("---\nname: real\ndescription: d\n---\nbody\n")
+    (agents / "README.md").write_text("# prose, not a persona\n")
+    (agents / "empty-front.md").write_text("---\ntools: all\n---\nbody\n")
     (agents / "linked.md").symlink_to(tmp_path / "outside.md")
+    # A project-level agents/ directory is documentation in this inventory.
     (tmp_path / "agents").mkdir()
-    (tmp_path / "agents" / "second.md").write_text("persona\n")
-    write_history(tmp_path, [{"t": "session", "session": "S", "ts": "2026-07-29T09:00:00Z"}])
+    (tmp_path / "agents" / "docs.md").write_text("---\nname: docs\n---\nbody\n")
+    write_history(tmp_path, [{"t": "session", "session": "S", "ts": "2026-08-01T09:00:00Z"}])
     mod = load_script("tt-stats.py", tmp_path)
-    found = mod.defined_agents(str(tmp_path))
-    assert sorted(found) == ["real", "second"]
+    assert sorted(mod.defined_agents(str(tmp_path))) == ["real"]
 
-    real = mod.safe_regular_file
-
-    def vanish(path):
-        return real(path) and not path.endswith("real.md")
-
-    monkeypatch.setattr(mod, "safe_regular_file", vanish)
-    assert sorted(mod.defined_agents(str(tmp_path))) == ["second"]
-
-    monkeypatch.setattr(mod, "safe_regular_file", lambda path: True)
-    monkeypatch.setattr(mod.os.path, "getsize", lambda path: (_ for _ in ()).throw(OSError("gone")))
+    assert mod.persona_definition(str(agents / "missing.md")) is None
+    monkeypatch.setattr(mod.os.path, "getsize", lambda path: mod.MAX_DEFINITION_BYTES + 1)
+    assert mod.persona_definition(str(agents / "real.md")) is None
+    monkeypatch.undo()
+    monkeypatch.setattr(mod, "safe_regular_file", lambda path: False)
     assert mod.defined_agents(str(tmp_path)) == {}
 
 

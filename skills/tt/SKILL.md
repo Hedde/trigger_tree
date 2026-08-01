@@ -92,10 +92,12 @@ Show exactly this, nothing above or below it:
 > **Health** — grade + score with its three drivers, one line ("(provisional)" unless mature).
 > **Key figures** — reads, searches, skill uses, touched current files / evaluable files;
 > mention always-loaded files separately so the inventory equation reconciles.
-> **Agent personas** — only when `agents.capture` is `on` and `agents.usage` is non-empty:
+> **Agent personas** — when `agents.capture` is `on` and `agents.usage` is non-empty:
 > name the most and least used persona with counts. List `agents.never_invoked` as a
 > review prompt, never a removal recommendation, and say nothing about never-invoked when
-> `agents.never_invoked_status` is `awaiting-capture`.
+> `agents.never_invoked_status` is `awaiting-capture`. When `agents.capture` is `off` and
+> `agents.defined` is above zero, say instead that N personas are defined but usage is not
+> being recorded, and that `/tt setup` enables it; do not imply they are unused.
 > **Folder heat/cold map** — from `folders`: name the hottest folder by current
 > decayed `heat` (also state 30-day and lifetime reads) and the least-covered folder,
 > one line each. Cold means inactive now, not obsolete.

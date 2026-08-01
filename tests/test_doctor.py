@@ -1,4 +1,6 @@
 import json
+import os
+import re
 from datetime import datetime, timezone
 
 from conftest import load_script
@@ -492,3 +494,41 @@ def test_agents_health_reports_definitions_without_capture(tmp_path, monkeypatch
 
     (telemetry / "config.sh").write_text("TT_LOG_AGENTS='maybe'\n")
     assert mod.config_health() == ("FAIL", "config: TT_LOG_AGENTS must be on or off")
+
+
+def test_config_drift_names_injected_surfaces_a_stale_regex_misses(tmp_path, monkeypatch):
+    """/tt setup snapshots the config, so later default fixes never arrive silently."""
+    mod = load_script("tt-doctor.py", tmp_path)
+    telemetry = tmp_path / ".trigger-tree"
+    telemetry.mkdir()
+    assert mod.config_drift_health() is None  # no project config: nothing to drift from
+
+    stale = r"TT_ALWAYS_LOADED_REGEX='(^|/)(CLAUDE|AGENTS)\.md$|^\.claude/skills/'"
+    (telemetry / "config.sh").write_text(stale + "\n")
+    status, message = mod.config_drift_health()
+    assert status == "WARN"
+    assert "predates this version" in message and ".claude/rules/*.md" in message
+    assert "lower the health score" in message
+
+    # Current bundled pattern: no drift.
+    bundled = open(
+        os.path.join(mod.PLUGIN_ROOT, "scripts", "tt-config.sh"), encoding="utf-8"
+    ).read()
+    current = re.search(r"(?m)^TT_ALWAYS_LOADED_REGEX='([^']+)'", bundled).group(1)
+    (telemetry / "config.sh").write_text(f"TT_ALWAYS_LOADED_REGEX='{current}'\n")
+    assert mod.config_drift_health() is None
+
+    # A wider project pattern is a deliberate choice, not drift.
+    (telemetry / "config.sh").write_text(f"TT_ALWAYS_LOADED_REGEX='{current}|^extra/'\n")
+    assert mod.config_drift_health() is None
+
+    # An unusable regex belongs to config_health, not here.
+    (telemetry / "config.sh").write_text("TT_ALWAYS_LOADED_REGEX='(unclosed'\n")
+    assert mod.config_drift_health() is None
+    # No assignment at all cannot drift.
+    (telemetry / "config.sh").write_text("TT_LOG_PROMPTS='off'\n")
+    assert mod.config_drift_health() is None
+
+    (telemetry / "config.sh").write_text(stale + "\n")
+    monkeypatch.setattr(mod, "PLUGIN_ROOT", str(tmp_path / "absent"))
+    assert mod.config_drift_health() is None

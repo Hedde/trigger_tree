@@ -17,6 +17,12 @@ as `TT_LOG_PROMPTS='off'` for every repository before any project has run setup;
 | `TT_LOG_PROMPTS` | `hash` | `truncate`, `hash`, or `off` for future prompt text/fingerprints; setup recommends `truncate` per project |
 | `TT_LOG_TOPICS` | `off` | `on` stores at most eight matched labels from a repository-bounded vocabulary; no free prompt text |
 | `TT_LOG_COMMANDS` | `off` | `classified` stores matched manifest pattern IDs only; `full` also stores a bounded command line; output is never stored |
+`/tt setup` writes a snapshot of the bundled defaults into the project, so improvements to
+those defaults never reach an existing install on their own. `tt doctor` reports it when
+your `TT_ALWAYS_LOADED_REGEX` predates the current version and therefore misses a surface
+the client injects, because such a file is otherwise counted as untouched documentation
+and lowers the health score. Copy the new pattern from the plugin's `scripts/tt-config.sh`.
+
 | `TT_LOG_AGENTS` | `off` | `on` stores the persona name of a launched subagent; the task prompt and description are never read |
 | `TT_EDIT_REGEX` | matches nothing | Regex selecting in-project edit paths for adherence; events contain path and tool only |
 | `TT_ROTATE_BYTES` | 5 MB | History rotation threshold |

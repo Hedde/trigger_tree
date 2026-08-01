@@ -234,33 +234,60 @@ def load_events(paths):
 IMPORT_RE = re.compile(r"(?<![\w`])@([^\s`]+)")
 
 
-AGENT_DIRS = (".claude/agents", "agents")
+# Only Claude Code's own convention. A project-level `agents/` directory is
+# documentation in this tool's inventory, so scanning it counted README and
+# template files as personas.
+AGENT_DIR = ".claude/agents"
+FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.S)
+MAX_DEFINITION_BYTES = 262144
+
+
+def persona_definition(path):
+    """Parse one agent definition, or return None when the file is not one.
+
+    Claude Code injects a persona's name and description into the system prompt
+    on every request and loads the body only when the agent runs. Counting whole
+    files as always-loaded therefore overstates the recurring cost by an order
+    of magnitude, so the two are measured separately.
+    """
+    try:
+        if os.path.getsize(path) > MAX_DEFINITION_BYTES:
+            return None
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            text = handle.read()
+    except OSError:
+        return None
+    match = FRONTMATTER.match(text)
+    if not match:
+        return None  # README, templates and prose are not agent definitions
+    front = match.group(1)
+    described = re.search(r"(?m)^description:\s*(.*)$", front)
+    named = re.search(r"(?m)^name:\s*(.*)$", front)
+    if not described and not named:
+        return None
+    injected = (named.group(1) if named else "") + (described.group(1) if described else "")
+    return {
+        "injected_bytes": len(injected.encode("utf-8")),
+        "body_bytes": len(text[match.end() :].encode("utf-8")),
+    }
 
 
 def defined_agents(root):
-    """Enumerate persona definitions without following symlinks out of the project.
-
-    Definitions are read for their names and byte cost only; their content is
-    never recorded. `.claude/agents/` is deliberately not added to the watched
-    inventory, because that would change untouched counts and health grades for
-    every existing install.
-    """
+    """Enumerate persona definitions without following symlinks out of the project."""
     found = {}
-    for base in AGENT_DIRS:
-        top = os.path.join(root, *base.split("/"))
-        if not os.path.isdir(top) or os.path.islink(top):
+    top = os.path.join(root, *AGENT_DIR.split("/"))
+    if not os.path.isdir(top) or os.path.islink(top):
+        return found
+    for name in sorted(os.listdir(top)):
+        if not name.endswith(".md"):
             continue
-        for name in sorted(os.listdir(top)):
-            if not name.endswith(".md"):
-                continue
-            path = os.path.join(top, name)
-            if not safe_regular_file(path):
-                continue
-            try:
-                size = os.path.getsize(path)
-            except OSError:
-                continue
-            found.setdefault(name[:-3], {"path": f"{base}/{name}", "bytes": size})
+        path = os.path.join(top, name)
+        if not safe_regular_file(path):
+            continue
+        parsed = persona_definition(path)
+        if parsed is None:
+            continue
+        found[name[:-3]] = {"path": f"{AGENT_DIR}/{name}", **parsed}
     return found
 
 
@@ -303,7 +330,7 @@ def agent_usage(events, root, capture_enabled):
         for name in sorted(invoked, key=lambda item: (-invoked[item], item))
     ]
     never = [
-        {"name": name, "path": defined[name]["path"], "bytes": defined[name]["bytes"]}
+        {"name": name, "path": defined[name]["path"], **defined[name]}
         for name in sorted(defined)
         if name not in invoked
     ]
@@ -312,8 +339,15 @@ def agent_usage(events, root, capture_enabled):
         "measurable_sessions": len(measurable),
         "defined": len(defined),
         "invoked": len(invoked),
-        "definition_bytes": sum(item["bytes"] for item in defined.values()),
-        "estimated_tokens_per_session": round(sum(item["bytes"] for item in defined.values()) / 4),
+        # Injected on every request; the body is paid only when the agent runs.
+        "injected_bytes": sum(item["injected_bytes"] for item in defined.values()),
+        "body_bytes": sum(item["body_bytes"] for item in defined.values()),
+        "estimated_tokens_per_session": round(
+            sum(item["injected_bytes"] for item in defined.values()) / 4
+        ),
+        "estimated_tokens_when_invoked": round(
+            sum(item["body_bytes"] for item in defined.values()) / 4
+        ),
         "usage": used,
         # Only a real absence, never an artifact of capture having been off.
         "never_invoked": never if (capture_enabled and measurable) else [],

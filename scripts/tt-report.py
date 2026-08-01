@@ -134,7 +134,8 @@ def agents_html(agents):
         )
         return parts
     parts.append(
-        "<p>Every definition's description sits in the system prompt on each request, so a "
+        "<p>A persona's name and description sit in the system prompt on each request; the "
+        "body is paid only when the agent runs, so the two are counted separately. A "
         "persona that is never invoked is recurring cost. <b>Never-invoked is a review "
         "prompt, not a removal recommendation.</b></p>"
     )
@@ -142,6 +143,7 @@ def agents_html(agents):
         "<div class=kpi>"
         f"<div><b>{agents['invoked']}/{agents['defined']}</b>definitions invoked</div>"
         f"<div><b>~{agents['estimated_tokens_per_session']}</b>tokens per session</div>"
+        f"<div><b>~{agents.get('estimated_tokens_when_invoked', 0)}</b>tokens when invoked</div>"
         f"<div><b>{agents['measurable_sessions']}</b>measurable sessions</div>"
         "</div>"
     )

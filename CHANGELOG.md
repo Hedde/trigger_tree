@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.29.0 — 2026-08-01
+
+- Reports when a project's `TT_ALWAYS_LOADED_REGEX` predates the current
+  version and misses a surface the client injects. `/tt setup` snapshots the
+  bundled defaults into the project, so an install created before
+  `.claude/rules/` was added to that pattern still classifies rule files as
+  evaluable documentation: they appear as untouched and lower the health score,
+  with nothing to say why. Reported from a live deployment.
+- Counts only `.claude/agents/*.md` files carrying YAML frontmatter as personas.
+  A project-level `agents/` directory is documentation in this tool's own
+  inventory, so scanning it counted READMEs and templates as agent definitions.
+- Splits persona cost. A definition's name and description are injected on every
+  request; its body is paid only when the agent runs. Charging whole files to
+  every request overstated the recurring cost by an order of magnitude, so
+  `estimated_tokens_per_session` now covers the injected part and
+  `estimated_tokens_when_invoked` the body.
+- `/tt insights` now says how to enable agent capture when personas are defined
+  but capture is off, instead of staying silent. `tt doctor` and the HTML report
+  already did.
+
 ## 1.28.2 — 2026-07-29
 
 - Treats the install location as authoritative when identifying the client. A

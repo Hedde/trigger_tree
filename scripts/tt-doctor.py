@@ -153,6 +153,59 @@ def codex_trust_health():
     )
 
 
+# Surfaces a client injects without a Read. Each must be classified as
+# always-loaded, or it lands in untouched and drags the health denominator.
+INJECTED_SURFACES = (
+    (".claude/rules/example.md", "Claude Code auto-loads .claude/rules/*.md"),
+    (".claude/skills/example/SKILL.md", "skills are injected as available context"),
+    ("CLAUDE.local.md", "local instruction overrides are injected"),
+)
+
+
+def config_drift_health():
+    """Report a project config narrower than the shipped default.
+
+    `/tt setup` writes a snapshot of tt-config.sh into the project, so later
+    improvements to the defaults never reach an existing install and nothing
+    says so. A surface the client injects but the project regex excludes is
+    counted as untouched documentation, which is wrong in both directions:
+    it inflates the untouched list and deflates the health score.
+    """
+    project = os.path.join(ROOT, ".trigger-tree", "config.sh")
+    if not os.path.isfile(project):
+        return None
+    try:
+        project_text = open(project, encoding="utf-8").read()
+        bundled_text = open(
+            os.path.join(PLUGIN_ROOT, "scripts", "tt-config.sh"), encoding="utf-8"
+        ).read()
+    except OSError:
+        return None
+    pattern = r"(?m)^TT_ALWAYS_LOADED_REGEX='([^']+)'"
+    mine = re.search(pattern, project_text)
+    theirs = re.search(pattern, bundled_text)
+    if not mine or not theirs or mine.group(1) == theirs.group(1):
+        return None
+    try:
+        mine_re, theirs_re = re.compile(mine.group(1)), re.compile(theirs.group(1))
+    except re.error:
+        return None  # config_health already reports an unusable regex
+    missed = [
+        why
+        for path, why in INJECTED_SURFACES
+        if theirs_re.search(path) and not mine_re.search(path)
+    ]
+    if not missed:
+        return None
+    return (
+        "WARN",
+        f"config drift: TT_ALWAYS_LOADED_REGEX predates this version and misses "
+        f"{len(missed)} injected surface(s) ({missed[0]}) — those files are counted as "
+        "untouched documentation and lower the health score; copy the new pattern from "
+        "the plugin's scripts/tt-config.sh",
+    )
+
+
 def agents_health():
     """Report persona definitions whose usage cannot currently be observed.
 
@@ -505,6 +558,7 @@ def main():
             liveness_health(),
             codex_trust_health(),
             config_health(),
+            config_drift_health(),
             agents_health(),
             prompts_health(),
             instructions_health(),

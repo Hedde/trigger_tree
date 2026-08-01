@@ -249,9 +249,10 @@
   2 directives (~34 tokens) have not been triggered in the 12 sessions where their
   capture was active (of 12 recorded over 9.8 days).</p>
   <p class="install-note">Subagent personas are measured the same way. Every definition
-  under <code>.claude/agents/</code> sits in the system prompt on every request, so a
-  persona you never invoke is recurring cost just like an untriggered rule. Only the
-  persona name is recorded, never the task given to it.</p>
+  under <code>.claude/agents/</code> puts its name and description in the system prompt on
+  every request, and its body only when the agent runs, so the two costs are reported
+  separately. A persona you never invoke is recurring cost just like an untriggered rule.
+  Only the persona name is recorded, never the task given to it.</p>
   <p class="install-note"><b>Unobserved means evidence was not captured; it does not mean
   violated.</b> Zero opportunities is never-triggered, not 0% — and only counted over
   sessions where that probe was actually being captured. Rates below five usable

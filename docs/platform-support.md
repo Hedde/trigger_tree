@@ -35,6 +35,10 @@ flag, so a wrongly loaded skill cannot mislabel a session.
 
 ## Agent persona capture
 
+Persona definitions are read from `.claude/agents/*.md` only, and only when the file
+carries YAML frontmatter: a project-level `agents/` directory is documentation in this
+tool's inventory, so scanning it counted READMEs and templates as personas.
+
 Claude Code launches subagents through an `Agent` tool call whose input carries
 `subagent_type`; that name is the only field recorded. Verified against real transcripts
 rather than assumed, after issue #21. The Codex adapter routes `Agent` and `Task` the
