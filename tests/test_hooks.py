@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 
 from conftest import REPO
@@ -73,17 +74,19 @@ def test_codex_hooks_never_block_a_session_on_a_stale_plugin_path(tmp_path):
     """
     manifest = json.load(open(os.path.join(REPO, "hooks", "hooks.json"), encoding="utf-8"))
     stale = str(tmp_path / "removed-version")
+    shell = None if os.name == "nt" else (shutil.which("sh") or "/bin/sh")
     for event, groups in manifest["hooks"].items():
         for group in groups:
             hook = group["hooks"][0]
             assert "[ -f " in hook["command"], event
             assert hook["commandWindows"].startswith("if exist "), event
-            result = subprocess.run(
-                ["/bin/sh", "-c", hook["command"]],
-                env={**os.environ, "CLAUDE_PLUGIN_ROOT": stale},
-                capture_output=True,
-                text=True,
-                input="{}",
-            )
-            assert result.returncode == 0, (event, result.stderr)
-            assert not result.stderr.strip(), event
+            if shell:  # the POSIX command needs a POSIX shell to be exercised
+                result = subprocess.run(
+                    [shell, "-c", hook["command"]],
+                    env={**os.environ, "CLAUDE_PLUGIN_ROOT": stale},
+                    capture_output=True,
+                    text=True,
+                    input="{}",
+                )
+                assert result.returncode == 0, (event, result.stderr)
+                assert not result.stderr.strip(), event
