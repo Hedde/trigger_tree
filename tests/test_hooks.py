@@ -62,3 +62,28 @@ def test_claude_hook_exec_form_invokes_one_interpreter_without_retry(tmp_path):
     )
     assert hook["command"] == "python3" and len(hook["args"]) == 3
     assert result.returncode == 7 and result.stdout == "" and result.stderr == ""
+
+
+def test_codex_hooks_never_block_a_session_on_a_stale_plugin_path(tmp_path):
+    """A Codex upgrade leaves persisted hooks pointing at a removed version dir.
+
+    Without a guard the interpreter exits 2 before any of our code runs, and
+    Codex treats that as a blocking error on UserPromptSubmit. The logger's own
+    fail-open guarantee cannot cover a file that is not there.
+    """
+    manifest = json.load(open(os.path.join(REPO, "hooks", "hooks.json"), encoding="utf-8"))
+    stale = str(tmp_path / "removed-version")
+    for event, groups in manifest["hooks"].items():
+        for group in groups:
+            hook = group["hooks"][0]
+            assert "[ -f " in hook["command"], event
+            assert hook["commandWindows"].startswith("if exist "), event
+            result = subprocess.run(
+                ["/bin/sh", "-c", hook["command"]],
+                env={**os.environ, "CLAUDE_PLUGIN_ROOT": stale},
+                capture_output=True,
+                text=True,
+                input="{}",
+            )
+            assert result.returncode == 0, (event, result.stderr)
+            assert not result.stderr.strip(), event

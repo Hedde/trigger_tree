@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.29.1 — 2026-08-02
+
+- Stops a stale Codex install from blocking a session. Codex persists a hook's
+  resolved command, so upgrading left hooks pointing at a version directory that
+  had been removed. The interpreter exited 2 before any trigger-tree code ran,
+  and Codex treats a non-zero `UserPromptSubmit` hook as a blocking error, so
+  the user's prompt was refused. The logger's own fail-open guarantee cannot
+  cover a file that is not there.
+- Every Codex hook command now checks the script exists and exits 0 when it does
+  not, on POSIX and Windows alike. A stale path degrades to no telemetry instead
+  of a broken session, which is the rule this plugin holds itself to.
+
 ## 1.29.0 — 2026-08-01
 
 - Reports when a project's `TT_ALWAYS_LOADED_REGEX` predates the current

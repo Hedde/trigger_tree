@@ -25,6 +25,19 @@ that from reading as a clean bill of health, every liveness line names the clien
 have actually recorded, so telemetry from one client cannot pass as another client's
 hooks working.
 
+## Surviving a stale install
+
+Codex persists a hook's resolved command, so an upgrade can leave it pointing at a version
+directory that no longer exists. The interpreter then exits before any trigger-tree code
+runs, and Codex treats a non-zero `UserPromptSubmit` hook as a blocking error, which stops
+the session. The Codex hook commands therefore check the script exists and exit 0 when it
+does not, so a stale path degrades to no telemetry rather than a broken session.
+
+Claude Code's manifest uses the documented shell-free exec form, chosen so Windows needs no
+shell, and that form cannot express the same guard. Claude re-resolves its plugin root per
+invocation, so the stale-path case has not been observed there; if it is, the fix is a
+manifest change rather than a code change.
+
 ## Invoking the skill
 
 Claude Code uses `/tt <command>`. Codex uses `@trigger-tree <command>`, and plain-language
