@@ -21,12 +21,12 @@ jobs:
       - name: Validate workflow syntax with actionlint
         uses: docker://rhysd/actionlint@sha256:9d36088643581e728c969f35141f88139fec77280b2be23c1f66f8e40e1025e7 # 1.7.12, linux/amd64
         with:
-          args: .github/workflows/ci.yml
+          args: .github/workflows/ci.yml .github/workflows/plugin-scan.yml
       - name: Audit workflow security with zizmor
         uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
         with:
           advanced-security: false
-          inputs: .github/workflows/ci.yml
+          inputs: .github/workflows/ci.yml .github/workflows/plugin-scan.yml
           min-severity: low
           version: "1.27.0"
 

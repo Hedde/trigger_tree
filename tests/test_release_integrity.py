@@ -147,11 +147,18 @@ def test_docs_currency_rejects_induced_command_and_link_drift(tmp_path):
         '{"plugins": [{"source": {"source": "url", "url": "x", "ref": "main"}}]}',
         encoding="utf-8",
     )
-    with pytest.raises(SystemExit, match="must be './' to stay pinnable"):
+    with pytest.raises(SystemExit, match="to stay pinnable"):
+        mod.check_docs_currency(tmp_path)
+
+    # De kale string "./" is sinds de HOL Guard scanner ook drift.
+    (tmp_path / ".agents/plugins/marketplace.json").write_text(
+        '{"plugins": [{"source": "./"}]}', encoding="utf-8"
+    )
+    with pytest.raises(SystemExit, match="to stay pinnable"):
         mod.check_docs_currency(tmp_path)
 
     (tmp_path / ".agents/plugins/marketplace.json").write_text(
-        '{"plugins": [{"source": "./"}]}', encoding="utf-8"
+        '{"plugins": [{"source": {"source": "local", "path": "./"}}]}', encoding="utf-8"
     )
     with pytest.raises(SystemExit, match="broken relative link"):
         mod.check_docs_currency(tmp_path)

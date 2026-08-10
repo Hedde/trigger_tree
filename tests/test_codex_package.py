@@ -52,7 +52,8 @@ def test_codex_marketplace_installs_the_checkout_itself():
     assert entry["name"] == "trigger-tree"
     # Relatief, zodat een op een tag gepinde marketplace-checkout zijn eigen
     # bytes installeert — een hardcoded url+ref volgde altijd main (issue #6).
-    assert entry["source"] == "./"
+    # Objectvorm i.p.v. kale string: de HOL Guard scanner eist source.path.
+    assert entry["source"] == {"source": "local", "path": "./"}
     assert entry["policy"] == {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL",
