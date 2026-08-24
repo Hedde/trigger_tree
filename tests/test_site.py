@@ -17,12 +17,12 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     for corner in ("tl", "tr", "bl", "br"):
         assert f'src="assets/branch-{corner}.webp"' in html
     assert html.count('loading="lazy"') == 2
-    assert "30-day half-life while lifetime reads stay visible" in html
+    assert "heat bars retain 30-day decayed attention volume" in html
     assert '█".repeat' in html and '·".repeat' in html
     assert "f focus · h hot · c cold" in html
     assert 'nameDesc ? "Z–A" : "A–Z"' in html and "s settings" in html
     assert 'const sorts = { f: "focus", h: "hot", c: "cold", n: "name" }' in html
-    assert "Focused top 10" in html
+    assert "Focus keeps the most recently consulted docs first" in html
     assert "/tt doctor" in html
     assert "/tt uninstall" in html
     assert "hook liveness, watch coverage" in html
@@ -33,7 +33,7 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "OpenAI Curated only after a separate OpenAI submission" in html
     assert "Codex's built-in <code>/statusline</code> is separate" in html
     assert "--cold:#305faa" in html and "--hot:#b52323" in html
-    assert 'cold</span> → <span class="cool">cool' in html
+    assert '&gt;30d</span> → <span class="cool">≤30d' in html
     assert "grid-template-columns:repeat(3,minmax(0,1fr))" in html
     assert "← older" in html and "→ newer" in html and "a live overview" in html
     assert "Math.min(buckets.length - 1, browseIdx + 1)" in html
@@ -66,7 +66,8 @@ def test_marketing_site_matches_released_navigation_and_doctor():
     assert "prompt privacy — stored locally, gitignored" in html
     assert "[s] back" in html and "saved — future prompts use" in html
     assert "injected · always loaded" in html
-    assert "RECENT_MS = 8000" in html
+    assert "folderLast(z) - folderLast(a)" in html
+    assert "temperature(b ? b.at : f.last" in html
     assert "% TIPS.length" in html and "30000" in html
     assert "copyInstall()" in html and 'btn.textContent = "copied ✓"' in html
     assert "uvx --from trigger-tree tt" in html

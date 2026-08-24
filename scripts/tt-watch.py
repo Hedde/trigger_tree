@@ -8,10 +8,11 @@ Run in a second terminal pane next to a Claude Code session:
     python3 scripts/tt-watch.py --replay   # replays the real history, accelerated
 
 A read makes its file flash white and ripples a pulse up through its parent
-folders, then fades back to the file's time-decayed heat color. Lifetime read
-counts remain visible as separate evidence. Untouched
-paths stay dim gray. Cold-to-hot activity uses a coherent blue → cyan → green →
-amber → red spectrum. Quit with q or Ctrl+C. 256-color ANSI, stdlib only.
+folders, then fades back to a color based on when it was last read. The heat
+bar remains a separate, time-decayed measure of attention volume, and lifetime
+read counts remain visible as durable evidence. Untouched paths stay dim gray.
+Recency uses a coherent blue → cyan → green → amber → red spectrum. Quit with q
+or Ctrl+C. 256-color ANSI, stdlib only.
 """
 
 import argparse
@@ -94,10 +95,13 @@ LIVE_FOLDER_LIMIT = 10  # focused live overview; full cold inventory lives in in
 ESCAPE_BYTE_TIMEOUT = 0.2  # tolerate delayed terminal bytes on loaded machines
 PULSE_SECS = 1.4  # how long a flash takes to fade
 RIPPLE_DELAY = 0.09  # per tree level, leaf → root
-RECENT_SECS = 8.0  # keep recently active folders visible before alpha fallback
 INVENTORY_SYNC_SECS = 5.0  # disk discovery is useful, but a full walk need not run per second
 HEAT_HALF_LIFE_DAYS = 30.0
 HEAT_DEAD_THRESHOLD = 0.05
+RECENCY_HOT_DAYS = 1.0
+RECENCY_WARM_DAYS = 3.0
+RECENCY_ACTIVE_DAYS = 7.0
+RECENCY_COOL_DAYS = 30.0
 INJECTED = 141
 TIP_ROTATE_SECS = 30.0
 
@@ -320,6 +324,9 @@ class App:
         # path -> (decayed score at reference timestamp, reference timestamp).
         # This preserves exponential heat without retaining every historical read.
         self.read_heat = {}
+        # Reads, searches, and skill uses share focus ordering, but only reads
+        # determine file/folder recency color.
+        self.last_activity = {}
         self.scans = Counter()
         self.pulses = {}  # node path -> pulse start time (may lie in the future)
         self.ticker = deque(maxlen=4)
@@ -460,6 +467,7 @@ class App:
                 timestamp = time.time()
             if timestamp is not None:
                 self._record_heat(path, timestamp)
+                self._record_activity(path, timestamp)
             self.total_reads += 1
             if path not in self.files and os.path.isfile(os.path.join(ROOT, path)):
                 self.files.append(path)
@@ -468,14 +476,24 @@ class App:
                 self.ticker.appendleft((time.time(), "●", path, ev.get("agent", "main")))
         elif t == "scan":
             self.scans[ev["path"]] += 1
+            timestamp = timestamp_epoch(ev.get("ts"))
+            if timestamp is None and live:
+                timestamp = time.time()
+            if timestamp is not None:
+                self._record_activity(ev["path"].rstrip("/"), timestamp)
             self.total_scans += 1
             if live:
                 self._pulse(ev["path"])
                 self.ticker.appendleft((time.time(), "🔍", ev["path"], ev.get("agent", "main")))
         elif t == "skill":
             self.total_skills += 1
+            timestamp = timestamp_epoch(ev.get("ts"))
+            if timestamp is None and live:
+                timestamp = time.time()
+            skill_file = f".claude/skills/{ev.get('skill', '')}/SKILL.md"
+            if timestamp is not None and skill_file in self.files:
+                self._record_activity(skill_file, timestamp)
             if live:
-                skill_file = f".claude/skills/{ev.get('skill', '')}/SKILL.md"
                 if skill_file in self.files:
                     self._pulse(skill_file)
                 self.ticker.appendleft(
@@ -506,6 +524,9 @@ class App:
             # can be out of order. Add an older contribution at the current reference.
             score += 0.5 ** ((reference - timestamp) / half_life_seconds)
             self.read_heat[path] = (score, reference)
+
+    def _record_activity(self, path, timestamp):
+        self.last_activity[path] = max(timestamp, self.last_activity.get(path, timestamp))
 
     def select_prev(self):
         if not self.buckets:
@@ -560,18 +581,21 @@ class App:
             }
         )
 
-    def _heat(self, score):
-        if score < HEAT_DEAD_THRESHOLD:
-            return DEAD
-        if score < 0.5:
-            return COLD
-        if score < 2:
-            return COOL
-        if score < 5:
-            return GREEN
-        if score < 10:
+    def _temperature(self, last_read, now, touched=False):
+        """Color by last-read age; heat amount is encoded separately by bar and h."""
+        if last_read is None:
+            # Timestamp-less legacy evidence is touched but has no honest age.
+            return COLD if touched else DEAD
+        age_days = max(0.0, now - last_read) / 86400
+        if age_days <= RECENCY_HOT_DAYS:
+            return RED
+        if age_days <= RECENCY_WARM_DAYS:
             return AMBER
-        return RED
+        if age_days <= RECENCY_ACTIVE_DAYS:
+            return GREEN
+        if age_days <= RECENCY_COOL_DAYS:
+            return COOL
+        return COLD
 
     def _node_color(self, base, glow):
         if glow > 0.66:
@@ -581,7 +605,7 @@ class App:
         return base, False
 
     def _folder_sort_key(self, folder, now, browsing, activity=0):
-        """Prioritize live activity without making the tree permanently jumpy."""
+        """Apply the selected folder order to its mode-specific numeric signal."""
         if not folder or browsing:
             return (folder != "", 1, 0, -activity, folder)
         if self.sort_mode == "hot":
@@ -590,14 +614,7 @@ class App:
             return (True, 0, 0, activity, folder)
         if self.sort_mode == "name":
             return (True, 0, 0, 0, folder)
-        touched = self.pulses.get(folder, 0)
-        recent = self._is_recent(folder, now)
-        return (True, 0 if recent else 1, -touched if recent else 0, -activity, folder)
-
-    def _is_recent(self, node, now):
-        """A scheduled ripple is active immediately, not only after it starts glowing."""
-        touched = self.pulses.get(node, 0)
-        return bool(touched and now - touched <= RECENT_SECS)
+        return (True, 0, 0, -activity, folder)
 
     def _heat_bar(self, score, max_score, cells=5):
         if score < HEAT_DEAD_THRESHOLD:
@@ -616,15 +633,15 @@ class App:
 
     def _heat_legend(self, width):
         labels = (
-            (COLD, "cold"),
-            (COOL, "cool"),
-            (GREEN, "active"),
-            (AMBER, "warm"),
-            (RED, "hot"),
+            (COLD, ">30d"),
+            (COOL, "≤30d"),
+            (GREEN, "≤7d"),
+            (AMBER, "≤3d"),
+            (RED, "≤1d"),
         )
         separator = "→" if width < 75 else " → "
         scale = separator.join(c256(color, label, bold=True) for color, label in labels)
-        return c256(DIM, " heat: ") + scale + c256(DEAD, " · · untouched")
+        return c256(DIM, " recency: ") + scale + c256(DEAD, " · · untouched")
 
     def _tip_line(self, now, width):
         if not self.tips:
@@ -671,6 +688,15 @@ class App:
         if browsing:
             b = self.buckets[self.selected]
             counts = Counter(e["path"] for e in b["events"] if e["t"] == "read")
+            read_times = {}
+            for event in b["events"]:
+                if event["t"] != "read":
+                    continue
+                timestamp = timestamp_epoch(event.get("ts"))
+                if timestamp is not None:
+                    read_times[event["path"]] = max(
+                        timestamp, read_times.get(event["path"], timestamp)
+                    )
             scan_counts = Counter(e["path"].rstrip("/") for e in b["events"] if e["t"] == "scan")
             b_scans = sum(scan_counts.values())
             prompt_room = max(18, min(120, width - 46))
@@ -700,6 +726,11 @@ class App:
             heat_scores = Counter(
                 {path: score for path, score in self.heat_scores(now).items() if path in self.files}
             )
+            read_times = {
+                path: reference
+                for path, (_, reference) in self.read_heat.items()
+                if path in self.files
+            }
         max_heat = max(heat_scores.values(), default=0)
 
         # group files per folder ("" = repo root)
@@ -722,6 +753,8 @@ class App:
         focus_summary = ""
         folder_activity = {}
         folder_heat = {}
+        folder_last_read = {}
+        folder_focus = {}
         for folder, files in folders.items():
             # Injected instructions are context, not thermal evidence. They may
             # remain visible in focus/name views but must not influence hot/cold
@@ -733,16 +766,29 @@ class App:
             folder_activity[folder] = (
                 current_heat or sum(counts[f] for f in files)
             ) + normalized_scans[folder]
-        folder_order = (
-            folder_heat if self.sort_mode in ("hot", "cold") and not browsing else folder_activity
-        )
+            read_stamps = [read_times[f] for f in files if f in read_times]
+            folder_last_read[folder] = max(read_stamps, default=0)
+            activity_stamps = [
+                self.last_activity[path] for path in [folder, *files] if path in self.last_activity
+            ]
+            folder_focus[folder] = max(activity_stamps, default=folder_last_read[folder])
+        if browsing:
+            folder_order = folder_activity
+        elif self.sort_mode == "hot":
+            folder_order = folder_heat
+        elif self.sort_mode == "cold":
+            folder_order = folder_last_read
+        elif self.sort_mode == "focus":
+            folder_order = folder_focus
+        else:
+            folder_order = Counter()
         if not browsing:
             active = [
                 folder
                 for folder in folders
                 if any(counts[f] for f in folders[folder])
                 or normalized_scans[folder]
-                or self._is_recent(folder, now)
+                or folder_focus[folder]
             ]
             if self.sort_mode in ("cold", "name"):
                 candidates = list(folders)
@@ -806,10 +852,17 @@ class App:
                 files = sorted(files, key=lambda f: (-heat_scores[f], f))
             elif not browsing and self.sort_mode == "cold":
                 files = sorted(
-                    files, key=lambda f: (bool(ALWAYS_LOADED.search(f)), heat_scores[f], f)
+                    files,
+                    key=lambda f: (
+                        bool(ALWAYS_LOADED.search(f)),
+                        read_times.get(f, 0),
+                        f,
+                    ),
                 )
             elif not browsing and self.sort_mode == "name":
                 files = sorted(files, reverse=self.name_desc)
+            elif not browsing and self.sort_mode == "focus":
+                files = sorted(files, key=lambda f: (-read_times.get(f, 0), f))
             if not browsing:
                 if self.sort_mode == "cold":
                     shown = [f for f in files if not ALWAYS_LOADED.search(f)]
@@ -823,7 +876,14 @@ class App:
                 shown = files
             if folder:
                 color, bold = self._node_color(
-                    self._heat(folder_heat.get(folder, 0)), self._glow(folder, now)
+                    self._temperature(
+                        folder_last_read.get(folder) or None,
+                        now,
+                        touched=any(
+                            counts[path] for path in files if not ALWAYS_LOADED.search(path)
+                        ),
+                    ),
+                    self._glow(folder, now),
                 )
                 searches = normalized_scans[folder]
                 unread = sum(1 for f in inventory_folders.get(folder, []) if not counts[f])
@@ -839,7 +899,14 @@ class App:
                 heat = heat_scores[f]
                 injected = bool(ALWAYS_LOADED.search(f))
                 glow = self._glow(f, now)
-                color, bold = self._node_color(INJECTED if injected else self._heat(heat), glow)
+                color, bold = self._node_color(
+                    (
+                        INJECTED
+                        if injected
+                        else self._temperature(read_times.get(f), now, touched=bool(count))
+                    ),
+                    glow,
+                )
                 branch = "└─" if i == len(shown) - 1 else "├─"
                 name = os.path.basename(f) if folder else f
                 prefix = f"   {branch} " if folder else " "

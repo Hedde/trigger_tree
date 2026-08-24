@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.30.0 — 2026-08-24
+
+- Separates recency from attention volume throughout the live dashboard. Color
+  now depends only on time since the last read: hot through one day, warm
+  through three days, active through seven days, cool through 30 days, and cold
+  afterward. Five-cell bars and `h` retain the existing 30-day decayed heat
+  model, while lifetime counts remain durable evidence.
+- Makes `[f]` a persistent newest-activity-first sort instead of an eight-second
+  pulse followed by heat ordering. `[h]` continues to rank decayed attention;
+  `[c]` now puts untouched and oldest paths first. Folder color follows its most
+  recently read current child, so a large folder cannot stay visually hot from
+  accumulated old reads alone.
+- Carries the same split encoding into the HTML insights report and interactive
+  website demo, with explicit legends and documentation for each signal.
+
 ## 1.29.1 — 2026-08-02
 
 - Stops a stale Codex install from blocking a session. Codex persists a hook's

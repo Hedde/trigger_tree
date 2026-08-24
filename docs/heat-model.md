@@ -1,6 +1,8 @@
 # Heat model and evidence boundaries
 
-Reads are lifetime evidence and never decrease. Heat is current attention: each timestamped read contributes `0.5^(age_days / 30)`, so it halves every 30 days. Folder heat sums current file heat. Cold means inactive now, never obsolete.
+Reads are lifetime evidence and never decrease. Heat is attention volume: each timestamped read contributes `0.5^(age_days / 30)`, so it halves every 30 days. Folder heat sums current file heat.
+
+The dashboard keeps recency visually separate from volume. File color is determined only by time since its last timestamped read: hot through one day, warm through three days, active through seven days, cool through 30 days, and cold after 30 days. Untouched stays neutral gray; timestamp-less legacy reads use cold because their age cannot be established honestly. Folder color follows its most recently read current file, while its bar and `h` value still show summed heat. `[f]` sorts newest activity first and `[h]` sorts by decayed attention volume. Cold means inactive now, never obsolete.
 
 The health score combines coverage, router reachability, and search behavior. Its A–F grade is provisional until the dataset is `mature` (at least 100 reads and seven observed days). Correlation is not causation: a routing change followed by fewer searches does not prove the change caused the improvement.
 

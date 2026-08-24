@@ -1,8 +1,8 @@
 # Dashboard and report
 
-`/tt watch demo` opens the synthetic dashboard immediately. `/tt watch` follows real local history: reads pulse, parent folders ripple, and rows fade to their heat color. The visual always pairs color with five-cell bars, `h` values, and counts.
+`/tt watch demo` opens the synthetic dashboard immediately. `/tt watch` follows real local history: reads pulse, parent folders ripple, and rows fade to their last-read recency color. Color answers “how recently?”, five-cell bars and `h` answer “how much decayed attention?”, and lifetime counts answer “how many reads ever?”.
 
-Controls: `f` recent focus, `h` hottest, `c` coldest, `n` name order, `←`/`→` prompt history, `a` live overview, `s` prompt privacy, `r` refresh, and `q` quit. The live view limits proven activity to ten folders and collapses quiet paths; `/tt insights` retains the complete inventory.
+Controls: `f` persistent recent focus, `h` highest decayed attention, `c` oldest/untouched first, `n` name order, `←`/`→` prompt history, `a` live overview, `s` prompt privacy, `r` refresh, and `q` quit. Folder recency follows its newest current child, so a large folder cannot stay visually hot merely because it accumulated many older reads. The live view limits proven activity to ten folders and collapses quiet paths; `/tt insights` retains the complete inventory.
 
 The report keeps heat, lifetime reads, search evidence, routing coverage, trend, task
 clusters, protected context, retired paths, and review candidates separate. When a

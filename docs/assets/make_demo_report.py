@@ -65,6 +65,7 @@ PROMPTS = [
 ]
 
 DAYS = (1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21)
+DATE_PREFIX = "2026-08"
 
 
 def build_events():
@@ -72,12 +73,12 @@ def build_events():
     counter = 0
     for index, day in enumerate(DAYS):
         session = f"demo-{index + 1:02d}"
-        stamp = f"2026-07-{day:02d}T09:00:00Z"
+        stamp = f"{DATE_PREFIX}-{day:02d}T09:00:00Z"
         events.append({"t": "session", "ts": stamp, "session": session, "source": "startup"})
         events.append(
             {
                 "t": "prompt",
-                "ts": f"2026-07-{day:02d}T09:01:00Z",
+                "ts": f"{DATE_PREFIX}-{day:02d}T09:01:00Z",
                 "session": session,
                 "prompt": PROMPTS[index % len(PROMPTS)],
                 "topics": (
@@ -92,7 +93,7 @@ def build_events():
             events.append(
                 {
                     "t": "commit",
-                    "ts": f"2026-07-{day:02d}T09:05:00Z",
+                    "ts": f"{DATE_PREFIX}-{day:02d}T09:05:00Z",
                     "session": session,
                 }
             )
@@ -100,7 +101,7 @@ def build_events():
                 events.append(
                     {
                         "t": "test",
-                        "ts": f"2026-07-{day:02d}T09:04:00Z",
+                        "ts": f"{DATE_PREFIX}-{day:02d}T09:04:00Z",
                         "session": session,
                         "status": "pass",
                     }
@@ -110,7 +111,7 @@ def build_events():
                 events.append(
                     {
                         "t": "agent",
-                        "ts": f"2026-07-{day:02d}T09:06:00Z",
+                        "ts": f"{DATE_PREFIX}-{day:02d}T09:06:00Z",
                         "session": session,
                         "agent_type": persona,
                     }
@@ -121,7 +122,7 @@ def build_events():
             events.append(
                 {
                     "t": "edit",
-                    "ts": f"2026-07-{day:02d}T09:03:00Z",
+                    "ts": f"{DATE_PREFIX}-{day:02d}T09:03:00Z",
                     "session": session,
                     "tool": "Edit",
                     "path": "src/app.py",
@@ -131,7 +132,7 @@ def build_events():
             events.append(
                 {
                     "t": "scan",
-                    "ts": f"2026-07-{day:02d}T09:02:00Z",
+                    "ts": f"{DATE_PREFIX}-{day:02d}T09:02:00Z",
                     "session": session,
                     "tool": "Grep",
                     "path": "docs/database",
@@ -145,7 +146,7 @@ def build_events():
             events.append(
                 {
                     "t": "read",
-                    "ts": f"2026-07-{day:02d}T{10 + occurrence % 8:02d}:{occurrence % 60:02d}:00Z",
+                    "ts": f"{DATE_PREFIX}-{day:02d}T{10 + occurrence % 8:02d}:{occurrence % 60:02d}:00Z",
                     "session": session,
                     "tool": "Read",
                     "path": path,
@@ -156,7 +157,7 @@ def build_events():
     events.append(
         {
             "t": "note",
-            "ts": "2026-07-12T12:00:00Z",
+            "ts": f"{DATE_PREFIX}-12T12:00:00Z",
             "session": "demo-06",
             "text": "sharpened the design router",
         }

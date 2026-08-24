@@ -2,7 +2,8 @@
 
 | Term | Meaning |
 |---|---|
-| Heat | Current attention: timestamped reads decay with a 30-day half-life. |
+| Heat | Attention volume: timestamped reads decay with a 30-day half-life; bars and `h` encode it. |
+| Recency color | Time since the latest read: hot ≤1 day, warm ≤3, active ≤7, cool ≤30, cold older; untouched is gray. |
 | Read | A tool event proving a documentation path was consulted; not proof it was understood or followed. |
 | Scan / search | `scan` is the history-schema event for an explicit documentation search target; user interfaces display it as a search. Search output is never a read. |
 | Untouched | A current, evaluable file with no recorded read; a review signal, never a deletion verdict. |

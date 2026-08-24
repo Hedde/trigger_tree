@@ -50,7 +50,7 @@ def test_app_feed_pulse_and_glow(tmp_path):
     assert len(app.ticker) == before  # historic feed: counts only, no ticker
 
 
-def test_heat_and_node_color():
+def test_heat_recency_temperature_and_node_color():
     mod = load_script("tt-watch.py", FIXTURE)
     app = mod.App([])
     now = mod.timestamp_epoch("2026-07-20T12:00:00Z")
@@ -65,12 +65,13 @@ def test_heat_and_node_color():
     assert app.heat_scores(now)["docs/a.md"] == pytest.approx(1.5)
     assert app.heat_scores(now + 30 * 86400)["docs/a.md"] == pytest.approx(0.75)
     assert mod.timestamp_epoch("bad") is None and mod.timestamp_epoch(None) is None
-    assert app._heat(0) == mod.DEAD
-    assert app._heat(0.2) == mod.COLD
-    assert app._heat(1) == mod.COOL
-    assert app._heat(2) == mod.GREEN
-    assert app._heat(5) == mod.AMBER
-    assert app._heat(10) == mod.RED
+    assert app._temperature(None, now) == mod.DEAD
+    assert app._temperature(None, now, touched=True) == mod.COLD
+    assert app._temperature(now, now) == mod.RED
+    assert app._temperature(now - 2 * 86400, now, touched=True) == mod.AMBER
+    assert app._temperature(now - 5 * 86400, now, touched=True) == mod.GREEN
+    assert app._temperature(now - 20 * 86400, now, touched=True) == mod.COOL
+    assert app._temperature(now - 40 * 86400, now, touched=True) == mod.COLD
     assert app._node_color(100, 0.9) == (mod.WHITE, True)
     assert app._node_color(100, 0.5) == (229, True)
     assert app._node_color(100, 0.0) == (100, False)
@@ -203,25 +204,63 @@ def test_heat_legend_is_coherent_permanent_and_adaptive():
     mod = load_script("tt-watch.py", FIXTURE)
     app = mod.App(["docs/a.md"])
     wide = plain(app.render(time.time(), width=100, height=20))
-    assert "heat: cold → cool → active → warm → hot · · untouched" in wide
+    assert "recency: >30d → ≤30d → ≤7d → ≤3d → ≤1d · · untouched" in wide
     narrow = plain(app.render(time.time(), width=50, height=20))
-    assert "heat: cold→cool→active→warm→hot · · untouched" in narrow
+    assert "recency: >30d→≤30d→≤7d→≤3d→≤1d · · untouched" in narrow
 
 
-def test_live_folders_prioritize_recent_activity_then_return_to_alpha():
+def test_live_focus_persistently_sorts_by_latest_activity():
     mod = load_script("tt-watch.py", FIXTURE)
     app = mod.App(["docs/alpha/a.md", "docs/zulu/z.md"])
-    app.feed({"t": "read", "path": "docs/alpha/a.md", "session": "S"}, live=False)
-    now = time.time()
-    app.feed({"t": "read", "path": "docs/zulu/z.md", "session": "S"})
+    now = mod.timestamp_epoch("2026-07-20T12:00:00Z")
+    app.feed(
+        {"t": "read", "path": "docs/alpha/a.md", "session": "S", "ts": "2026-06-01T12:00:00Z"},
+        live=False,
+    )
+    app.feed(
+        {"t": "read", "path": "docs/zulu/z.md", "session": "S", "ts": "2026-07-19T12:00:00Z"},
+        live=False,
+    )
 
     recent = "\n".join(app.render(now, width=100, height=30))
     assert recent.index("docs/zulu/") < recent.index("docs/alpha/")
-    assert app._folder_sort_key("", now, False) < app._folder_sort_key("docs/zulu", now, False)
-
-    settled = "\n".join(app.render(now + mod.RECENT_SECS + 1, width=100, height=30))
-    assert settled.index("docs/alpha/") < settled.index("docs/zulu/")
+    settled = "\n".join(app.render(now + 90 * 86400, width=100, height=30))
+    assert settled.index("docs/zulu/") < settled.index("docs/alpha/")
+    assert recent.index("z.md") < recent.index("a.md")
     assert app._folder_sort_key("docs/zulu", now, True)[-1] == "docs/zulu"
+
+
+def test_old_read_volume_cannot_override_recency_color_or_focus_order():
+    mod = load_script("tt-watch.py", FIXTURE)
+    app = mod.App(["docs/mixed/old.md", "docs/mixed/new.md"])
+    for _ in range(20):
+        app.feed(
+            {
+                "t": "read",
+                "path": "docs/mixed/old.md",
+                "session": "old",
+                "ts": "2026-06-10T12:00:00Z",
+            },
+            live=False,
+        )
+    app.feed(
+        {
+            "t": "read",
+            "path": "docs/mixed/new.md",
+            "session": "new",
+            "ts": "2026-07-20T12:00:00Z",
+        },
+        live=False,
+    )
+    now = mod.timestamp_epoch("2026-07-20T12:00:00Z")
+
+    focus = "\n".join(app.render(now, width=110, height=30))
+    assert focus.index("new.md") < focus.index("old.md")
+    assert f"\x1b[38;5;{mod.RED}m docs/mixed/" in focus
+
+    app.set_sort("hot")
+    hot = plain(app.render(now, width=110, height=30))
+    assert hot.index("old.md") < hot.index("new.md")
 
 
 def test_live_focus_hides_untouched_folders_and_caps_activity_at_ten():
@@ -230,11 +269,19 @@ def test_live_focus_hides_untouched_folders_and_caps_activity_at_ten():
     app = mod.App(files)
     for i in range(13):
         for _ in range(i + 1):
-            app.feed({"t": "read", "path": f"docs/f{i:02d}/a.md", "session": "S"}, live=False)
-    frame = "\n".join(app.render(time.time(), width=120, height=80))
+            app.feed(
+                {
+                    "t": "read",
+                    "path": f"docs/f{i:02d}/a.md",
+                    "session": "S",
+                    "ts": f"2026-07-{i + 1:02d}T12:00:00Z",
+                },
+                live=False,
+            )
+    frame = "\n".join(app.render(mod.timestamp_epoch("2026-07-20T12:00:00Z"), width=120, height=80))
     assert "docs/quiet/" not in frame
     assert "3 more active · 1 quiet folders · 1 unread hidden" in frame
-    assert "docs/f12/" in frame and "docs/f00/" not in frame  # hottest ten win
+    assert "docs/f12/" in frame and "docs/f00/" not in frame  # newest ten win
 
 
 def test_partial_or_broken_config_never_crashes(tmp_path):

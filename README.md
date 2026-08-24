@@ -131,7 +131,7 @@ example `TT_LOG_PROMPTS='off'`) tightens that for every repository at once;
 | `/tt setup [truncate\|hash\|off]` | Wire the repo and choose prompt privacy |
 | `/tt doctor` | Check hooks, liveness, scope, privacy, and statusline wiring |
 | `/tt status` | Current heat, lifetime reads, and untouched paths |
-| `/tt watch` | Live mock-TUI dashboard with prompt browsing and sorting |
+| `/tt watch` | Live dashboard with recency colors, decayed heat bars, prompt browsing, and sorting |
 | `/tt insights` | Deterministic analysis plus a local HTML report |
 | `/tt instructions` | Per-directive adherence, uncertainty, and always-loaded cost |
 | `/tt suggestions` | Up to five evidence-backed routing improvements |

@@ -207,7 +207,7 @@
 
   <div class="grid">
     <div class="card"><h3>🔥 Heat &amp; cold maps</h3>
-      <p>Attention cools with a 30-day half-life while lifetime reads stay visible. Focused top 10 live; exact 7/30/90-day windows in insights. Captures <code>rg</code>/<code>grep</code>/<code>find</code> and expanded Bash reads.</p></div>
+      <p>Color shows time since the last read; heat bars retain 30-day decayed attention volume and lifetime reads stay visible. Focus keeps the most recently consulted docs first; insights adds exact 7/30/90-day windows. Captures <code>rg</code>/<code>grep</code>/<code>find</code> and expanded Bash reads.</p></div>
     <div class="card"><h3>📈 Proof, not vibes</h3>
       <p><code>/tt suggestions</code> proposes fixes with evidence. <code>/tt note</code> marks the change; the trend shows whether it worked.</p></div>
     <div class="card"><h3>🔒 Local by design</h3>
@@ -384,15 +384,16 @@ codex plugin add trigger-tree@trigger-tree
 
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
+  const DAY_MS = 86400000, demoNow = Date.now();
   const tree = [
     { folder: "docs/design/", files: [
-      { name: "principles.md", n: 12, h: 3.2 }, { name: "ui-patterns.md", n: 17, h: 6.8 }, { name: "accessibility.md", n: 3, h: 0.7 }]},
+      { name: "principles.md", n: 12, h: 3.2, last: demoNow - 2 * DAY_MS }, { name: "ui-patterns.md", n: 17, h: 6.8, last: demoNow - .4 * DAY_MS }, { name: "accessibility.md", n: 3, h: 0.7, last: demoNow - 12 * DAY_MS }]},
     { folder: "docs/database/", files: [
-      { name: "migrations.md", n: 4, h: 1.4 }, { name: "principles.md", n: 6, h: 2.1 }]},
+      { name: "migrations.md", n: 4, h: 1.4, last: demoNow - 4 * DAY_MS }, { name: "principles.md", n: 6, h: 2.1, last: demoNow - 26 * DAY_MS }]},
     { folder: "docs/operations/runbooks/", files: [
-      { name: "rollback.md", n: 2, h: 0.2 }]},
+      { name: "rollback.md", n: 2, h: 0.2, last: demoNow - 45 * DAY_MS }]},
     { folder: "docs/legacy/", files: [
-      { name: "old-api.md", n: 0, h: 0, dead: true }]},
+      { name: "old-api.md", n: 0, h: 0, last: 0, dead: true }]},
   ];
   let reads = 44, scans = 3, ticker = [], spin = 0, mode = "live", sortMode = "focus", nameDesc = false, hunted = false, revived = false, currentPulse = null;
   const folderSearches = {};
@@ -403,8 +404,6 @@ codex plugin add trigger-tree@trigger-tree
     "Keep the root router under 200 lines; pointers over inlining.",
     "Untouched never means obsolete — only mature datasets may judge.",
   ];
-  const RECENT_MS = 8000; // recently active folders stay on top, like the real focus sort
-  const folderActive = {};
   function promptLabel(text) {
     if (promptMode === "off") return "— prompt hidden —";
     if (promptMode === "hash") {
@@ -417,7 +416,11 @@ codex plugin add trigger-tree@trigger-tree
   const PROMPTS = ["style the buttons on the settings page", "add a tenant_id migration", "why is the deploy failing?", "summarize our ADRs"];
   const screen = document.getElementById("screen"), bubble = document.getElementById("bubble");
 
-  function heat(n) { return n === 0 ? "dead" : n < .5 ? "cold" : n < 2 ? "cool" : n < 5 ? "active" : n < 10 ? "warm" : "hot"; }
+  function temperature(last, touched) {
+    if (!last) return touched ? "cold" : "dead";
+    const age = Math.max(0, Date.now() - last) / DAY_MS;
+    return age > 30 ? "cold" : age > 7 ? "cool" : age > 3 ? "active" : age > 1 ? "warm" : "hot";
+  }
   function bar(n) {
     if (!n) return "·····";
     const filled = Math.max(1, Math.round(5 * Math.log1p(n) / Math.log1p(8)));
@@ -443,36 +446,35 @@ codex plugin add trigger-tree@trigger-tree
     if (!b) out += ` <span class="cool">${"CLAUDE.md".padEnd(25)}</span><span class="f">injected · always loaded</span>\n`;
     const groups = [...tree];
     const folderHeat = g => g.files.reduce((sum, f) => sum + f.h, 0);
+    const folderLast = g => Math.max(0, ...g.files.map(f => f.last || 0));
     if (!b && sortMode === "hot") groups.sort((a, z) => folderHeat(z) - folderHeat(a));
-    if (!b && sortMode === "cold") groups.sort((a, z) => folderHeat(a) - folderHeat(z));
+    if (!b && sortMode === "cold") groups.sort((a, z) => folderLast(a) - folderLast(z));
     if (!b && sortMode === "name") groups.sort((a, z) => (nameDesc ? -1 : 1) * a.folder.localeCompare(z.folder));
-    if (!b && sortMode === "focus") {
-      const recent = g => ((folderActive[g.folder] || 0) > Date.now() - RECENT_MS ? 1 : 0);
-      groups.sort((a, z) => recent(z) - recent(a));
-    }
+    if (!b && sortMode === "focus") groups.sort((a, z) => folderLast(z) - folderLast(a));
     for (const g of groups) {
       const searchCount = b ? (b.searches[g.folder] || 0) : (folderSearches[g.folder] || 0);
       if (b && !searchCount && !g.files.some(f => b.files[g.folder + f.name])) continue;
-      const folderPulse = pulsePath && pulsePath.startsWith(g.folder) ? "pulse" : `${heat(folderHeat(g))} fade`;
+      const folderPulse = pulsePath && pulsePath.startsWith(g.folder) ? "pulse" : `${temperature(b ? b.at : folderLast(g), b ? g.files.some(f => b.files[g.folder + f.name]) : g.files.some(f => f.n))} fade`;
       const unread = g.files.filter(f => !(b ? b.files[g.folder + f.name] : f.n)).length;
       const status = `${searchCount ? ` · 🔍 ${searchCount} search${searchCount === 1 ? "" : "es"}` : ""}${unread ? ` · ${unread} unread` : ""}`;
       out += ` <span class="${folderPulse}">${g.folder}</span><span class="f">${status}</span>\n`;
       let shown = b ? g.files.filter(f => b.files[g.folder + f.name]) : [...g.files];
       if (!b && sortMode === "hot") shown.sort((a, z) => z.h - a.h);
-      if (!b && sortMode === "cold") shown.sort((a, z) => a.h - z.h);
+      if (!b && sortMode === "cold") shown.sort((a, z) => (a.last || 0) - (z.last || 0));
       if (!b && sortMode === "name") shown.sort((a, z) => (nameDesc ? -1 : 1) * a.name.localeCompare(z.name));
+      if (!b && sortMode === "focus") shown.sort((a, z) => (z.last || 0) - (a.last || 0));
       shown.forEach((f, i) => {
         const n = b ? b.files[g.folder + f.name] : f.n;
         const branch = i === shown.length - 1 ? "└─" : "├─";
         const currentHeat = b ? n : f.h;
-        const cls = pulsePath === g.folder + f.name ? "pulse" : `${heat(currentHeat)} fade`;
+        const cls = pulsePath === g.folder + f.name ? "pulse" : `${temperature(b ? b.at : f.last, n > 0)} fade`;
         const id = f.dead ? ' id="deadnode" style="cursor:pointer;pointer-events:auto"' : "";
         const stat = b ? `${bar(n)} ${String(n).padStart(3)}` : `${bar(currentHeat)} h${currentHeat.toFixed(1).padStart(4)} · ${n}×`;
         out += `   <span class="f">${branch}</span> <span class="${cls}"${id}>${f.name.padEnd(22)}${stat}</span>\n`;
       });
     }
     out += `\n <b>${buckets.length ? buckets.length : 0}</b><span class="f"> prompts · </span><b>${reads}</b><span class="f"> reads · </span><b>${scans}</b><span class="f"> searches · 3 sessions</span>\n`;
-    out += ` <span class="f">heat:</span> <span class="cold">cold</span> → <span class="cool">cool</span> → <span class="active">active</span> → <span class="warm">warm</span> → <span class="hot">hot</span><span class="dead"> · · untouched</span>\n`;
+    out += ` <span class="f">recency:</span> <span class="cold">&gt;30d</span> → <span class="cool">≤30d</span> → <span class="active">≤7d</span> → <span class="warm">≤3d</span> → <span class="hot">≤1d</span><span class="dead"> · · untouched</span>\n`;
     out += b ? `<span class="f">   ← older · → newer · a live overview</span>\n` : `<span class="f">   ←/→ prompts · f focus · h hot · c cold · n ${nameDesc ? "Z–A" : "A–Z"} · s settings · sort:${sortMode}</span>\n<span class="cool"> tip: ${TIPS[tipIdx]}</span>\n`;
     out += ticker.slice(0, 3).map(t => `   <span class="tick">${t}</span>`).join("\n");
     screen.innerHTML = out;
@@ -483,15 +485,14 @@ codex plugin add trigger-tree@trigger-tree
   function pulseRandom() {
     if (mode !== "live") return;
     if (reads % 4 === 0 || buckets.length === 0) {
-      const b = { text: promptLabel(PROMPTS[Math.floor(Math.random() * PROMPTS.length)]), files: {}, searches: {}, reads: 0 };
+      const b = { text: promptLabel(PROMPTS[Math.floor(Math.random() * PROMPTS.length)]), files: {}, searches: {}, reads: 0, at: Date.now() };
       buckets.push(b);
       if (buckets.length > 10) { buckets.shift(); if (browseIdx !== null) browseIdx = Math.max(0, browseIdx - 1); }
       ticker.unshift(`▸ "${b.text}" · just now`);
     }
     const alive = tree.flatMap(g => g.files.filter(f => !f.dead).map(f => ({ g, f })));
     const pick = alive[Math.floor(Math.random() * alive.length)];
-    pick.f.n++; pick.f.h += 1; reads++;
-    folderActive[pick.g.folder] = Date.now();
+    pick.f.n++; pick.f.h += 1; pick.f.last = Date.now(); reads++;
     const cur = buckets[buckets.length - 1];
     const key = pick.g.folder + pick.f.name;
     cur.files[key] = (cur.files[key] || 0) + 1; cur.reads++;
@@ -511,7 +512,7 @@ codex plugin add trigger-tree@trigger-tree
       : "…nobody has read me in 247 days.<br>I need review—not a verdict. <b>Link me from an index?</b> 🥺";
     bubble.style.opacity = 1;
     setTimeout(() => (bubble.style.opacity = 0), 2600);
-    if (!revived) { revived = true; dead.dead = false; dead.n = 1; dead.h = 1; reads++;
+    if (!revived) { revived = true; dead.dead = false; dead.n = 1; dead.h = 1; dead.last = Date.now(); reads++;
       ticker.unshift("● docs/legacy/old-api.md · revived by a human · just now"); }
     currentPulse = "docs/legacy/old-api.md";
     render();

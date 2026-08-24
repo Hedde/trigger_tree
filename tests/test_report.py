@@ -21,10 +21,16 @@ def run_report(mod, monkeypatch, capsys, project):
     return capsys.readouterr().out.strip()
 
 
-def test_heat_color_and_escape(monkeypatch):
+def test_recency_color_and_escape(monkeypatch):
     mod = load_script("tt-report.py", FIXTURE)
-    assert mod.heat_color(0, 10) == mod.HEAT[0]
-    assert mod.heat_color(10, 10) == mod.HEAT[-1]
+    now = "2026-07-31T12:00:00Z"
+    assert mod.recency_color(None, now) == mod.HEAT[0]
+    assert mod.recency_color(None, now, touched=True) == mod.HEAT[1]
+    assert mod.recency_color("2026-06-01T12:00:00Z", now, touched=True) == mod.HEAT[1]
+    assert mod.recency_color("2026-07-15T12:00:00Z", now, touched=True) == mod.HEAT[2]
+    assert mod.recency_color("2026-07-26T12:00:00Z", now, touched=True) == mod.HEAT[3]
+    assert mod.recency_color("2026-07-29T12:00:00Z", now, touched=True) == mod.HEAT[4]
+    assert mod.recency_color("2026-07-31T12:00:00Z", now, touched=True) == mod.HEAT[5]
     assert mod.esc(None) == "—"
     assert mod.esc("<b>") == "&lt;b&gt;"
     assert mod.plugin_version() == RELEASED_VERSION
@@ -52,12 +58,18 @@ def test_heat_color_and_escape(monkeypatch):
     assert mod.tree_svg([], "warming", 4) == ""
     tree = mod.tree_svg(
         [
-            {"path": "docs/a/" + "long-" * 20 + ".md", "heat": 8, "reads": 3},
+            {
+                "path": "docs/a/" + "long-" * 20 + ".md",
+                "heat": 8,
+                "reads": 3,
+                "last_read": "2026-07-31T12:00:00Z",
+            },
             {"path": "docs/a/quiet.md", "heat": 0, "reads": 0},
             {"path": "docs/retired.md", "state": "retired", "heat": 99, "reads": 99},
         ],
         "warming",
         5,
+        now,
     )
     assert "untouched" in tree and "…" in tree and "retired" not in tree
     large_tree = mod.tree_svg(
@@ -185,6 +197,7 @@ def test_full_report_on_fixture(monkeypatch, capsys):
         "<meta charset=utf-8>",
         "Current heat",
         "30-day half-life",
+        "Color is time since last read",
         "Lifetime",
         "Skill usage",
         "Untouched review",

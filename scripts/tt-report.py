@@ -23,8 +23,9 @@ ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Website brand ramp; TUI approximations are 75, 80, 114, 214, and 196.
-# Neutral untouched state followed by the five shared report/site heat classes.
+# Neutral untouched state followed by the five shared report/site recency classes.
 HEAT = ["#4a5361", "#4775d1", "#38cfd0", "#7cb342", "#ffb300", "#e53935"]
+RECENCY_DAYS = (30.0, 7.0, 3.0, 1.0)
 
 MATURITY_NOTE = {
     "cold-start": "Measurement just started — review candidates are provisional.",
@@ -98,11 +99,29 @@ def prompt_mode():
     return mode
 
 
-def heat_color(count, max_count):
-    if count <= 0:
-        return HEAT[0]
-    idx = 1 + int((len(HEAT) - 2) * (math.log1p(count) / math.log1p(max(max_count, 2))) + 1e-9)
-    return HEAT[min(idx, len(HEAT) - 1)]
+def _timestamp(value):
+    try:
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def recency_color(last_read, as_of, touched=False):
+    """Map last-read age to color without letting volume prolong temperature."""
+    read_at = _timestamp(last_read)
+    now = _timestamp(as_of)
+    if read_at is None or now is None:
+        return HEAT[1] if touched else HEAT[0]
+    age_days = max(0.0, (now - read_at).total_seconds()) / 86400
+    if age_days > RECENCY_DAYS[0]:
+        return HEAT[1]
+    if age_days > RECENCY_DAYS[1]:
+        return HEAT[2]
+    if age_days > RECENCY_DAYS[2]:
+        return HEAT[3]
+    if age_days > RECENCY_DAYS[3]:
+        return HEAT[4]
+    return HEAT[5]
 
 
 def esc(s):
@@ -349,7 +368,7 @@ def line_chart_svg(trend, series, title, notes=None):
     return "".join(out)
 
 
-def tree_svg(files, maturity, evaluable_files):
+def tree_svg(files, maturity, evaluable_files, as_of=None):
     if maturity == "cold-start" or evaluable_files < 5:
         return ""
     current = [row for row in files if row.get("state", "current") == "current"]
@@ -362,8 +381,18 @@ def tree_svg(files, maturity, evaluable_files):
     rows = []
     for folder, members in ordered:
         folder_heat = sum(row.get("heat", 0) for row in members)
+        folder_last_read = max(
+            (row.get("last_read") for row in members if row.get("last_read")), default=None
+        )
         rows.append(
-            (folder + "/", folder_heat, sum(row.get("reads", 0) for row in members), False, False)
+            (
+                folder + "/",
+                folder_heat,
+                sum(row.get("reads", 0) for row in members),
+                folder_last_read,
+                False,
+                False,
+            )
         )
         active = sorted(
             (row for row in members if row.get("reads", 0)),
@@ -374,6 +403,7 @@ def tree_svg(files, maturity, evaluable_files):
                 "  " + os.path.basename(row["path"]),
                 row.get("heat", 0),
                 row.get("reads", 0),
+                row.get("last_read"),
                 True,
                 False,
             )
@@ -381,20 +411,21 @@ def tree_svg(files, maturity, evaluable_files):
         )
         quiet = len(members) - len(active)
         if quiet:
-            rows.append((f"  · {quiet} untouched", 0, 0, True, True))
-    high = max((heat for _, heat, _, _, _ in rows), default=1) or 1
+            rows.append((f"  · {quiet} untouched", 0, 0, None, True, True))
+    high = max((heat for _, heat, _, _, _, _ in rows), default=1) or 1
+    as_of = as_of or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     height = 30 + len(rows) * 25
     out = [
-        f"<svg class=tree-chart viewBox='0 0 820 {height}' role=img><title>Documentation tree by current heat</title>"
+        f"<svg class=tree-chart viewBox='0 0 820 {height}' role=img><title>Documentation tree: heat amount with last-read recency color</title>"
     ]
-    for index, (label, heat, reads, nested, quiet) in enumerate(rows):
+    for index, (label, heat, reads, last_read, nested, quiet) in enumerate(rows):
         y = 23 + index * 25
         shown = label if len(label) <= 48 else label[:47] + "…"
         mark = "·" if quiet else "▸" if not nested else "●"
-        color = HEAT[0] if quiet else heat_color(heat, high)
+        color = recency_color(last_read, as_of, touched=bool(reads))
         bar = 0 if quiet else max(3, 280 * math.log1p(heat) / math.log1p(max(high, 2)))
         out.append(
-            f"<g><title>{esc(label)} · h{heat:.3f} · {reads} lifetime reads</title><text x=12 y={y} fill='{color}'>{mark}</text><text x=32 y={y}>{esc(shown)}</text><rect x=410 y={y-13} width='{bar:.1f}' height=11 rx=2 fill='{color}'/><text x=705 y={y}>h{heat:.2f} · {reads}×</text></g>"
+            f"<g><title>{esc(label)} · h{heat:.3f} · {reads} lifetime reads · last {esc(last_read)}</title><text x=12 y={y} fill='{color}'>{mark}</text><text x=32 y={y}>{esc(shown)}</text><rect x=410 y={y-13} width='{bar:.1f}' height=11 rx=2 fill='{color}'/><text x=705 y={y}>h{heat:.2f} · {reads}×</text></g>"
         )
     out.append("</svg>")
     return "".join(out)
@@ -438,7 +469,7 @@ def main():
         (f for f in s["files"] if f.get("state", "current") == "current"),
         key=lambda f: (-f.get("heat", 0), -f["reads"], f["path"]),
     )
-    max_heat = max((f.get("heat", 0) for f in heated_files), default=1)
+    max_heat = max((f.get("heat", 0) for f in heated_files), default=1) or 1
     trend = s.get("trend", [])
     reads_spark = sparkline_svg([bucket.get("reads", 0) for bucket in trend], "Reads by period")
     scans_spark = sparkline_svg([bucket.get("scans", 0) for bucket in trend], "Searches by period")
@@ -500,17 +531,20 @@ def main():
     heat_model = s.get("heat_model", {})
     half_life = heat_model.get("half_life_days", 30)
     half_life_label = f"{half_life:g}" if isinstance(half_life, (int, float)) else esc(half_life)
-    tree = tree_svg(s["files"], maturity, t["evaluable_files"])
+    heat_as_of = heat_model.get("as_of")
+    tree = tree_svg(s["files"], maturity, t["evaluable_files"], heat_as_of)
     parts.append("<h2 id=heat>Current heat</h2>")
     if tree:
         parts.append(
-            "<p class=muted>The same indented tree, heat bars, h values, and lifetime reads "
-            "used by the live dashboard. Untouched files collapse to a · summary.</p>" + tree
+            "<p class=muted>The same indented tree used by the live dashboard: color shows "
+            "last-read recency, while bar length and h show decayed attention volume. "
+            "Untouched files collapse to a · summary.</p>" + tree
         )
     parts.append(
-        "<p class=muted>Heat is recent attention with a "
-        f"{half_life_label}-day half-life; lifetime reads never decay. "
-        "Cold means inactive now, not unimportant.</p><div class=scroll><table>"
+        "<p class=muted>Color is time since last read: hot ≤1 day, warm ≤3 days, active "
+        "≤7 days, cool ≤30 days, cold &gt;30 days. Heat is attention volume with a "
+        f"{half_life_label}-day half-life; lifetime reads never decay. Cold means inactive "
+        "now, not unimportant.</p><div class=scroll><table>"
     )
     visible_windows = [
         days for days in heat_model.get("windows_days", []) if days <= s.get("observed_days", 0)
@@ -524,7 +558,7 @@ def main():
     for f in heated_files[:20]:
         heat = f.get("heat", 0)
         w = max(6, int(120 * heat / max_heat)) if heat else 6
-        col = heat_color(heat, max_heat)
+        col = recency_color(f.get("last_read"), heat_as_of, touched=bool(f.get("reads")))
         window_cells = "".join(f"<td>{f.get(f'reads_{days}d', 0)}</td>" for days in visible_windows)
         parts.append(
             f"<tr><td><code>{esc(f['path'])}</code></td><td>{heat:.3f}</td>"
@@ -561,8 +595,9 @@ def main():
     if s.get("folders"):
         parts.append("<h2 id=folders>Folder heat &amp; cold map</h2>")
         parts.append(
-            "<p class=muted>Folder heat sums current decayed file attention. Coverage and lifetime "
-            "reads remain separate; cold means inactive now and never proves removal is safe.</p>"
+            "<p class=muted>Folder color follows its most recently read current file; folder heat "
+            "still sums decayed attention volume. Coverage and lifetime reads remain separate; "
+            "cold means inactive now and never proves removal is safe.</p>"
         )
         parts.append("<div class=scroll><table>")
         folder_window = max(visible_windows, default=None)
@@ -572,12 +607,12 @@ def main():
             "<th>Lifetime</th><th>Retired read share</th><th>Median file age</th>"
             "<th>Last read</th></tr>"
         )
-        max_folder_heat = max((f.get("heat", 0) for f in s["folders"]), default=1)
+        max_folder_heat = max((f.get("heat", 0) for f in s["folders"]), default=1) or 1
         visible_folders = [f for f in s["folders"] if f.get("files", 0) or f.get("heat", 0)]
         for fo in sorted(visible_folders, key=lambda f: (-f.get("heat", 0), f["folder"])):
             heat = fo.get("heat", 0)
             w = max(4, int(120 * heat / max_folder_heat)) if heat else 4
-            col = heat_color(heat, max_folder_heat)
+            col = recency_color(fo.get("last_read"), heat_as_of, touched=bool(fo.get("reads")))
             no_index = "" if fo.get("has_index") else " <small class=muted>· no index file</small>"
             folder_window_cell = (
                 f"<td>{fo.get(f'reads_{folder_window}d', 0)}</td>" if folder_window else ""
