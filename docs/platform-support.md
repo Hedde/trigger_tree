@@ -25,6 +25,15 @@ that from reading as a clean bill of health, every liveness line names the clien
 have actually recorded, so telemetry from one client cannot pass as another client's
 hooks working.
 
+## Doctor on Codex-only and legacy-console installs
+
+The Codex upload archive ships `hooks/hooks.json` without `hooks/claude-hooks.json`.
+`tt doctor` checks the Codex routes everywhere and the Claude Code routes only when that
+manifest or `.claude-plugin/plugin.json` is installed. A failure names the file and client
+that lack routes. On a console that cannot encode its glyphs, such as CP1250 on a Czech
+Windows install, doctor prints ASCII substitutes instead of crashing (issue #46).
+Whether a glyph renders is a separate matter of terminal font coverage.
+
 ## Surviving a stale install
 
 Codex persists a hook's resolved command, so an upgrade can leave it pointing at a version

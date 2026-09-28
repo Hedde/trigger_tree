@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.30.1 — 2026-09-28
+
+- Stops `tt doctor` from crashing on consoles that cannot encode its output,
+  such as CP1250 on a Czech Windows install. Lines the console cannot encode
+  fall back to ASCII, and characters with no substitute print as `?`.
+  Reported in issue #46.
+- Stops `tt doctor` from failing the Codex upload package for a missing Claude
+  Code manifest. That package ships `hooks/hooks.json` only, so the Claude
+  routes are now required only where Claude Code can load them. A failure names
+  the file and client that lack routes.
+
 ## 1.30.0 — 2026-08-24
 
 - Separates recency from attention volume throughout the live dashboard. Color

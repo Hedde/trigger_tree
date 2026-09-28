@@ -20,6 +20,20 @@ SUPPORTED_PYTHON = (3, 10), (3, 14)
 MANIFEST_PATH = os.path.join(ROOT, ".trigger-tree", "directives.json")
 
 
+# Legacy consoles (for example CP1250 on a Czech Windows install) cannot encode
+# the tree, check marks or dashes; degrade to ASCII instead of crashing (issue #46).
+ASCII_FALLBACK = str.maketrans({"🌳": "#", "✓": "+", "✗": "x", "—": "-", "–": "-", "…": "..."})
+
+
+def emit(text):
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    try:
+        text.encode(encoding)
+    except UnicodeEncodeError:
+        text = text.translate(ASCII_FALLBACK).encode(encoding, "replace").decode(encoding)
+    print(text)
+
+
 def load_json(path):
     try:
         with open(path, encoding="utf-8") as fh:
@@ -78,7 +92,8 @@ def history_health():
 
 
 def hooks_health():
-    claude_manifest = load_json(os.path.join(PLUGIN_ROOT, "hooks", "claude-hooks.json"))
+    claude_path = os.path.join(PLUGIN_ROOT, "hooks", "claude-hooks.json")
+    claude_manifest = load_json(claude_path)
     hooks = claude_manifest.get("hooks", {}) if isinstance(claude_manifest, dict) else {}
     commands = json.dumps(claude_manifest) if claude_manifest else ""
     claude_ok = {
@@ -109,9 +124,23 @@ def hooks_health():
         marker in codex_commands
         for marker in ("tt-codex-hook.py", "CLAUDE_PLUGIN_ROOT", "--client codex")
     )
-    if claude_ok and codex_ok:
-        return "PASS", "plugin hook files: Claude Code and Codex routes are intact"
-    return "FAIL", "plugin hook files: missing logger routes — reinstall the plugin"
+    # The Codex upload archive ships hooks.json only; a Claude Code install carries
+    # both manifests. Only demand the Claude routes where that client can load them
+    # (issue #46).
+    claude_required = os.path.exists(claude_path) or os.path.isfile(
+        os.path.join(PLUGIN_ROOT, ".claude-plugin", "plugin.json")
+    )
+    missing = [] if codex_ok else ["hooks/hooks.json (Codex)"]
+    if claude_required and not claude_ok:
+        missing.append("hooks/claude-hooks.json (Claude Code)")
+    if missing:
+        return (
+            "FAIL",
+            f"plugin hook files: missing logger routes in {', '.join(missing)}"
+            " — reinstall the plugin",
+        )
+    clients = "Claude Code and Codex routes are" if claude_required else "Codex routes are"
+    return "PASS", f"plugin hook files: {clients} intact"
 
 
 def codex_trust_health():
@@ -571,19 +600,19 @@ def main():
         )
         if check is not None
     ]
-    print("🌳 trigger-tree doctor")
+    emit("🌳 trigger-tree doctor")
     for state, message in checks:
         icon = {"PASS": "✓", "WARN": "!", "FAIL": "✗"}[state]
-        print(f"{icon} {message}")
+        emit(f"{icon} {message}")
     failures = sum(state == "FAIL" for state, _ in checks)
     warnings = sum(state == "WARN" for state, _ in checks)
     if failures:
-        print(f"attention needed — {failures} failed, {warnings} warnings")
+        emit(f"attention needed — {failures} failed, {warnings} warnings")
     elif warnings:
         plural = "s" if warnings != 1 else ""
-        print(f"telemetry healthy — {warnings} optional setup warning{plural}")
+        emit(f"telemetry healthy — {warnings} optional setup warning{plural}")
     else:
-        print("all checks passed — telemetry is wired and receiving events")
+        emit("all checks passed — telemetry is wired and receiving events")
     return 1 if failures else 0
 
 

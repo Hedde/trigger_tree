@@ -532,3 +532,38 @@ def test_config_drift_names_injected_surfaces_a_stale_regex_misses(tmp_path, mon
     (telemetry / "config.sh").write_text(stale + "\n")
     monkeypatch.setattr(mod, "PLUGIN_ROOT", str(tmp_path / "absent"))
     assert mod.config_drift_health() is None
+
+
+def test_doctor_degrades_to_ascii_on_legacy_console(tmp_path, monkeypatch):
+    # Issue #46: a CP1250 console crashed on the first tree glyph.
+    import io
+    import sys
+
+    wire_project(tmp_path)
+    mod = load_script("tt-doctor.py", tmp_path)
+    raw = io.BytesIO()
+    console = io.TextIOWrapper(raw, encoding="cp1250")
+    monkeypatch.setattr(sys, "stdout", console)
+    mod.main()
+    mod.emit("čeština Кириллица")
+    console.flush()
+    out = raw.getvalue().decode("cp1250")
+    assert out.startswith("# trigger-tree doctor\n+ plugin hook files:")
+    assert "telemetry healthy — " in out  # CP1250 has the em dash itself
+    assert "čeština ?????????" in out
+
+
+def test_doctor_hooks_accept_codex_only_package(tmp_path, monkeypatch):
+    # Issue #46: the Codex upload archive ships hooks.json without the Claude manifest.
+    (tmp_path / "hooks").mkdir()
+    source = os.path.join(os.path.dirname(os.path.dirname(__file__)), "hooks", "hooks.json")
+    (tmp_path / "hooks" / "hooks.json").write_text(open(source, encoding="utf-8").read())
+    mod = load_script("tt-doctor.py", tmp_path)
+    monkeypatch.setattr(mod, "PLUGIN_ROOT", str(tmp_path))
+    assert mod.hooks_health() == ("PASS", "plugin hook files: Codex routes are intact")
+    (tmp_path / ".claude-plugin").mkdir()
+    (tmp_path / ".claude-plugin" / "plugin.json").write_text("{}")
+    status, message = mod.hooks_health()
+    assert status == "FAIL"
+    assert "hooks/claude-hooks.json (Claude Code)" in message
+    assert "hooks/hooks.json" not in message
