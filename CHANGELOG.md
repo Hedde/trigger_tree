@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.30.1 — 2026-09-28
+## 1.30.2 — 2026-09-28
 
 - Stops `tt doctor` from crashing on consoles that cannot encode its output,
   such as CP1250 on a Czech Windows install. Lines the console cannot encode

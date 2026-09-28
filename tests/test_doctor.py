@@ -542,7 +542,7 @@ def test_doctor_degrades_to_ascii_on_legacy_console(tmp_path, monkeypatch):
     wire_project(tmp_path)
     mod = load_script("tt-doctor.py", tmp_path)
     raw = io.BytesIO()
-    console = io.TextIOWrapper(raw, encoding="cp1250")
+    console = io.TextIOWrapper(raw, encoding="cp1250", newline="\n")
     monkeypatch.setattr(sys, "stdout", console)
     mod.main()
     mod.emit("čeština Кириллица")
