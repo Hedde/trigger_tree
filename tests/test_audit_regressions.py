@@ -3,6 +3,7 @@
 import io
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -219,8 +220,11 @@ def test_packaged_launcher_and_legacy_console(tmp_path):
         "TT_PROJECT_DIR": str(tmp_path),
         "PYTHONIOENCODING": "cp1250",
     }
+    bash = shutil.which("bash") or "bash"
+    if os.name == "nt":
+        bash = str(Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/bin/bash.exe")
     result = subprocess.run(
-        ["bash", str(package / "scripts/tt-open.sh"), "demo"], env=env, capture_output=True
+        [bash, (package / "scripts/tt-open.sh").as_posix(), "demo"], env=env, capture_output=True
     )
     assert result.returncode == 0, result.stderr
     result = subprocess.run(
