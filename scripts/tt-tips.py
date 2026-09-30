@@ -5,6 +5,8 @@ import argparse
 import os
 from pathlib import Path
 
+from tt_runtime import emit
+
 
 def markdown_lines(path):
     try:
@@ -98,9 +100,9 @@ def parse_args(argv=None):
 def main(argv=None):
     args = parse_args(argv)
     tips = tips_for(args.client, args.project)
-    print(f"🌳 {args.client.title()} maintenance tips — review only; nothing was changed.")
+    emit(f"🌳 {args.client.title()} maintenance tips — review only; nothing was changed.")
     for number, tip in enumerate(tips, 1):
-        print(f"{number}. {tip}")
+        emit(f"{number}. {tip}")
 
 
 if __name__ == "__main__":

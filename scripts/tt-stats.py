@@ -30,7 +30,7 @@ from itertools import combinations
 from statistics import median
 
 import tt_adherence
-from tt_runtime import codex_install, user_config_path
+from tt_runtime import codex_install, redirected, user_config_path, valid_event
 from tt_scope import git_visible_files, symlinked_surfaces
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
@@ -50,20 +50,6 @@ ROUTER_NAMES = ("README.md", "_index.md", "index.md", "CLAUDE.md")
 TREND_MIN_EVENTS = 10
 MAX_CO_READ_PATHS = 200
 MAX_IMPORTED_FILES = 200
-EVENT_TYPES = {
-    "agent",
-    "command",
-    "commit",
-    "edit",
-    "note",
-    "outcome",
-    "prompt",
-    "read",
-    "scan",
-    "session",
-    "skill",
-    "test",
-}
 
 
 def _conf_texts():
@@ -160,21 +146,6 @@ def history_files(explicit=None):
     return sorted(glob.glob(os.path.join(ROOT, ".trigger-tree", "history*.jsonl")))
 
 
-def valid_event(event):
-    """Reject structurally incomplete telemetry before aggregation can crash."""
-    event_type = event.get("t")
-    if event_type not in EVENT_TYPES:
-        return False
-    if "ts" in event and not isinstance(event["ts"], str):
-        return False
-    required = (
-        "path"
-        if event_type in ("read", "scan", "edit")
-        else "skill" if event_type == "skill" else None
-    )
-    return required is None or isinstance(event.get(required), str) and bool(event[required])
-
-
 def load_events_with_diagnostics(paths):
     events = []
     seen_tool_calls = set()
@@ -219,7 +190,12 @@ def load_events_with_diagnostics(paths):
                     "skill",
                     "test",
                 ):
-                    identity = (event.get("session"), event.get("t"), tool_use_id)
+                    identity = (
+                        event.get("session"),
+                        event.get("t"),
+                        tool_use_id,
+                        event.get("path"),
+                    )
                     if identity in seen_tool_calls:
                         continue
                     seen_tool_calls.add(identity)
@@ -520,8 +496,9 @@ def write_badge(payload):
     """Atomically write the endpoint JSON without following project-controlled links."""
     directory = os.path.join(ROOT, ".trigger-tree")
     if os.path.lexists(directory):
-        mode = os.lstat(directory).st_mode
-        if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
+        info = os.lstat(directory)
+        mode = info.st_mode
+        if redirected(info) or not stat.S_ISDIR(mode):
             raise RuntimeError("refusing non-directory or symlinked .trigger-tree")
     else:
         os.makedirs(directory, mode=0o700)

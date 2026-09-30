@@ -111,14 +111,14 @@ def test_translate_ignores_non_file_tools(payload, tmp_path):
         ("mcp__wiki__search_pages", {"path": "docs"}, "Grep"),
     ],
 )
-def test_translate_accepts_broad_file_backed_mcp_names(
+def test_translate_does_not_guess_unknown_mcp_semantics(
     tool_name, tool_input, normalized_tool, tmp_path
 ):
     mod = load_script("tt-codex-hook.py", tmp_path)
     route, normalized = mod.translate(
         {"hook_event_name": "PostToolUse", "tool_name": tool_name, "tool_input": tool_input}
     )
-    assert route == "read" and normalized["tool_name"] == normalized_tool
+    assert route is None and normalized["tool_name"] == tool_name
 
 
 def test_payload_and_project_root_fallbacks(tmp_path, monkeypatch):

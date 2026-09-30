@@ -13,7 +13,7 @@ def test_full_setup_and_idempotency(tmp_path, monkeypatch, capsys):
     assert "watched: 0 of 0 markdown files" in out
     assert os.path.isfile(tmp_path / ".claude" / "tt-statusline.py")
     assert os.path.isfile(tmp_path / ".trigger-tree" / "config.sh")
-    assert "TT_LOG_PROMPTS='truncate'" in (tmp_path / ".trigger-tree" / "config.sh").read_text()
+    assert "TT_LOG_PROMPTS='hash'" in (tmp_path / ".trigger-tree" / "config.sh").read_text()
     assert "TT_LOG_TOPICS='on'" in (tmp_path / ".trigger-tree" / "config.sh").read_text()
     assert "TT_LOG_COMMANDS='classified'" in (tmp_path / ".trigger-tree" / "config.sh").read_text()
     assert "TT_EDIT_REGEX='^(?!" in (tmp_path / ".trigger-tree" / "config.sh").read_text()
@@ -76,7 +76,7 @@ def test_new_interactive_setup_asks_with_truncate_default(tmp_path, capsys):
 def test_prompt_choice_never_blocks_automation_or_overwrites_existing(tmp_path):
     mod = load_script("tt-setup.py", tmp_path)
     pipe = type("Pipe", (), {"isatty": lambda self: False})()
-    assert mod.choose_prompt_mode(None, False, stream=pipe) == ("truncate", False)
+    assert mod.choose_prompt_mode(None, False, stream=pipe) == ("hash", False)
     assert mod.choose_prompt_mode(None, True, stream=pipe) == ("truncate", False)
     assert mod.choose_prompt_mode("off", True, stream=pipe) == ("off", True)
 

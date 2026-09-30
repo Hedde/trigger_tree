@@ -1,12 +1,14 @@
 import json
 import os
 import re
+import subprocess
 from datetime import datetime, timezone
 
 from conftest import load_script
 
 
 def wire_project(project, events=True):
+    subprocess.run(["git", "init", str(project)], check=True, capture_output=True)
     (project / ".claude").mkdir()
     (project / ".claude" / "tt-statusline.py").write_text("# installed\n")
     (project / ".claude" / "settings.json").write_text(
@@ -37,6 +39,7 @@ def test_doctor_all_checks_pass(tmp_path, monkeypatch, capsys):
 
 
 def test_doctor_warns_before_first_event_and_without_statusline(tmp_path, capsys):
+    subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
     (tmp_path / ".gitignore").write_text(".trigger-tree/*\n")
     mod = load_script("tt-doctor.py", tmp_path)
     assert mod.main() == 0
@@ -46,7 +49,11 @@ def test_doctor_warns_before_first_event_and_without_statusline(tmp_path, capsys
 
 
 def test_doctor_fails_actionably_on_broken_project(tmp_path, monkeypatch, capsys):
+    subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
     (tmp_path / ".trigger-tree").mkdir()
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "config", "core.excludesFile", os.devnull], check=True
+    )
     (tmp_path / ".trigger-tree" / "history.jsonl").write_text("bad\n")
     mod = load_script("tt-doctor.py", tmp_path)
     monkeypatch.setattr(mod, "PLUGIN_ROOT", str(tmp_path))

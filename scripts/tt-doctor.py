@@ -5,12 +5,13 @@ import glob
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from datetime import datetime
 
 import tt_adherence
-from tt_runtime import session_id, user_config_path
+from tt_runtime import session_id, user_config_path, valid_event
 from tt_scope import is_poor_coverage, parse_ignore, scan_markdown, symlinked_surfaces
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
@@ -57,7 +58,7 @@ def history_health():
                     except json.JSONDecodeError:
                         corrupt += 1
                         continue
-                    if not isinstance(event, dict) or not event.get("t"):
+                    if not isinstance(event, dict):
                         corrupt += 1
                         continue
                     version = event.get("schema_version", 0)
@@ -65,6 +66,9 @@ def history_health():
                         legacy += 1
                     elif version != SCHEMA_VERSION:
                         future += 1
+                        continue
+                    if not valid_event(event):
+                        corrupt += 1
                         continue
                     valid += 1
                     latest = event.get("ts") or latest
@@ -558,15 +562,52 @@ def python_health():
 
 
 def ignore_health():
-    path = os.path.join(ROOT, ".gitignore")
+    targets = {
+        ".trigger-tree/history.jsonl",
+        ".trigger-tree/report.html",
+        ".trigger-tree/sessions/probe.json",
+        ".trigger-tree/badge.json",
+        ".trigger-tree/write.lock",
+    }
+    for directory, _, files in os.walk(os.path.join(ROOT, ".trigger-tree")):
+        for name in files:
+            relative = os.path.relpath(os.path.join(directory, name), ROOT).replace(os.sep, "/")
+            if relative not in (
+                ".trigger-tree/config.sh",
+                ".trigger-tree/gate.json",
+                ".trigger-tree/directives.json",
+            ):
+                targets.add(relative)
     try:
-        lines = open(path, encoding="utf-8").read().splitlines()
-    except OSError:
-        lines = []
-    ignored = ".trigger-tree/" in lines or ".trigger-tree/*" in lines
-    if ignored:
-        return "PASS", "privacy: telemetry directory is gitignored"
-    return "FAIL", "privacy: .trigger-tree is not gitignored — run /tt setup"
+        tracked = subprocess.run(
+            ["git", "ls-files", "-z", "--", *sorted(targets)],
+            cwd=ROOT,
+            capture_output=True,
+            timeout=2,
+            check=True,
+        )
+        ignored = subprocess.run(
+            ["git", "check-ignore", "--stdin", "-z", "--verbose", "--non-matching"],
+            cwd=ROOT,
+            input=b"".join(os.fsencode(path) + b"\0" for path in sorted(targets)),
+            capture_output=True,
+            timeout=2,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "WARN", "privacy: cannot verify effective Git ignore rules"
+    records = ignored.stdout.split(b"\0")[:-1]
+    patterns = records[2::4]
+    if (
+        not tracked.stdout
+        and ignored.returncode == 0
+        and len(patterns) == len(targets)
+        and all(pattern and not pattern.startswith(b"!") for pattern in patterns)
+    ):
+        return "PASS", "privacy: telemetry files are gitignored and untracked"
+    return (
+        "FAIL",
+        "privacy: telemetry is tracked or not gitignored — run /tt setup and review Git rules",
+    )
 
 
 def statusline_health():
