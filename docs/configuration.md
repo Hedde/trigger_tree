@@ -33,7 +33,7 @@ Enter accepts it. Setup also writes the optional adherence capture choices expli
 topics, classified commands, and a conservative project-relative edit scope. Existing
 installs that have no new keys remain off and never start recording more silently.
 Piped, hook, and CI runs cannot block on the question and use privacy-preserving
-defaults. Existing project choices are preserved unless their explicit options are
+defaults: the user-wide prompt mode is preserved, falling back to `hash` when absent or invalid. Existing project choices are preserved unless their explicit options are
 passed. Setup also reports watch coverage and can propose a regex, but never applies it
 without `tt-setup.py --apply-watch-suggestion`. `/tt doctor` fails on zero watch matches,
 warns on very low coverage, and identifies manifest probes that cannot fire under current

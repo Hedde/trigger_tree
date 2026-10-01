@@ -1,7 +1,9 @@
 """Shared runtime path resolution for trigger-tree hook entry points."""
 
 import os
+import stat
 import subprocess
+import sys
 
 
 def user_config_path():
@@ -59,6 +61,8 @@ def project_root(cwd=None):
             cwd=working,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="surrogateescape",
             timeout=2,
             check=True,
         ).stdout.strip()
@@ -67,3 +71,45 @@ def project_root(cwd=None):
     except (OSError, subprocess.SubprocessError):
         pass
     return claude_root or cwd or os.getcwd()
+
+
+def redirected(info):
+    """Reject symlinks and Windows reparse points, including directory junctions."""
+    return stat.S_ISLNK(info.st_mode) or bool(getattr(info, "st_file_attributes", 0) & 0x400)
+
+
+def emit(text):
+    """Print diagnostics even on consoles that cannot encode the original text."""
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    print(text.encode(encoding, "backslashreplace").decode(encoding))
+
+
+EVENT_TYPES = {
+    "agent",
+    "command",
+    "commit",
+    "edit",
+    "note",
+    "outcome",
+    "prompt",
+    "read",
+    "scan",
+    "session",
+    "skill",
+    "test",
+}
+
+
+def valid_event(event):
+    """Reject structurally incomplete telemetry before aggregation can crash."""
+    event_type = event.get("t")
+    if event_type not in EVENT_TYPES:
+        return False
+    if "ts" in event and not isinstance(event["ts"], str):
+        return False
+    required = (
+        "path"
+        if event_type in ("read", "scan", "edit")
+        else "skill" if event_type == "skill" else None
+    )
+    return required is None or isinstance(event.get(required), str) and bool(event[required])
