@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.30.3 — 2026-09-30
+
+- Fix the Codex-only dashboard launcher and report version lookup without requiring Claude manifests.
+- Decode Git roots as UTF-8 and escape unencodable tips/report diagnostics on legacy consoles.
+- Capture apply_patch command payloads, preserve multiple paths per tool call, and share event validation between doctor and stats.
+- Interpret Codex command exit status instead of assuming success; leave unknown responses unknown. Restrict MCP read/scan classification to supported filesystem operations.
+- Reject existing Windows reparse points (including junctions) at telemetry write destinations, alongside symlinks. This does not claim race-proof filesystem isolation.
+- Check effective Git ignore rules and tracked telemetry, including negations and global excludes.
+- Preserve user-wide prompt privacy during noninteractive setup, with hash as the fallback.
+- Thanks to Draciste for the detailed installed-package audit and reproductions in #50 and #51. Native Windows junction coverage is included for Windows CI; local verification was on macOS.
+
 ## 1.30.2 — 2026-09-28
 
 - Stops `tt doctor` from crashing on consoles that cannot encode its output,

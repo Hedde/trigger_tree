@@ -39,7 +39,7 @@ from tt_adherence import (
     safe_command_pattern,
     validate_manifest,
 )
-from tt_runtime import project_root, session_id, user_config_path
+from tt_runtime import project_root, redirected, session_id, user_config_path
 
 ROOT = project_root()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -129,8 +129,9 @@ def _update_session_state(hist_dir, obj):
         return
     state_dir = os.path.join(hist_dir, "sessions")
     if os.path.lexists(state_dir):
-        mode = os.lstat(state_dir).st_mode
-        if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
+        info = os.lstat(state_dir)
+        mode = info.st_mode
+        if redirected(info) or not stat.S_ISDIR(mode):
             return
     else:
         os.makedirs(state_dir, mode=0o700)
@@ -212,8 +213,9 @@ def _already_recorded(hist_dir, obj):
         return False
     path = _session_state_path(hist_dir, obj["session"])
     try:
-        mode = os.lstat(path).st_mode
-        if stat.S_ISLNK(mode) or not stat.S_ISREG(mode):
+        info = os.lstat(path)
+        mode = info.st_mode
+        if redirected(info) or not stat.S_ISREG(mode):
             return False
         state = json.loads(open(path, encoding="utf-8").read())
     except (OSError, ValueError):
@@ -225,8 +227,9 @@ def append(obj, rotate_bytes):
     obj.setdefault("schema_version", SCHEMA_VERSION)
     hist_dir = os.path.join(ROOT, ".trigger-tree")
     if os.path.lexists(hist_dir):
-        mode = os.lstat(hist_dir).st_mode
-        if not stat.S_ISDIR(mode) or stat.S_ISLNK(mode):
+        info = os.lstat(hist_dir)
+        mode = info.st_mode
+        if not stat.S_ISDIR(mode) or redirected(info):
             return
     else:
         os.makedirs(hist_dir, mode=0o700)
@@ -236,8 +239,9 @@ def append(obj, rotate_bytes):
         pass
     lock_path = os.path.join(hist_dir, "write.lock")
     if os.path.lexists(lock_path):
-        mode = os.lstat(lock_path).st_mode
-        if stat.S_ISLNK(mode) or not stat.S_ISREG(mode):
+        info = os.lstat(lock_path)
+        mode = info.st_mode
+        if redirected(info) or not stat.S_ISREG(mode):
             return
     flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
     lock_fd = os.open(lock_path, flags, 0o600)
@@ -276,8 +280,9 @@ def _append_locked(obj, rotate_bytes, hist_dir):
     hist = os.path.join(hist_dir, "history.jsonl")
     try:
         if os.path.lexists(hist):
-            mode = os.lstat(hist).st_mode
-            if not stat.S_ISREG(mode) or stat.S_ISLNK(mode):
+            info = os.lstat(hist)
+            mode = info.st_mode
+            if not stat.S_ISREG(mode) or redirected(info):
                 return
         if os.path.getsize(hist) > rotate_bytes:
             stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
@@ -457,7 +462,7 @@ def edit_paths(tool_input):
     for key in ("file_path", "path", "filename"):
         if isinstance(tool_input.get(key), str):
             found.append(tool_input[key])
-    for key in ("patch", "input"):
+    for key in ("patch", "input", "command"):
         patch = tool_input.get(key)
         if not isinstance(patch, str):
             continue
@@ -618,6 +623,23 @@ def git_head():
         )
     except (OSError, subprocess.SubprocessError):
         return None
+
+
+def command_status(data):
+    """Use observed exit status; Codex PostToolUse also includes failed commands."""
+    response = data.get("tool_response")
+    if isinstance(response, dict):
+        code = response.get("exit_code", response.get("exitCode"))
+        if isinstance(code, int) and not isinstance(code, bool):
+            return "pass" if code == 0 else "fail"
+        if response.get("is_error") is True:
+            return "fail"
+    if isinstance(response, str):
+        match = re.search(r"(?:Process exited with code|Exit code:)\s*(-?\d+)", response)
+        if match:
+            return "pass" if int(match.group(1)) == 0 else "fail"
+    # Claude uses a separate failure hook; Codex does not guarantee success here.
+    return "unknown" if data.get("client") == "codex" else "pass"
 
 
 def looks_like_test_command(command):
@@ -825,6 +847,7 @@ def main():
 
     elif event == "bash":
         command = (data.get("tool_input") or {}).get("command", "")
+        status = command_status(data)
         manifest, probe_hash = manifest_details()
         command_mode = cfg["TT_LOG_COMMANDS"]
         if command and command_mode in ("classified", "full"):
@@ -833,7 +856,7 @@ def main():
                     "t": "command",
                     "ts": ts,
                     "session": session,
-                    "status": "pass",
+                    "status": status,
                 }
             )
             if command_mode == "classified":
@@ -844,7 +867,7 @@ def main():
             if probe_hash:
                 command_entry["probe_hash"] = probe_hash
             append(command_entry, rotate)
-        if command and is_commit_command(command):
+        if status == "pass" and command and is_commit_command(command):
             commit_entry = hook_identity(
                 {
                     "t": "commit",
@@ -858,10 +881,10 @@ def main():
             append(commit_entry, rotate)
         if looks_like_test_command(command):
             append(
-                hook_identity({"t": "test", "ts": ts, "session": session, "status": "pass"}),
+                hook_identity({"t": "test", "ts": ts, "session": session, "status": status}),
                 rotate,
             )
-        if os.environ.get("TT_RUNTIME_BASH_READS") != "1":
+        if status == "pass" and os.environ.get("TT_RUNTIME_BASH_READS") != "1":
             for path in bash_read_paths(command, cfg["TT_WATCH_REGEX"]):
                 append(
                     hook_identity(

@@ -17,7 +17,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 
-from tt_runtime import user_config_path
+from tt_runtime import emit, redirected, user_config_path
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -75,11 +75,13 @@ footer { border-top:1px solid var(--line); color:var(--muted); margin-top:3rem; 
 
 
 def plugin_version():
-    try:
-        manifest = os.path.join(SCRIPT_DIR, "..", ".claude-plugin", "plugin.json")
-        return json.loads(open(manifest, encoding="utf-8").read())["version"]
-    except (OSError, ValueError, KeyError):
-        return "unknown"
+    for directory in (".codex-plugin", ".claude-plugin"):
+        try:
+            manifest = os.path.join(SCRIPT_DIR, "..", directory, "plugin.json")
+            return json.loads(open(manifest, encoding="utf-8").read())["version"]
+        except (OSError, ValueError, KeyError):
+            continue
+    return "unknown"
 
 
 def prompt_mode():
@@ -435,8 +437,9 @@ def write_report(content):
     """Atomically write a private report without following project-controlled links."""
     out_dir = os.path.join(ROOT, ".trigger-tree")
     if os.path.lexists(out_dir):
-        mode = os.lstat(out_dir).st_mode
-        if stat.S_ISLNK(mode) or not stat.S_ISDIR(mode):
+        info = os.lstat(out_dir)
+        mode = info.st_mode
+        if redirected(info) or not stat.S_ISDIR(mode):
             raise RuntimeError("refusing non-directory or symlinked .trigger-tree")
     else:
         os.makedirs(out_dir, mode=0o700)
@@ -838,7 +841,7 @@ def main():
     parts.append("</body></html>")
 
     out_path = write_report("\n".join(parts))
-    print(out_path)
+    emit(out_path)
 
 
 if __name__ == "__main__":

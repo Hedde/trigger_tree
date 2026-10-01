@@ -19,7 +19,13 @@ case "$PLATFORM" in
     fi
     ;;
 esac
-VERSION="$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$SCRIPT_DIR/../.claude-plugin/plugin.json" 2>/dev/null | head -1)"
+VERSION=""
+for MANIFEST in "$SCRIPT_DIR/../.codex-plugin/plugin.json" "$SCRIPT_DIR/../.claude-plugin/plugin.json"; do
+  if [[ -f "$MANIFEST" ]]; then
+    VERSION="$(sed -n 's/.*"version": "\([^" ]*\)".*/\1/p' "$MANIFEST" | head -1)"
+    [[ -n "$VERSION" ]] && break
+  fi
+done
 V="v${VERSION:-?}"
 
 FLAG=""

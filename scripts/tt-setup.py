@@ -6,8 +6,8 @@ Steps (each reported as created/updated/skipped):
   2. Copy tt-statusline.py to $PROJECT/.claude/tt-statusline.py (plugins cannot ship
      a statusLine, so the script must live in the project).
   3. Register the statusline in $PROJECT/.claude/settings.json (only if none is set).
-  4. Create .trigger-tree/config.sh with recognizable truncated prompt previews by
-     default. Use --prompt-mode hash|truncate|off to make privacy explicit.
+  4. Create .trigger-tree/config.sh after an interactive prompt choice, or preserve
+     the user-wide mode (hash fallback) without a TTY. Use --prompt-mode for an explicit choice.
 
 Usage: python3 tt-setup.py [--prompt-mode hash|truncate|off]
 """
@@ -20,7 +20,7 @@ import stat
 import sys
 import tempfile
 
-from tt_runtime import user_config_path
+from tt_runtime import redirected, user_config_path
 from tt_scope import is_poor_coverage, scan_markdown, suggested_regex
 
 ROOT = os.environ.get("TT_PROJECT_DIR") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
@@ -57,8 +57,9 @@ def assert_safe_destination(path, allow_directory=False):
         current = os.path.join(current, part)
         if not os.path.lexists(current):
             continue
-        mode = os.lstat(current).st_mode
-        if stat.S_ISLNK(mode):
+        info = os.lstat(current)
+        mode = info.st_mode
+        if redirected(info):
             raise RuntimeError(f"refusing symlink destination: {current}")
         if current != target and not stat.S_ISDIR(mode):
             raise RuntimeError(f"refusing non-directory parent: {current}")
@@ -157,7 +158,12 @@ def choose_prompt_mode(requested, config_exists, stream=None, input_fn=input):
         return "truncate", False
     stream = stream or sys.stdin
     if not stream.isatty():
-        return "truncate", False
+        try:
+            text = open(user_config_path(), encoding="utf-8").read()
+        except OSError:
+            text = ""
+        match = re.search(r"(?m)^TT_LOG_PROMPTS='(hash|off|truncate)'", text)
+        return match.group(1) if match else "hash", False
     print("Prompt telemetry stays local and gitignored.")
     print("  truncate: recognizable first 200 characters (default)")
     print("  hash: stable fingerprint, no prompt text")
