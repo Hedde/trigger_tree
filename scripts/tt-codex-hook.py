@@ -34,18 +34,15 @@ def normalize_tool(payload):
         route = "agent"
     elif tool == "Skill":
         route = "skill"
-    elif tool.startswith("mcp__"):
-        target = next(
-            (
-                tool_input.get(key)
-                for key in ("file_path", "path", "filename", "uri")
-                if tool_input.get(key)
-            ),
-            None,
-        )
-        if not target or str(target).startswith(("http://", "https://")):
+    elif tool in (
+        "mcp__filesystem__read_file",
+        "mcp__filesystem__read_text_file",
+        "mcp__filesystem__search_files",
+    ):
+        target = tool_input.get("path") or tool_input.get("file_path")
+        if not isinstance(target, str) or target.startswith(("http://", "https://")):
             return None, payload
-        is_search = any(word in tool.lower() for word in ("search", "grep", "find"))
+        is_search = tool == "mcp__filesystem__search_files"
         tool_input = {"path" if is_search else "file_path": target}
         tool = "Grep" if is_search else "Read"
         route = "read"

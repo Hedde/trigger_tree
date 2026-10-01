@@ -82,3 +82,16 @@ hooks are trusted, capture may be empty; non-interactive `codex exec` does not p
 that trust, and a changed hook requires review again. `tt doctor` reports these gaps.
 Unavailable capture produces `capture-disabled` and is excluded from rates rather than
 becoming `unobserved`.
+
+## Audit fixes in 1.30.3
+
+Codex-only archives resolve version metadata from the Codex manifest. Git roots are
+decoded as UTF-8, and tips/report diagnostics escape characters a legacy console cannot
+encode. Codex command outcomes use an observed exit code where available; uninterpretable
+responses remain unknown. MCP path fields alone no longer imply a read: only the supported
+filesystem read/search operations are classified.
+
+Telemetry writers reject existing symlinks and Windows reparse points, including directory
+junctions. These checks do not guarantee containment against concurrent directory replacement.
+The Windows-specific junction regression runs only on Windows; passing the macOS suite does
+not establish native Windows hook delivery.
