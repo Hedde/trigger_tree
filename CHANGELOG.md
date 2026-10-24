@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Update the workflow security audit to zizmor 1.28.0, supported by zizmor-action v0.7.1.
+
 ## 1.30.3 — 2026-09-30
 
 - Fix the Codex-only dashboard launcher and report version lookup without requiring Claude manifests.
