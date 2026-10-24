@@ -28,7 +28,7 @@ jobs:
           advanced-security: false
           inputs: .github/workflows/ci.yml .github/workflows/plugin-scan.yml
           min-severity: low
-          version: "1.27.0"
+          version: "1.28.0"
 
   lint-python:
     runs-on: ubuntu-latest
